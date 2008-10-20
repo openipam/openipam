@@ -11,4 +11,4 @@ svn checkout
 
 = GUI and IDE Access =
 
-This project's Subversion repository may be accessed using many different client programs and plug-ins. See your client's documentation for more information.
+This project's Subversion repository may be accessed using many different [http://subversion.tigris.org/links.html#clients client programs and plug-ins]. See your client's documentation for more information.
