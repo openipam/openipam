@@ -1,4 +1,5 @@
 #summary Project coding conventions to be followed when writing code for openIPAM.
+#labels Design,Documentation
 
 We have adopted and follow these practices for all code in openIPAM:
 
