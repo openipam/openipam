@@ -97,4 +97,4 @@ If you write a interface to the openIPAM webservice in another language, please 
 
 == Customizing using Python ==
 
-Coming soon...
+WRITEME
