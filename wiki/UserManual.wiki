@@ -1,0 +1,19 @@
+#summary End-user documentation on how to use the openIPAM web interface.
+#labels Documentation
+
+ * Manage Hosts
+  * Add Host
+  * Understanding resource records
+ * Networks
+  * Add Network
+ * Domains
+  * Add Domain
+  * Administration
+   * Users
+   * Groups and permissions
+   * DNS resource record types
+   * Global DHCP options
+   * Custom host attributes
+   * System settings
+
+WRITEME
