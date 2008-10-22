@@ -1,5 +1,5 @@
 #summary Documentation meant for openIPAM developers and system administrators.
-#labels Design,Documentation,Feature
+#labels Design,Documentation,Featured
 
 = Developer Documentation =
 
