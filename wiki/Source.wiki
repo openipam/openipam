@@ -1,18 +1,3 @@
 #summary Source downloads and SVN access.
 
 = Source not yet available =
-
-==== Subversion Access ====
-
-WRITEME
-
-Use this command to anonymously check out the latest project source code:
-
-{{{
-# Non-members may check out a read-only working copy anonymously over HTTP.
-svn checkout
-}}}
-
-==== GUI and IDE Access ====
-
-This project's Subversion repository may be accessed using many different [http://subversion.tigris.org/links.html#clients client programs and plug-ins]. See your client's documentation for more information.
