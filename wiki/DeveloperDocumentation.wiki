@@ -50,23 +50,27 @@ openIPAM has been developed to run on Linux and has not been tested on any other
 
  * WRITEME
 
-Some of the following instructions will be Debian-specific—you'll have to use your own distribution's package management. Run the following command to install needed packages:
+Some of the following instructions will be Debian-specific—you'll have to use your own distribution's package management. Run the following command to install the needed packages:
 
 {{{
-sudo apt-get install python-soappy python-cherrypy3 python-ldap
+apt-get install python-soappy python-cherrypy3 python-ldap
 python-sqlalchemy python-m2crypto python-psycopg2 python-openssl
 
 # Run on DNS server if using separate servers
-sudo apt-get install pdns-server pdns-backend-pgsql postgresql
+apt-get install pdns-server pdns-backend-pgsql postgresql
+}}}
+
+
+Depending on your environment, a trusted signed certificate should be used on the production system. For testing purposes, if you would like to use a self-signed certificate, you can install the `ssl-cert` package and put the openipam user in the `ssl-cert` group. 
+
+{{{
+apt-get install ssl-cert
+adduser openipam ssl-cert 
 }}}
 
 == Installation ==
 
-To install openIPAM, just type:
-
-{{{
-python setup.py install
-}}}
+WRITEME
 
 === Creating local_settings.py ===
 
