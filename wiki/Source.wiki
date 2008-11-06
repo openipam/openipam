@@ -2,4 +2,6 @@
 
 = Source not yet available =
 
-*We plan to release the code in February of 2009 when the last few major features are complete. Thanks for your interest in our project and feel free to [http://openipam.org/htm/contact contact us] with questions.*
+*We plan to release the code in February of 2009 when the last few major features are complete.*
+
+*Thanks for your interest in our project and feel free to [http://openipam.org/htm/contact contact us] with questions.*
