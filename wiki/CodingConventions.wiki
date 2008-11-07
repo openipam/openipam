@@ -30,6 +30,34 @@ def del_host_attribute(self, aid):
 	...
 }}}
 
+Never use a list or a dictionary as a default argument:
+
+{{{
+>>> def example( arg=[0] ):
+...    print arg
+...    arg.append( arg[-1] + 1 )
+... 
+>>> example()
+[0]
+>>> example()
+[0, 1]
+>>> example()
+[0, 1, 2]
+}}}
+
+Do this instead:
+{{{
+>>> def example( arg=None ):
+...    if not arg:  arg=[0]
+...    print arg
+...    arg.append( arg[-1] + 1 )
+... 
+>>> example()
+[0]
+>>> example()
+[0]
+}}}
+
 == Classes ==
 
 Classes (just the class names, not an instantiated object) are camel-cased with a capital first letter:
