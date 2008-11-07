@@ -48,11 +48,43 @@ openIPAM has been developed to run on Linux and has not been tested on any other
 
  * WRITEME
 
-Some of the following instructions will be Debian-specific—you'll have to use your own distribution's package management. Run the following command to install the needed packages:
+Some of the following instructions will be Debian-specific—you'll have to use your own distribution's package management.
+
+First, add user named "openipam" to your Linux install. The options below move the user's home directory, disable the password (you must become root and then `su - openipam`), and set a user description.
+{{{
+# adduser --home /usr/local/openipam --disabled-password --gecos "openIPAM User" openipam
+}}}
+
+
+To install the needed packages for the backend, run:
+{{{
+# apt-get install python-cherrypy3 python-ldap python-psycopg2 python-openssl python-sqlalchemy python-ipy python-cjson
+}}}
+
+To install the needed packages for the DHCP server, run:
+{{{
+# apt-get install python-processing python-psycopg2 python-sqlalchemy
+}}}
+
+To install the needed packages for the web interface, run:
+{{{
+# apt-get install python-cherrypy3 python-openssl python-cheetah python-ipy python-cjson
+}}}
+
+
+Then change user to openipam and download the code:
+{{{
+# su - openipam
+$ svn checkout http://openipam.googlecode.com/svn/trunk/ .
+}}}
+
+
+
+Run the following command to install the needed packages:
 
 {{{
-apt-get install python-soappy python-cherrypy3 python-ldap
-python-sqlalchemy python-m2crypto python-psycopg2 python-openssl
+apt-get install python-soappy  
+ python-m2crypto 
 
 # Run on DNS server if using separate servers
 apt-get install pdns-server pdns-backend-pgsql postgresql
