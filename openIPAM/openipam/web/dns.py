@@ -3,7 +3,6 @@ import cherrypy
 from basepage import BasePage
 
 import framework
-from resource import table
 from resource.submenu import submenu
 
 class DNS(BasePage):

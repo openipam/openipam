@@ -7,7 +7,6 @@ import datetime
 import time
 
 import framework
-from resource import table
 from openipam.web.resource.submenu import submenu
 
 from openipam.config import frontend

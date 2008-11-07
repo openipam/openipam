@@ -4,7 +4,6 @@ import cherrypy
 
 import framework
 from basepage import BasePage
-from resource.table import MakeTable
 from resource.submenu import submenu, OptionsSubmenu
 from openipam.utilities import misc, error, validation
 from openipam.utilities.perms import Perms
