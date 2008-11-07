@@ -55,34 +55,39 @@ First, add user named "openipam" to your Linux install. The options below move t
 # adduser --home /usr/local/openipam --disabled-password --gecos "openIPAM User" openipam
 }}}
 
-
+=== For the backend ===
 To install the needed packages for the backend, run:
 {{{
 # apt-get install python-cherrypy3 python-ldap python-psycopg2 python-openssl python-sqlalchemy python-ipy python-cjson
 }}}
 
+=== For the database server ===
 To install the needed packages for the database server, run:
 {{{
 # apt-get install postgresql
 }}}
 
+=== For the DHCP server ===
 To install the needed packages for the DHCP server, run:
 {{{
 # apt-get install python-processing python-psycopg2 python-sqlalchemy
 }}}
 
+=== For the web interface ===
 To install the needed packages for the web interface, run:
 {{{
 # apt-get install python-cherrypy3 python-openssl python-cheetah python-ipy python-cjson
 }}}
 
-The default configuration files are made to use this self-signed cert by default. If you would like a self-signed certificate (useful for development and testing environments), you can run the following and the config file will need less modification.
+Depending on your environment, a trusted signed certificate should be used on the production system. For testing and development purposes though, you can install the `ssl-cert` package and put the openipam user in the `ssl-cert` group and a self-signed certificate will be created for you by Debian and used by openIPAM. The default configuration files are made to use this self-signed cert by default. If you would like to do this, run the following:
 {{{
 # apt-get install  ssl-cert
 # adduser openipam ssl-cert
 }}}
 
-Then change user to openipam and download the code:
+== Download and configure openIPAM ==
+
+Then, become the openipam user and download the code:
 {{{
 # su - openipam
 $ svn checkout http://openipam.googlecode.com/svn/trunk/ .
@@ -97,10 +102,29 @@ $ rm -rf openipam_config/.svn
 
 Depending on what processes you are running on which server(s), you'll need to edit the `openipam_config/backend.py` and `openipam_config/auth.py` file for the backend to work, and `openipam_config/frontend.py` for the web interface to work.  If you have certificate signed by a trusted CA, you can reference it under the `SSL` section in backend and frontend config files as well.
 
+== Setting up PostgreSQL ==
+{{{
+# su - postgres
+$ createuser openipam
+Shall the new role be a superuser? (y/n) n
+Shall the new role be allowed to create databases? (y/n) n
+Shall the new role be allowed to create more new roles? (y/n) n
+$ createdb -O openipam openipam
+$ logout
+}}}
 
+Now, to actually create the openIPAM database structure, run:
+{{{
+# su - openipam
+$ psql -d openipam -f openIPAM/sql/openipam_schema.sql
 
+... lots of CREATE TABLE messages ...
 
+}}}
 
+Make sure there are no ERROR: messages in the output. If not, then the database schema was created successfully.
+
+== Setting up PowerDNS ==
 
 {{{
 # Run on DNS server if using separate servers
@@ -108,12 +132,6 @@ apt-get install pdns-server pdns-backend-pgsql postgresql
 }}}
 
 
-Depending on your environment, a trusted signed certificate should be used on the production system. For testing purposes, if you would like to use a self-signed certificate, you can install the `ssl-cert` package and put the openipam user in the `ssl-cert` group. 
-
-{{{
-apt-get install ssl-cert
-adduser openipam ssl-cert 
-}}}
 
 == Installation ==
 
