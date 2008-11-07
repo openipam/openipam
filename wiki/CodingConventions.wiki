@@ -48,7 +48,8 @@ Never use a list or a dictionary as a default argument:
 Do this instead:
 {{{
 >>> def example( arg=None ):
-...    if not arg:  arg=[0]
+...    if not arg:
+...       arg = [0]
 ...    print arg
 ...    arg.append( arg[-1] + 1 )
 ... 
