@@ -111,6 +111,43 @@ If you're going to use the default configuration, you'll need to create and chan
 
 Depending on what processes you are running on which server(s), you'll need to edit the `openipam_config/backend.py` and `openipam_config/auth.py` file for the backend to work, and `openipam_config/frontend.py` for the web interface to work.  If you have certificate signed by a trusted CA, you can reference it under the `SSL` section in backend and frontend config files as well.
 
+=== CherryPy Patch until 3.1.0 ===
+
+Until the next release of CherryPy, you'll need to apply [http://www.cherrypy.org/changeset/2015 this patch] manually:
+
+{{{
+# cd /usr/share/python-support/python-cherrypy3/
+# patch -p 1
+}}}
+
+Then, copy and paste the following code into your terminal and then press Control-D:
+
+{{{
+Index: trunk/cherrypy/lib/xmlrpc.py
+===================================================================
+--- trunk/cherrypy/lib/xmlrpc.py (revision 1955)
++++ trunk/cherrypy/lib/xmlrpc.py (revision 2015)
+@@ -43,5 +43,5 @@
+                                   allow_none=allow_none))
+ 
+-def on_error():
++def on_error(*args, **kwargs):
+     body = str(sys.exc_info()[1])
+     import xmlrpclib
+Index: trunk/cherrypy/test/test_xmlrpc.py
+===================================================================
+--- trunk/cherrypy/test/test_xmlrpc.py (revision 1955)
++++ trunk/cherrypy/test/test_xmlrpc.py (revision 2015)
+@@ -69,4 +69,5 @@
+     cherrypy.tree.mount(root, config={'/': {
+         'request.dispatch': cherrypy.dispatch.XMLRPCDispatcher(),
++        'tools.xmlrpc.allow_none': 0,
+         }})
+     cherrypy.config.update({'environment': 'test_suite'})
+}}}
+
+
+
 == Setting up PostgreSQL ==
 {{{
 # su - postgres
