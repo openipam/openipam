@@ -15,5 +15,5 @@
 Use this command to anonymously check out the latest project source code:
 {{{
 # Non-members may check out a read-only working copy anonymously over HTTP.
-svn checkout http://openipam.googlecode.com/svn/trunk/ openipam-read-only
+svn checkout http://openipam.googlecode.com/svn/trunk/ openipam
 }}}
