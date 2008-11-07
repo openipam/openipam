@@ -60,8 +60,10 @@ class DhcpNetwork:
                 return packet
 
 
-    def SendDhcpPacketTo(self, To, packet):
-        return self.dhcp_socket.sendto(packet.EncodePacket(),(To,self.emit_port))
+    def SendDhcpPacketTo(self, To, packet, port=None):
+        if not port:
+            port = self.emit_port
+        return self.dhcp_socket.sendto(packet.EncodePacket(),(To,port))
 
 
     # Server side Handle methods
