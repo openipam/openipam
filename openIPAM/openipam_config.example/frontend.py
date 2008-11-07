@@ -15,7 +15,7 @@ xmlrpc_port = 8080
 xmlrpc_host = '127.0.0.1'
 
 # WEB STATIC FILES (CSS, JavaScript, images, etc.)
-static_dir='/usr/share/openipam'
+static_dir='/usr/local/openipam/openIPAM/openipam/web'
 #styles_dir = None
 #scripts_dir = None
 #images_dir = None
