@@ -1,7 +1,19 @@
 #summary Source downloads and SVN access.
 
-= Source not yet available =
+= Source under development =
 
 *We plan to release the code in February of 2009 when the last few major features are complete.*
 
 *Thanks for your interest in our project and feel free to [http://openipam.org/htm/contact contact us] with questions.*
+
+
+
+----
+== This code is very pre-alpha. If it runs at all it will likely eat your homework, chase your dog, and die a horrible death soon after. No support provided! ==
+
+
+Use this command to anonymously check out the latest project source code:
+{{{
+# Non-members may check out a read-only working copy anonymously over HTTP.
+svn checkout http://openipam.googlecode.com/svn/trunk/ openipam-read-only
+}}}
