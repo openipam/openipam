@@ -1,0 +1,12 @@
+
+
+Instructions for upgrading openIPAM's jQuery library
+-----------------------------------------------------------------------------
+
+For the UI, create a personalized download of the Dialog component (which should
+also select the UI Core, Draggable, and Resizable components). At this point,
+you will need to search all files for instances of the filenames and replace them.
+This should be changed to be a config option.
+
+For the jQuery base, copy the new file and update framework.py to reference the
+new file.
