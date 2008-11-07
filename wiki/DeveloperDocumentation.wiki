@@ -61,6 +61,11 @@ To install the needed packages for the backend, run:
 # apt-get install python-cherrypy3 python-ldap python-psycopg2 python-openssl python-sqlalchemy python-ipy python-cjson
 }}}
 
+To install the needed packages for the database server, run:
+{{{
+# apt-get install postgresql
+}}}
+
 To install the needed packages for the DHCP server, run:
 {{{
 # apt-get install python-processing python-psycopg2 python-sqlalchemy
@@ -71,6 +76,11 @@ To install the needed packages for the web interface, run:
 # apt-get install python-cherrypy3 python-openssl python-cheetah python-ipy python-cjson
 }}}
 
+The default configuration files are made to use this self-signed cert by default. If you would like a self-signed certificate (useful for development and testing environments), you can run the following and the config file will need less modification.
+{{{
+# apt-get install  ssl-cert
+# adduser openipam ssl-cert
+}}}
 
 Then change user to openipam and download the code:
 {{{
@@ -78,14 +88,21 @@ Then change user to openipam and download the code:
 $ svn checkout http://openipam.googlecode.com/svn/trunk/ .
 }}}
 
+Now, you can set up the configuration files for openIPAM. There is an example folder name `openipam_config.example`. You can copy this directory to `openipam_config` and modify the configuration. Run this as the openipam user:
+{{{
+$ cd openIPAM/
+$ cp -r openipam_config.example/ openipam_config
+$ rm -rf openipam_config/.svn
+}}}
+
+Depending on what processes you are running on which server(s), you'll need to edit the `openipam_config/backend.py` and `openipam_config/auth.py` file for the backend to work, and `openipam_config/frontend.py` for the web interface to work.  If you have certificate signed by a trusted CA, you can reference it under the `SSL` section in backend and frontend config files as well.
 
 
-Run the following command to install the needed packages:
+
+
+
 
 {{{
-apt-get install python-soappy  
- python-m2crypto 
-
 # Run on DNS server if using separate servers
 apt-get install pdns-server pdns-backend-pgsql postgresql
 }}}
