@@ -97,8 +97,6 @@ class DBBaseInterface(object):
 	def _begin_transaction( self ):
 		"""
 		Create a transactional connection and begin the transaction
-		
-		@return: a connection whose transaction has been started
 		"""
 
 		# FIXME: this is not thread-safe
@@ -106,7 +104,6 @@ class DBBaseInterface(object):
 		# If we already have a connection, don't create another one
 		# This should make nested transactions work properly
 		# See: http://www.sqlalchemy.org/docs/05/dbengine.html#dbengine_transactions
-		
 		if not hasattr(self, '_conn'):
 			# Initial creation of connection and transaction stack
 			self._conn = self._create_conn()
@@ -164,8 +161,10 @@ class DBBaseInterface(object):
 		raise AttributeError(name)
 		
 	def _execute_get( self, *args, **kw ):
-		"""Called by __getattr__, unconditionally executes self.function (set in __getattr__)
+		"""
+		Called by __getattr__, unconditionally executes self.function (set in __getattr__)
 		with the given arguments and executes the query.
+		
 		@return: result of query
 		"""
 		if not self.__function_lock.locked():
@@ -193,7 +192,6 @@ class DBBaseInterface(object):
 			del kw['order_by']
 		
 		query = function( *args, **kw )
-			
 		
 		if order_by:
 			query = query.order_by(order_by)
@@ -207,7 +205,7 @@ class DBBaseInterface(object):
 
 	def _execute(self, query):
 		if hasattr(self, '_conn') and hasattr(self, '_trans_stack'):
-			# We're doing transactional stuff, probably because of DBInterface
+			# We're doing transactional stuff, probably because of DBInterface.
 			# Use the transactional connection to keep a consistent view of the DB
 			result = self._conn.execute(query).fetchall()
 		else:
@@ -414,8 +412,11 @@ class DBBaseInterface(object):
 		return query
 	
 	def _get_dhcp_options( self, gid=None, id=None ):
-		"""Get valid DHCP option types
-		@param gid: if specified, return option types related to this group id"""
+		"""
+		Get valid DHCP option types
+		
+		@param gid: if specified, return option types related to this group id
+		"""
 		
 		# Check permissions
 		self.require_perms(perms.DEITY)
@@ -438,11 +439,14 @@ class DBBaseInterface(object):
 		
 	
 	def _get_dhcp_group_options(self, gid=None, rid=None):
-		"""Get all (or filtered) DHCPOptionToGroup relations"""
+		"""
+		Get all (or filtered) DHCPOptionToGroup relations
+		"""
 		pass
 	
 	def _get_dhcp_groups( self, id=None ):
-		"""Get DHCP groups, optionally filtered
+		"""
+		Get DHCP groups, optionally filtered
 		@param id: a DHCP group ID, if only one needs to be returned
 		"""
 		query = select([obj.dhcp_groups])
@@ -452,7 +456,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_records( self, tid=None, id=None, name=None, content=None, mac=None, changed=None, address=None  ):
+	def _get_dns_records( self, tid=None, id=None, name=None, content=None, mac=None, changed=None, address=None ):
 		"""
 		Get DNS Records
 		
@@ -465,7 +469,6 @@ class DBBaseInterface(object):
 		
 		@return: filtered DNS records
 		"""
-		# the permissions here could be troublesome...
 		# If you have read access to a host, you should be able to look at records related to that host.
 		# What constitutes related?
 		#
@@ -475,8 +478,7 @@ class DBBaseInterface(object):
 		# SRV: content = '% <A record name>' -> IP -> mac
 		# PTR: name = A record ip_content reverse
 		# 
-		# If you have access to a domain, you should be able to see all records in that domain.
-		# FIXME: implement more granular permissions
+		# If you have MODIFY access to a domain, you should be able to edit all records in that domain.
 		
 		self.require_perms( perms.READ )
 		columns = [obj.dns_records]
@@ -490,13 +492,25 @@ class DBBaseInterface(object):
 		if tid:
 			whereclause.append( obj.dns_records.c.tid == tid )
 		if name:
-			whereclause.append( obj.dns_records.c.name == name.lower() )
+			name = name.lower()
+			if '%' in name:
+				# Use a LIKE condition
+				whereclause.append( obj.dns_records.c.name.like( name ) )
+			else:
+				# name = 'exact string'
+				whereclause.append( obj.dns_records.c.name == name )
+				
 		if content:
 			# FIXME: is there a better way to do this?
 			if validation.is_ip(content): 
 				whereclause.append( obj.dns_records.c.ip_content == content  )
 			else:
-				whereclause.append( or_(obj.dns_records.c.text_content == content, obj.dns_records.c.text_content.like( '%% %s' % content )  ) )
+				if '%' in content:
+					# Use a LIKE condition
+					whereclause.append( obj.dns_records.c.text_content.like( content ) )
+				else:
+					# content = 'exact string' OR content like '% exact string'
+					whereclause.append( or_(obj.dns_records.c.text_content == content, obj.dns_records.c.text_content.like( '%% %s' % content )  ) )
 		if changed:
 			whereclause.append( obj.dns_records.c.changed >= changed )
 		
@@ -522,27 +536,29 @@ class DBBaseInterface(object):
 			
 			# The universe of all DNS records where the name is the A record's name
 			same_name_records = obj.dns_records.join( a_records_select.alias('a_records'), obj.dns_records.c.name==a_records_select.alias('a_records').c.name)
+			
 			# The universe of all DNS records where the text_content is the A record's name
 			content_is_name_records = obj.dns_records.join( a_records_select.alias('a_records'), obj.dns_records.c.text_content==a_records_select.alias('a_records').c.name)
+			
 			# The universe of all DNS records where the text_content is like '% <the A record's name>'
 			# like_name_records = obj.dns_records.join( a_records_select.alias('a_records'), obj.dns_records.c.name.like('_%%._%%.%s' % a_records_select.alias('a_records').c.name))
 
-			# Select, and filter to just CNAME records
-			cname_records = select( columns, from_obj=content_is_name_records).where(obj.dns_records.c.tid == 5)
+			# Find all records where the name is the same as any A record we found
+			same_name_select = select( columns, from_obj=same_name_records)
 			if whereclause:
-				cname_records = cname_records.where( whereclause )
-			
-			# Select, and filter to just MX records
-			mx_records = select( columns, from_obj=same_name_records).where(obj.dns_records.c.tid == 15)
-			if whereclause:
-				mx_records = mx_records.where( whereclause )
+				same_name_select = same_name_select.where( whereclause )
 				
+			# Find all records where the text_content is the same as any A record we found
+			content_is_name_select = select( columns, from_obj=content_is_name_records)
+			if whereclause:
+				content_is_name_select = content_is_name_select.where( whereclause )
+
 			# Select, and filter to just SRV records
 			# srv_records = select( columns, from_obj=like_name_records).where(obj.dns_records.c.tid == 33)
 			# if whereclause:
 			#	srv_records = srv_records.where( whereclause )
 
-			query = union( a_records_select, cname_records, mx_records, ptr_records ) #, srv_records )
+			query = union( a_records_select, same_name_select, content_is_name_select, ptr_records ) #, srv_records )
 		else:
 			from_object = obj.dns_records
 			query = select( [obj.dns_records], from_obj = from_object )
@@ -554,16 +570,15 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_type( self, name=None, id=None ):
-		"""Return the numeric type for the given DNS type"""
-		pass
-	
 	def _get_dns_types( self, min_perms=None ):
-		"""Returns all DNS resource record types"""
+		"""
+		Returns all DNS resource record types
+		"""
+		
 		query = select([obj.dns_types])
 		
-		if min_perms != None:
-			query = query.where(obj.dns_types.c.min_permissions > min_perms)
+		if min_perms is not None:
+			query = query.where( obj.dns_types.c.min_permissions.op('&')(str(min_perms)) == obj.dns_types.c.min_permissions )
 
 		return query
 
@@ -572,8 +587,8 @@ class DBBaseInterface(object):
 		pass
 	
 	def _get_domains( self, did=None, name=None, contains=None, gid=None, additional_perms='00000000', columns=None ):
-		"""Return a filtered list of domains
-		
+		"""
+		Return a filtered list of domains
 		Search through domains by passing a percent sign (%) in the name param
 		
 		@param did: return only one domain of this ID
@@ -610,15 +625,31 @@ class DBBaseInterface(object):
 			else:
 				query = query.where(obj.domains.c.name==name)
 		if contains:
-			names = contains.split('.')
 			domains = []
 			
-			while names:
-				domains.append('.'.join(names))
-				del names[0]
-			
+			if type(contains) is types.ListType or type(contains) is types.TupleType:
+				# We have been given a list of names (whether hostnames or domain names),
+				# return a list of only the first-level containing domains for every name.
+				# ie ... this does NOT do the normal functionality of returning all containing
+				# domains, just the first-level for each
+
+				for record in contains:
+					# If record is "test.place.example.com", we will append "place.example.com" to the list of domains
+					domains.append('.'.join( record.split('.')[1:] ))
+					
+				# If record is "example.com", we need to include that also because it could be a domain
+				# So, just include all the original record names
+				domains += contains
+			else:
+				# Find all of the containing domains for this single hostname
+				names = contains.split('.')
+				while names:
+					domains.append('.'.join(names))
+					del names[0]
+					
+			# Apply our search list to the query
 			query = query.where(obj.domains.c.name.in_(domains))
-			
+		
 			# Awesome...order by descending on the length of domain names
 			# Gives the most specific domains first, followed by the rest
 			query = query.order_by(sqlalchemy.sql.func.length(obj.domains.c.name).desc())
@@ -687,7 +718,8 @@ class DBBaseInterface(object):
 		return query
 	
 	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, columns=None, additional_perms='00000000', show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
-		"""Get hosts and DNS records from the DB
+		"""
+		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
 		@param hostname: hostname (allowing wildcards) on which to filter
 		@param ip: return host associated (statically) with this IP
@@ -699,18 +731,23 @@ class DBBaseInterface(object):
 		@param show_expired: default true, will show all hosts that have expired before now. If false, will only show non-expired hosts.
 		@param show_active: default true, will show all hosts that are active now. If false, will not show non-expired hosts.
 		@param only_dynamics: only return dynamic addresses 
+		@param only_statics: only return statics addresses
+		@param funky_ordering: if on, hosts are ordered by hostname length ... fixes problems with guest registrations
 		"""
 
 		# require read permissions over hosts
 		required_perms = perms.READ
 		
-		if additional_perms:
+		if additional_perms != None:
 			required_perms = required_perms | additional_perms
 		
 		# Extremely important to have this ... BAD bad things happen if hostnames are ever mixed-case
-		if hostname:
+		if hostname != None:
 			# Make sure the hostname is always lower case
-			hostname = hostname.lower()
+			if type(hostname) is types.ListType or type(hostname) is types.TupleType:
+				hostname = [name.lower() for name in hostname]
+			else:
+				hostname = hostname.lower()
 		
 		if (only_dynamics and only_statics):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
@@ -732,30 +769,41 @@ class DBBaseInterface(object):
 		
 		whereclause = []
 		
+		# Apply all the filtering that was specified
+		if ip != None:
+			# This allows us to search on IP addresses that are dynamically assigned
+			lease = self.get_leases(address=ip, show_expired=False)
+			if lease:
+				mac = lease[0]['mac']
+				ip = None
+			else: 
+				whereclause.append(obj.addresses.c.address==ip)
 		if only_statics:
 			whereclause.append(obj.addresses.c.mac == obj.hosts.c.mac)
-		if mac:
+		if mac != None:
 			whereclause.append(obj.hosts.c.mac==mac)
-		if hostname:
-			if '%' in hostname:
+		if hostname != None:
+			if type(hostname) is types.ListType or type(hostname) is types.TupleType:
+				whereclause.append(obj.hosts.c.hostname.in_( hostname ))
+			elif '%' in hostname:
 				whereclause.append(obj.hosts.c.hostname.like( hostname ))
 			else:
 				whereclause.append(obj.hosts.c.hostname == hostname)
-		if ip:
-			whereclause.append(obj.addresses.c.address==ip)
-		if network:
+		if network != None:
 			whereclause.append(obj.addresses.c.address.op('<<')(network))
 		if not show_expired:
 			whereclause.append(obj.hosts.c.expires >= sqlalchemy.sql.func.now())
 		if not show_active:
 			whereclause.append(obj.hosts.c.expires < sqlalchemy.sql.func.now())
 
+		# Finalize the WHERE clause
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
 		
+		# Check permissions and generate the query
 		if self.has_min_perms( required_perms ):
 			hosts = obj.hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
-				
+			
 			if gid:
 				hosts = hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
 			if only_dynamics:
@@ -770,13 +818,12 @@ class DBBaseInterface(object):
 				hosts = hosts.where( whereclause )
 	
 			# Funky ordering to order by length ... fixes problems with guest registrations
-			# because, technically, 9 in ASCII is before 11 in ASCII ... think about it 	
+			# because, technically, 11 in ASCII is before 9 in ASCII ... think about it 	
 			if funky_ordering:
 				hosts = hosts.order_by('len DESC').order_by(obj.hosts.c.hostname.desc())
 				
 			return hosts
 		else:
-			
 			# Get our permissions over hosts
 			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms )
 			
@@ -813,52 +860,168 @@ class DBBaseInterface(object):
 			accessible_hosts = net_select.union( host_select )
 
 			return accessible_hosts
-			
-	def find_permissions_for_hosts(self, hosts):
-		'''
-		Returns a dictionary of { MAC address : permissions bitstring } 
-		for this user's overall permissions on the hosts
 		
-		@param hosts: a list of dictionaries of hosts ... the dictionary
-		must have 'mac' key, all others keys are not used
+	def _find_permissions_for_objects(self, objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
+		'''
+		Returns a dictionary of { object's primary key : permissions bitstring } 
+		for this user's overall permissions on the objects
+		
+		@param objects: A list of dictionaries of objects to find permissions for, usually hosts or
+		domains, or a list of primary key values
+		@param primary_table: A SQLAlchemy table object, usually obj.some_table
+		@param primary_key: A SQLAlchemy column object, usually obj.some_table.c.id
+		@param bridge_table: A SQLAlchemy table object, usually obj.something_to_groups 
+		@param foreign_key: A SQLAlchemy column object, usually obj.something_to_groups.c.xid
+		@param alternate_perms_key: A SQLAlchemy column object, usually obj.some_table.c.some_name, that
+		will be used as the key for the returned permissions object. If not specified, the
+		primary_key's name is used. This better be a unique column or bad things may happen.
 		'''
 		
-		# Create a list of host MAC addresses
-		if hosts and type(hosts[0]) is types.DictionaryType:
-			hosts_list = [host['mac'] for host in hosts]
+		primary_key_name = primary_key.name
+		
+		# Create a list of primary key IDs
+		
+		if objects and (type(objects[0]) is types.DictionaryType or type(objects[0] is sqlalchemy.engine.base.RowProxy)):
+			objects_list = [object[primary_key_name] for object in objects]
 		else:
-			hosts_list = hosts
+			objects_list = objects
 			
-		if not hosts_list:
-			return {}
+		if not objects_list:
+			return [{}]
 		
-		# Query for the hosts, joining permissions
-		fromobj = (obj.hosts_to_groups.join( obj.hosts, and_(obj.hosts_to_groups.c.mac==obj.hosts.c.mac, obj.hosts_to_groups.c.mac.in_(hosts_list) ) )
-			.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid, obj.users_to_groups.c.uid == self._uid)))
+		# Query for the objects, LEFT joining permissions
+		fromobj = (bridge_table.join( primary_table, and_(foreign_key==primary_key, primary_key.in_(objects_list) ) )
+			.outerjoin(obj.users_to_groups, and_(obj.users_to_groups.c.gid==bridge_table.c.gid, obj.users_to_groups.c.uid == self._uid)))
 		
-		query = select([obj.hosts.c.mac, obj.users_to_groups.c.permissions], from_obj=fromobj)
+		columns = [primary_key, obj.users_to_groups.c.permissions]
+		
+		if alternate_perms_key:
+			columns += [alternate_perms_key]
+		
+		query = select(columns, from_obj=fromobj)
 		
 		results = self._execute(query)
 		
 		permissions = {}
 		
+		# If the alternate_perms_key is specified, use that for our permissions object
+		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key_name
+		
+		# Initialize the permissions dictionary with my min_perms for every element
 		for row in results:
-			if permissions.has_key(row['mac']):
-				permissions[row['mac']] = Perms(permissions[row['mac']]) | row['permissions']
+			permissions[row[perms_key_name]] = str(self._min_perms)
+		
+		# This section inherently takes care of having permissions to an object via multiple groups
+		# ie. A host can be in multiple groups and the final permissions you have over that host
+		# is a bitwise OR of ALL of those permission sets (and your min_permissions)
+		for row in results:
+			# Because we LEFT JOINed, row['permissions'] will be NULL if we don't have group access over this object 
+			if row['permissions']:
+				permissions[row[perms_key_name]] = str(Perms(permissions[row[perms_key_name]]) | row['permissions'])
 			else:
-				permissions[row['mac']] = row['permissions']
+				permissions[row[perms_key_name]] = str(self._min_perms)
 			
-		# OR my minimum permissions with the determined permissions
-		for mac in hosts_list:
-			if permissions.has_key(mac):
-				permissions[mac] = str(Perms(permissions[mac]) | self._min_perms)
-			else:
-				permissions[mac] = str(self._min_perms)
+		return [permissions]
+	
+	def find_permissions_for_hosts(self, hosts, alternate_perms_key=None):
+		'''
+		Returns a dictionary of { MAC (or alternate_perms_key) : permissions bitstring } 
+		for this user's overall permissions on the each host
+		
+		@param host: a list of dictionaries of hosts (or a list of MACs).
+		The dictionary must have 'mac' key, all others keys are not used
+		'''
+		
+		return self._find_permissions_for_objects(objects=hosts, primary_table=obj.hosts, primary_key=obj.hosts.c.mac, bridge_table=obj.hosts_to_groups, foreign_key=obj.hosts_to_groups.c.mac, alternate_perms_key=alternate_perms_key)
+	
+	def find_permissions_for_domains(self, domains, alternate_perms_key=None):
+		'''
+		Returns a dictionary of { domain ID : permissions bitstring } 
+		for this user's overall permissions on the each domain
+		
+		@param domains: a list of dictionaries of domains (or a list of domain IDs).
+		The dictionary must have 'id' key, all others keys are not used
+		'''
+		
+		return self._find_permissions_for_objects(objects=domains, primary_table=obj.domains, primary_key=obj.domains.c.id, bridge_table=obj.domains_to_groups, foreign_key=obj.domains_to_groups.c.did, alternate_perms_key=alternate_perms_key)
+	
+	def find_permissions_for_dns_records(self, records):
+		'''
+		Returns a dictionary of { DNS record ID : permissions bitstring } 
+		for this user's overall permissions on the DNS records
+		
+		@param records: a list of dictionaries of DNS records, or a list of DNS record names
+		'''
+		
+		# possible FIXME: This is EXtreeemely complex to do in the database, but eventually this
+
+		# Create a list of names, get the hosts who have those names, then get the permissions for those hosts
+		names = [row['name'] for row in records]
+
+		hosts = self.get_hosts( hostname=names )
+		
+		host_perms = self.find_permissions_for_hosts( hosts, alternate_perms_key=obj.hosts.c.hostname )
+		
+		host_perms = host_perms[0] if host_perms else {}
+
+		# Get the domains who have those names, then get the permissions for those domains
+		domains = self.get_domains( contains=names )
+		domain_perms = self.find_permissions_for_domains( domains )
+		
+		domain_perms = domain_perms[0] if domain_perms else {}
+		
+		# Get the DNS types so that we can clear permissions to default if they can't read the type
+		# PHILOSOPHY OF DNS TYPE PERMISSIONS: if you can read it (00000100), you can use it
+		dns_types = self.get_dns_types( min_perms=perms.READ)
+		dns_type_perms = {}
+		# Have [ { 'id' : 0, 'name' : 'blah' }, ... ]
+		for type in dns_types:
+			dns_type_perms[type['id']] = type
+		# Now have { 0 : { ... dns dict ... }, 12 : { ... dns dict ... } ... }
+		
+		permissions = {}
+		
+		# Initialize the permissions dictionary with my min_perms to GUARANTEE a result for every record input
+		for rr in records:
+			permissions[rr['id']] = str(self._min_perms)
+		
+		# Turn the domain_perms from { domain ID : permissions } into { name : permissions } so that we can do O(1) lookups
+		domain_name_perms = {}
+		for id in domain_perms:
+			# Hmm ... can we do this better than O(n^2)? probably...
+			
+			# Search through the hosts for this ID and, when found, take the name and
+			# add that to domain_name_perms with the ID's original permissions
+			for domain in domains:
+				if domain['id'] == id:
+					# We found the correct row, strip the name out and add it to the domain_name_perms dictionary
+					domain_name_perms[domain['name']] = domain_perms[id]
+					break
 				
-		return permissions
+		for rr in records:
+			# For every record that was a host, add that permission set to the final result
+			
+			if host_perms.has_key(rr['name']):
+				permissions[rr['id']] = str(Perms(permissions[rr['id']]) |  host_perms[rr['name']])
+			
+			first_level_domain_name = '.'.join(rr['name'].split('.')[1:])
+
+			# For every record that was a domain, or had permissions via a domain, add in those permissions
+			if domain_name_perms.has_key(rr['name']) or domain_name_perms.has_key( first_level_domain_name ):
+				perms_to_add = domain_name_perms[rr['name']] if domain_name_perms.has_key(rr['name']) else domain_name_perms[first_level_domain_name]
+				permissions[rr['id']] = str(Perms(permissions[rr['id']]) |  perms_to_add)
+				
+			# If they cannot READ the DNS type of this record, even if they have host
+			# or domain perms over it, then they cannot modify it 
+			if not dns_type_perms.has_key(rr['tid']):
+				permissions[rr['id']] = str(backend.db_default_min_permissions)
+
+		return [permissions]
 	
 	def _get_hosts_to_groups( self, mac=None, gid=None ):
-		"""Return rows of hosts_to_groups"""
+		"""
+		Return rows of hosts_to_groups
+		"""
 		
 		if not mac and not gid:
 			raise error.RequiredArgument("Must specify mac and/or gid")
@@ -893,7 +1056,11 @@ class DBBaseInterface(object):
 		
 		return query
 	
-	def _get_leases(self, address=None, mac=None):
+	def _get_leases(self, address=None, mac=None, show_expired=True):
+		"""
+		Get leases
+		"""
+		
 		if address:
 			self.require_perms(perms.READ)
 			query = select( [obj.leases] ).where(obj.leases.c.address == address)
@@ -903,11 +1070,15 @@ class DBBaseInterface(object):
 		else:
 			raise error.RequiredArgument( 'Exactly one of mac or address required' )
 
+		if not show_expired:
+			query = query.where( obj.leases.c.ends > sqlalchemy.sql.func.now() )
 		
 		return query
 	
 	def _get_internal_auth( self, uid ):
-		"""internal_auth"""
+		"""
+		Get a row from internal_auth
+		"""
 		
 		self.require_perms( perms.DEITY )
 		
@@ -949,7 +1120,9 @@ class DBBaseInterface(object):
 		return query 
 					
 	def _get_networks_to_groups( self, nid=None, gid=None ):
-		"""network_to_group"""
+		"""
+		Get a networks_to_groups row
+		"""
 		
 		# Require read perms on the group
 		if self._min_perms & perms.READ is perms.READ:
@@ -2693,7 +2866,7 @@ class DBInterface( DBBaseInterface ):
 		pass
 		
 	def update_group( self, gid, name=None, description=None ):
-		"""Add a group
+		"""Update a group
 		@param gid: the database group id
 		@param name: the group name
 		@param description: a description of the group"""

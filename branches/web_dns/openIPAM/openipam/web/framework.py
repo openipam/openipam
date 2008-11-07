@@ -18,6 +18,7 @@ class Basics(object):
 		
 		self.__sections = { 'hosts' : '<a href="/hosts">Manage Hosts</a>',
 						'networks' : '<a href="/networks">Networks</a>',
+						'domains' : '<a href="/domains">Domains</a>',
 						'dns' : '<a href="/dns">Manage DNS</a>',
 						'admin' : '<a href="/admin">Administration</a>',
 						'access' : '<a href="/access">My Access</a>',
@@ -140,6 +141,7 @@ class Basics(object):
 			# The user has DEITY permissions
 			__topnav_left_links = (self.__sections['hosts'],
 							self.__sections['networks'],
+							self.__sections['domains'],
 							self.__sections['dns'])
 	
 			__topnav_right_links = (self.__sections['admin'],)
@@ -204,7 +206,7 @@ class Basics(object):
 			</div>
 		</div><!-- end page -->
 	</div><!-- end page margins -->
-	<script type="text/javascript" src="/scripts/jquery/jquery-1.2.6.min.js"></script>
+	<script type="text/javascript" src="/scripts/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="/scripts/jquery.openipam.js"></script>
 	<script type="text/javascript">
 		$.openipam.init();

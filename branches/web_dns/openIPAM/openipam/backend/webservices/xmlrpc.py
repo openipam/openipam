@@ -210,7 +210,7 @@ class MainWebService(XMLRPCController):
 				temp_dict[perm['id']] = perm
 				
 			result = temp_dict
-			# Now have [ { '00000000' : { ...perms dict... }, '00000001' : { ...perms dict... } ... } ]
+			# Now have { '00000000' : { ...perms dict... }, '00000001' : { ...perms dict... } ... }
 
 		return result
 		
@@ -802,15 +802,13 @@ class MainWebService(XMLRPCController):
 		Returns a dictionary of { MAC address : permissions bitstring } 
 		for this user's overall permissions on the hosts
 		
-		@param args[0]['hosts']: a list of dictionaries of hosts ... the dictionary
-		must have 'mac' key, all others keys are not used
+		@param args[0]['hosts']: a list of host MACs, or a list of dictionaries of hosts that have a 'mac' key
 		"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		# Don't not sanitize this, it needs to be in its current form
-		return db.find_permissions_for_hosts( **args[0] )
+		return self.__sanitize(db.find_permissions_for_hosts( **args[0] ))
 	
 	@cherrypy.expose
 	def get_next_hostname(self, *args):
@@ -1258,11 +1256,150 @@ class MainWebService(XMLRPCController):
 		
 		if not args:
 			args = ({},)
-		
+			
 		return self.__sanitize(db.get_dns_records( **args[0] ))
 	
 	@cherrypy.expose
-	def add_dns_record(self, *args):
+	def find_permissions_for_dns_records(self, *args):
+		"""
+		Returns a dictionary of { domain ID : permissions bitstring } 
+		for this user's overall permissions on the hosts
+		
+		@param args[0]['domains']: a list of domain IDs, or a list of dictionaries of domains that have an 'id' key
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		result = db.find_permissions_for_dns_records( **args[0] )
+		
+		# We have to do this because XMLRPC doesn't support integer keys on structs
+		# Ggrrrraaarrgggghhhh
+		 
+		new_result = {}
+		
+		if result:
+			for key in result[0]:
+				new_result[str(key)] = result[0][key]
+ 		
+		return self.__sanitize( [new_result] )
+	
+	@cherrypy.expose
+	def change_dns_records(self, *args):
+		"""
+		Change a set of DNS records.
+		
+		@param args[0]: a list of dictionaries of DNS records. For each DNS record dictionary, follow the following rules:
+		- If the DNS record is new, no id should be present in the dictionary
+		- If it is deleted, a key of 'deleted' should be present with a value of true
+		- If the record has been edited, or has been left the same, just pass the dictionary
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		# Begin transaction
+		db.begin_transation()
+		try:
+			(edited, deleted, new) = self.validate_dns_records( args )
+		
+			for row in edited:
+				pass
+			
+			# Delete DNS records (pass all IDs to del_dns_records)
+			
+			for row in new:
+				pass
+			
+			if messages:
+				raise error.ListXMLRPCFault(messages)
+		except Exception, e:
+			# Raise required argument errors
+			db.rollback() #rollback transaction if there were errors
+			raise
+	
+	@cherrypy.expose
+	def validate_dns_records(self, *args):
+		"""
+		Validate a set of DNS records
+		
+		@raise Exception( messages list ) if any errors occur
+		"""
+		
+		messages = []
+		kw = args[0]
+		
+		def validate_syntax(row):
+			"""
+			Validate the syntax of both new rows and updated rows
+			@param row: a dictionary based on a dns_records table row
+			"""
+			
+			# Validate records based on type
+			if row['tid'] in (15, 33): # MX or SRV records
+				# Make sure that priority was set
+				if not row.has_key('priority'):
+					messages.append("Priority is required for MX and SRV records.")
+		
+			# Validate records based on attributes
+			if row.has_key('name'):
+				#validation.is_fqdn(row['name'])
+				pass
+			if row.has_key('text_content'):
+				#find out what type it is
+				if row['tid'] in (2, 5, 15): # NS, CNAME
+					#validate.is_fqdn()
+					pass
+				elif row['tid'] == 33: # SRV
+					#validate (maybe?) "#number #number fqdn" 
+					pass
+				else:
+					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
+			if row.has_key('ip_content'):
+				#validate.is_ip()
+				pass
+			if row.has_key('ttl'):
+				raise error.NotImplemented("Validation for changes in TTL values is not currently supported." )
+						
+		#get list of ids from form submission & get records
+		ids = [(row['id'] if row.has_key('id') else '') for row in form_submission]
+		result = self.__sanitize(db.get_dns_records(id = ids))
+		
+		# VALIDATE ARGUMENTS AND SYNTAX
+		for row in result: #loop over results from backend
+			for values in form_submission: #loop over results from form
+				if(not id): #new record
+					#check syntax for the row
+					#add to new records list
+					pass
+					break
+				elif(delete): #delete flag exists
+					#add to deleted list (not list?)
+					pass
+					break
+				elif row['id'] == values['id']:
+					#pass in tid always
+					tempDict = { 'tid' : row['tid']}
+					for column in row.keys(): #generic loop to go through each column
+						if (row[column] != values[column]): #TODO compare each dictionary's column to find changes
+							tempDict[column] = values[column] #what was this supposed to do?
+						
+		# Raise syntax errors
+		if messages:
+			raise error.ListXMLRPCFault(messages)
+
+		# VALIDATE SEMANTICS
+		
+			
+		# Raise semantic errors
+		if messages:
+			db.rollback() #rollback transaction if there were errors
+			raise error.ListXMLRPCFault(messages)
+		
+		return (edited, deleted, new)
+	
+	@cherrypy.expose
+	def add_dns_record(self, *args):   
 		"""
 		Add a DNS record
 		"""
@@ -1304,8 +1441,25 @@ class MainWebService(XMLRPCController):
 		
 		if not args:
 			args = ({},)
+			
+		make_dictionary = args[0].has_key('make_dictionary')
+		if make_dictionary:
+			del args[0]['make_dictionary'] 
+			
+		result = self.__sanitize(db.get_dns_types( **args[0] ))
 		
-		return self.__sanitize(db.get_dns_types( **args[0] ))
+		if make_dictionary:
+			temp_dict = {}
+			
+			# Have [ { 'id' : '0', 'name' : 'blah' }, ... ]
+			for rr in result:
+				temp_dict[str(rr['id'])] = rr
+			
+			result = temp_dict
+			# Now have { '0' : { ... dns dict ... }, '12' : { ... dns dict ... } ... }
+			
+		return result
+			
 	
 	#------------------ EXPIRATIONS AND NOTIFICATIONS --------------------
 	
