@@ -293,6 +293,17 @@ CREATE TABLE hosts_to_pools (
 	pool_id		INTEGER NOT NULL REFERENCES pools(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE networks (
+	network			cidr PRIMARY KEY,
+	name			varchar(255),
+	gateway			inet,
+	description		text,
+	dhcp_group		integer REFERENCES dhcp_groups(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+	shared_network	integer REFERENCES shared_networks(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
+);
+
 CREATE TABLE addresses (
 	address		inet PRIMARY KEY,
 	mac			macaddr REFERENCES hosts(mac) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -540,17 +551,6 @@ CREATE TABLE supermasters (
 	ip				VARCHAR(25) NOT NULL, 
 	nameserver		VARCHAR(255) NOT NULL, 
 	account			VARCHAR(40) DEFAULT NULL,
-	changed			timestamp DEFAULT NOW(),
-	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
-);
-
-CREATE TABLE networks (
-	network			cidr PRIMARY KEY,
-	name			varchar(255),
-	gateway			inet,
-	description		text,
-	dhcp_group		integer REFERENCES dhcp_groups(id) ON DELETE RESTRICT ON UPDATE CASCADE,
-	shared_network	integer REFERENCES shared_networks(id) ON DELETE RESTRICT ON UPDATE CASCADE,
 	changed			timestamp DEFAULT NOW(),
 	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
 );
