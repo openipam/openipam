@@ -100,6 +100,15 @@ $ cp -r openipam_config.example/ openipam_config
 $ rm -rf openipam_config/.svn
 }}}
 
+If you're going to use the default configuration, you'll need to create and change ownership of a couple directories:
+{{{
+# mkdir -p /var/lib/openipam/sessions/backend
+# mkdir -p /var/log/openipam/backend
+# mkdir -p /var/lib/openipam/sessions/web
+# mkdir -p /var/log/openipam/web
+# chown -R openipam /var/lib/openipam /var/log/openipam
+}}}
+
 Depending on what processes you are running on which server(s), you'll need to edit the `openipam_config/backend.py` and `openipam_config/auth.py` file for the backend to work, and `openipam_config/frontend.py` for the web interface to work.  If you have certificate signed by a trusted CA, you can reference it under the `SSL` section in backend and frontend config files as well.
 
 == Setting up PostgreSQL ==
@@ -110,6 +119,11 @@ Shall the new role be a superuser? (y/n) n
 Shall the new role be allowed to create databases? (y/n) n
 Shall the new role be allowed to create more new roles? (y/n) n
 $ createdb -O openipam openipam
+$ psql
+postgres=# \password openipam
+Enter new password:
+Enter it again:
+postgres=# \q
 $ logout
 }}}
 
