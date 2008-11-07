@@ -1,0 +1,31 @@
+                        ___ ____   _    __  __ 
+  ___  _ __   ___ _ __ |_ _|  _ \ / \  |  \/  |
+ / _ \| '_ \ / _ \ '_ \ | || |_) / _ \ | |\/| |
+| (_) | |_) |  __/ | | || ||  __/ ___ \| |  | |
+ \___/| .__/ \___|_| |_|___|_| /_/   \_\_|  |_|
+      |_|
+               www.openipam.org                      
+
+
+Copyright (C) 2007-2008 Utah State University - Information Technology
+Licensed under the GNU General Public License v3. See COPYING for details.
+
+
+INSTALLATION & CUSTOMIZATION
+	Needs written.
+
+DEPENDENCIES
+	Power DNS server
+	PostgreSQL server (with table_log if you want to keep track of changes)
+	python-ldap (>= 2.2.0) *
+	python-cherrypy3 (>= 3.0.3) (backend/web frontend)
+	python-cjson (backend/web frontend)
+	python-sqlalchemy (>= 0.4.6) (backend, dhcp)
+	python-psycopg2 (backend, dhcp)
+	python-openssl *
+	python-ipy
+	python-processing (for DHCP server)
+	python-cheetah (for web frontend)
+	hacked version of pydhcplib (included in source tree)
+
+
