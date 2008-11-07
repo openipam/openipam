@@ -3,7 +3,6 @@ import cherrypy
 from basepage import BasePage
 
 import framework
-from resource import table
 from openipam.web.resource.submenu import submenu
 from openipam.config import frontend
 perms = frontend.perms
