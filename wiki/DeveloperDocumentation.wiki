@@ -148,7 +148,7 @@ Index: trunk/cherrypy/test/test_xmlrpc.py
 
 === Set up admin user ===
 
-Until we write a setup script (*ducks*), you could run the following to set the administrator password to `password`:
+Until we write a setup script (`*`ducks`*`), you could run the following to set the administrator password to `password`:
 {{{
 # su - openipam
 $ psql -d openipam
