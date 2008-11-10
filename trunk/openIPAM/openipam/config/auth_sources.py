@@ -1,13 +1,14 @@
 from openipam.config import auth
-from openipam.auth import interfaces
+import openipam.backend.auth.interfaces
 
-if auth.types:
-	types=auth.types
+if auth.interfaces:
+	interfaces = auth.interfaces
 else:
 	# FIXME
-	types = []
-	if internal_enabled:
-		types.append( InternalAuthInterface() )
-	if ldap_enabled:
-		types.append( openipam.auth.interfaces.LDAPInterface() )
-
+	interfaces = []
+	
+	if auth.internal_enabled:
+		interfaces.append( openipam.backend.auth.interfaces.InternalAuthInterface() )
+		
+	if auth.ldap_enabled:
+		interfaces.append( openipam.backend.auth.interfaces.LDAPInterface() )
