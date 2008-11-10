@@ -29,7 +29,7 @@ guests_multi_use_tickets = True
 guests_hostname_format = 'g-%s.guests.example.com'
 
 # WRITEME
-types = None
+interfaces = None
 
 from openipam_config.auth import *
 
