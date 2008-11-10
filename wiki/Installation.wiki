@@ -7,7 +7,7 @@
 
 openIPAM is very modular and can work in any number of single-server or multi-server configurations. There are five major components: the openIPAM backend, the web frontend, the database server, the openDHCP server, and a PowerDNS server. It is completely up to you to decide where you would like to run each of these components. You could, technically, run all of them on the same server, but we recommend setting up openIPAM in a distributed manner.
 
-openIPAM has been developed to run on Linux and has not been tested on any other platforms. Personally, we developed and are using it on Debian, but you are free to run it on your distribution of choice. We have done some testing on RedHat Enterprise Linux and it worked well (if you can get the right packages).
+openIPAM has been developed to run on Linux and has not been tested on any other platforms. Personally, we developed and are using it on Debian, but you are free to run it on your distribution of choice. We have done some testing on !RedHat Enterprise Linux and it worked well (if you can get the right packages).
 
 = Dependencies =
 
