@@ -45,7 +45,7 @@ To install the needed packages for the DHCP server, run:
 }}}
 
 === For SSL on the backend and web interface ===
-Depending on your environment, a certificate signed by a trusted CA should be used on the production system. For testing and development purposes, however, you can install the `ssl-cert` package and Debian will create a self-signed cert for the host. To make it convenient for development and testing, the configuration files are made to use this self-signed cert by default. If you would like to do this, run the following:
+Depending on your environment, a certificate signed by a trusted CA should be used on the production system. For testing and development purposes, however, you can install the `ssl-cert` package and Debian will create a self-signed cert for the host. To make it convenient for development and testing, the configuration files are made to use this self-signed cert by default. If you would like to do this, run the following on both your backend server and your web frontend server:
 {{{
 # apt-get install  ssl-cert
 # adduser openipam ssl-cert
