@@ -1,7 +1,7 @@
 #summary Documentation meant for openIPAM developers and system administrators.
 #labels Featured,Design,Documentation
 
-= Developer Documentation =
+<wiki:toc max_depth="5" />
 
 = Introduction =
 
@@ -9,7 +9,7 @@ openIPAM is a suite of applications designed to provide an intuitive and powerfu
 
 http://openipam.org/images/uploads/architecture.png
 
-= Features Breakdown =
+= Features =
 == Intuitive IP address management ==
 
 From a high-level perspective, the most valuable feature of openIPAM is its web application interface. This interface gives users an intuitive tool for efficiently managing IP registrations. Permissions to this system can be very granular, giving large organizations or universities the tools to spread IP management out to all their network managers.
@@ -28,7 +28,7 @@ For the database itself, PostgreSQL is the database of choice for systems that h
 
 It may be valuable to note that there is *enterprise support* available for Postgres if your business-model encourages this support. The company [http://enterprisedb.com/ EnterpriseDB] provides exactly this kind of support, specifically for PostgreSQL, both for their packaged versions and normal Postgres installations.
 
-== DHCP Shared Leases ==
+== DHCP shared leases ==
 
 WRITEME
 
@@ -36,179 +36,11 @@ WRITEME
 
 openIPAM allows for the use of an LDAP server as a source for user accounts. There is also internal authentication, so LDAP is not required, especially if few user accounts will be needed.
 
-= Coding Conventions =
+WRITEME
+
+= Coding conventions =
 
 See the CodingConventions page for a style guide of how to write code for openIPAM.
-
-= Installation and system requirements =
-
-openIPAM has been developed to run on Linux and has not been tested on any other platforms. Personally, we developed and are using it on Debian, but you are free to run it on your distribution of choice. We have done some testing on RedHat Enterprise Linux and it worked well. Before trying to install openIPAM, make sure you have the following packages. Pay careful attention to not use an older package than recommended.
-
-== Dependencies ==
-
- * WRITEME
-
-Some of the following instructions will be Debian-specific—you'll have to use your own distribution's package management.
-
-First, add user named "openipam" to your Linux install. The options below move the user's home directory, disable the password (you must become root and then `su - openipam`), and set a user description.
-{{{
-# adduser --home /usr/local/openipam --disabled-password --gecos "openIPAM User" openipam
-}}}
-
-=== For the backend ===
-To install the needed packages for the backend, run:
-{{{
-# apt-get install python-cherrypy3 python-ldap python-psycopg2 python-openssl python-sqlalchemy python-ipy python-cjson
-}}}
-
-=== For the database server ===
-To install the needed packages for the database server, run:
-{{{
-# apt-get install postgresql
-}}}
-
-=== For the DHCP server ===
-To install the needed packages for the DHCP server, run:
-{{{
-# apt-get install python-processing python-psycopg2 python-sqlalchemy
-}}}
-
-=== For the web interface ===
-To install the needed packages for the web interface, run:
-{{{
-# apt-get install python-cherrypy3 python-openssl python-cheetah python-ipy python-cjson
-}}}
-
-Depending on your environment, a trusted signed certificate should be used on the production system. For testing and development purposes though, you can install the `ssl-cert` package and put the openipam user in the `ssl-cert` group and a self-signed certificate will be created for you by Debian and used by openIPAM. The default configuration files are made to use this self-signed cert by default. If you would like to do this, run the following:
-{{{
-# apt-get install  ssl-cert
-# adduser openipam ssl-cert
-}}}
-
-== Download and configure openIPAM ==
-
-Then, become the openipam user and download the code:
-{{{
-# su - openipam
-$ svn checkout http://openipam.googlecode.com/svn/trunk/ .
-}}}
-
-Now, you can set up the configuration files for openIPAM. There is an example folder name `openipam_config.example`. You can copy this directory to `openipam_config` and modify the configuration. Run this as the openipam user:
-{{{
-$ cd openIPAM/
-$ cp -r openipam_config.example/ openipam_config
-$ rm -rf openipam_config/.svn
-}}}
-
-If you're going to use the default configuration, you'll need to create and change ownership of a couple directories:
-{{{
-# mkdir -p /var/lib/openipam/sessions/backend
-# mkdir -p /var/log/openipam/backend
-# mkdir -p /var/lib/openipam/sessions/web
-# mkdir -p /var/log/openipam/web
-# chown -R openipam /var/lib/openipam /var/log/openipam
-}}}
-
-Depending on what processes you are running on which server(s), you'll need to edit the `openipam_config/backend.py` and `openipam_config/auth.py` file for the backend to work, and `openipam_config/frontend.py` for the web interface to work.  If you have certificate signed by a trusted CA, you can reference it under the `SSL` section in backend and frontend config files as well.
-
-=== CherryPy Patch until 3.1.0 ===
-
-Until the next release of CherryPy, you'll need to apply [http://www.cherrypy.org/changeset/2015 this patch] manually:
-
-{{{
-# cd /usr/share/python-support/python-cherrypy3/
-# patch -p 1
-}}}
-
-Then, copy and paste the following code into your terminal and then press Control-D:
-
-{{{
-Index: trunk/cherrypy/lib/xmlrpc.py
-===================================================================
---- trunk/cherrypy/lib/xmlrpc.py (revision 1955)
-+++ trunk/cherrypy/lib/xmlrpc.py (revision 2015)
-@@ -43,5 +43,5 @@
-                                   allow_none=allow_none))
- 
--def on_error():
-+def on_error(*args, **kwargs):
-     body = str(sys.exc_info()[1])
-     import xmlrpclib
-Index: trunk/cherrypy/test/test_xmlrpc.py
-===================================================================
---- trunk/cherrypy/test/test_xmlrpc.py (revision 1955)
-+++ trunk/cherrypy/test/test_xmlrpc.py (revision 2015)
-@@ -69,4 +69,5 @@
-     cherrypy.tree.mount(root, config={'/': {
-         'request.dispatch': cherrypy.dispatch.XMLRPCDispatcher(),
-+        'tools.xmlrpc.allow_none': 0,
-         }})
-     cherrypy.config.update({'environment': 'test_suite'})
-}}}
-
-=== Set up admin user ===
-
-Until we write a setup script (`*`ducks`*`), you could run the following to set the administrator password to `password`:
-{{{
-# su - openipam
-$ psql -d openipam
-openipam=# INSERT INTO internal_auth (id, hash, name)
-VALUES (1, 'b109f3bbbc244eb82441917ed06d618b9008dd09b3befd1b5e07394c706a8bb980b1d7785e5976ec049b46df5f1326af5a2ea6d103fd07c95385ffab0cacbc86', 'Administrator');
-}}}
-
-== Setting up PostgreSQL ==
-{{{
-# su - postgres
-$ createuser openipam
-Shall the new role be a superuser? (y/n) n
-Shall the new role be allowed to create databases? (y/n) n
-Shall the new role be allowed to create more new roles? (y/n) n
-$ createdb -O openipam openipam
-$ psql
-postgres=# \password openipam
-Enter new password:
-Enter it again:
-postgres=# \q
-$ logout
-}}}
-
-Now, to actually create the openIPAM database structure, run:
-{{{
-# su - openipam
-$ psql -d openipam -f openIPAM/sql/openipam_schema.sql
-
-... lots of CREATE TABLE messages ...
-
-}}}
-
-Make sure there are no ERROR: messages in the output. If not, then the database schema was created successfully.
-
-== Setting up PowerDNS ==
-
-{{{
-# Run on DNS server if using separate servers
-apt-get install pdns-server pdns-backend-pgsql postgresql
-}}}
-
-
-
-== Installation ==
-
-WRITEME
-
-=== Creating local_settings.py ===
-
-The next step is to customize local_settings.py. This is the main configuration file for openIPAM and gives specifics for connecting to the database, authentication, directory information, etc.
-
-WRITEME
-
-=== Using LDAP authentication ===
-
-WRITEME
-
-=== Starting the server ===
-
-WRITEME
 
 = Customizing openIPAM through the webservice API =
 
