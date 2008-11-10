@@ -59,7 +59,7 @@ Depending on your environment, a certificate signed by a trusted CA should be us
 
 = Download and configure openIPAM =
 
-Then, create the download directory and become the `openipam` user to download the code:
+Then, become the `openipam` user to download the code:
 {{{
 # su - openipam
 $ svn checkout http://openipam.googlecode.com/svn/trunk/ .
