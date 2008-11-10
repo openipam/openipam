@@ -9,8 +9,7 @@
 
 
 ----
-== This code is very pre-alpha. It will likely eat your homework, chase your dog, and die a horrible death soon after. No support provided! ==
-
+== This code is _very_ pre-alpha. It will likely eat your homework and then burst into flames. No support provided! ==
 
 Use this command to anonymously check out the latest project source code:
 {{{
