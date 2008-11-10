@@ -61,10 +61,7 @@ Depending on your environment, a certificate signed by a trusted CA should be us
 
 Then, create the download directory and become the `openipam` user to download the code:
 {{{
-# mkdir -p /usr/local/openipam
-# chown openipam /usr/local/openipam/
 # su - openipam
-$ cd /usr/local/openipam/
 $ svn checkout http://openipam.googlecode.com/svn/trunk/ .
 }}}
 
