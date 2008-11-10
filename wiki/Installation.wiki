@@ -146,9 +146,9 @@ Index: trunk/cherrypy/test/test_xmlrpc.py
      cherrypy.config.update({'environment': 'test_suite'})
 }}}
 
-== Setting up the `admin` user ==
+== Setting up the admin user ==
 
-Almost there! Until we write a setup script (`*`ducks`*`), you could run the following to set the administrator password to `password` (that hex string below is just a SHA512 hash, so you can change the password to whatever else you want):
+Almost there! Until we write a setup script (`*`ducks`*`), you could run the following to set the `admin` user's password to `password` (that hex string below is just a SHA512 hash, so you can change the password to whatever else you want):
 {{{
 # su - openipam
 $ psql -d openipam
