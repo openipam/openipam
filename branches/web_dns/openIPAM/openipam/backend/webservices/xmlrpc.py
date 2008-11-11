@@ -37,6 +37,8 @@ from openipam.backend.db import interface
 from openipam.utilities import misc, error, validation
 from openipam.utilities.perms import Perms
 
+from openipam.config import auth_sources
+
 import IPy
 
 perms = interface.perms
@@ -112,10 +114,8 @@ class MainWebService(XMLRPCController):
 		@raise error.NoEmail: if an LDAP user authenticates successfully, but has no email address set
 		"""
 		
-		# FIXME: these should be module-level so they are not re-inited every time
-		# but weird stuff happens right now. I think it has something to do with the LDAP
-		# connection timing out. Must fix later, but DO NOT MAKE THESE MODULE LEVEL WITHOUT EXTENSIVE TESTING
-		auth_interface_objects = (InternalAuthInterface(), LDAPInterface())
+		# FIXME: put most of this function into config/auth_sources.py
+		auth_interface_objects = auth_sources.interfaces
 		
 		try:
 			if not username or not password:

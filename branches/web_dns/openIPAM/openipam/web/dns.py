@@ -7,6 +7,7 @@ from openipam.config import frontend
 
 import cherrypy
 import framework
+from resource.submenu import submenu
 
 class DNS(BasePage):
 	'''
