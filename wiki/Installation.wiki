@@ -49,7 +49,7 @@ To install the needed packages for the openDHCP server, run:
 == For the PowerDNS server ==
 To install the needed packages for the PowerDNS server, run:
 {{{
-apt-get install pdns-server pdns-backend-pgsql postgresql
+# apt-get install pdns-server pdns-backend-pgsql postgresql
 }}}
 
 == For SSL on the backend and web interface ==
