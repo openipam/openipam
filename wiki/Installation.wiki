@@ -15,7 +15,7 @@ openIPAM has been developed to run on Linux and has not been tested on any other
 
 Some of the following instructions will be Debian-specific—you'll have to use your own distribution's package management.
 
-First, add a user named "openipam" to your Linux install:
+First, add a user named `openipam` to your Linux install:
 {{{
 # adduser --home /usr/local/openipam --disabled-password --gecos "openIPAM User" openipam
 }}}
