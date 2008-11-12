@@ -13,6 +13,9 @@ ldap_username_attribute = 'sAMAccountName'
 ldap_mail_attribute = 'mail'
 ldap_realname_attribute = 'displayName'
 
+# Automatically create users in openIPAM that authenticate via LDAP
+ldap_auto_create = True
+
 # INTERNAL AUTHENTICATION
 internal_enabled = True
 # This can be one of: ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512']
