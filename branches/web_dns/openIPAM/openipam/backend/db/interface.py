@@ -1262,14 +1262,6 @@ class DBBaseInterface(object):
 		"""vlan_to_group"""
 		pass
 
-class DBAuthInterface( DBBaseInterface ):
-	def __init__(self):
-		DBBaseInterface.__init__( self )
-		# FIXME: it would be good to make this lower
-		self._min_perms = perms.DEITY
-	def add_user( self, *args ):
-		DBInterface.add_user( self, *args )
-
 class DBBackendInterface( DBBaseInterface ):
 	def __init__(self):
 		DBBaseInterface.__init__( self )
@@ -2918,6 +2910,16 @@ class DBInterface( DBBaseInterface ):
 
 		return result
 
+class DBAuthInterface( DBInterface ):
+	def __init__(self):
+		DBInterface.__init__( self, username=backend.auth_user )
+	def __getattr__(self, name ):
+		"""
+		This only lets the DBAuthInterface call a small subset of DBInterface functions. 
+		"""
+		if name in ('add_user', 'get_users', 'get_auth_sources'):
+			return DBInterface.__getattr__(self, name)
+		raise AttributeError(name)
 	
 def ago( sec ):
 	return sqlalchemy.sql.func.now() - text("interval '%s sec'" % sec)

@@ -35,7 +35,7 @@ class Access(BasePage):
 		networks_text = []
 		hosts_text = []
 		
-		domains = self.webservice.get_domains( { 'additional_perms' : perms.ADD } )
+		domains = self.webservice.get_domains( { 'additional_perms' : str(perms.ADD) } )
 		if not domains:
 			domains_text.append("<p>You do not have access to add hosts in any domains.</p>")
 		else:
@@ -69,7 +69,7 @@ class Access(BasePage):
 					</table>
 					''' % ''.join(rows))
 			
-		networks = self.webservice.get_networks( { 'additional_perms' : perms.ADD } )
+		networks = self.webservice.get_networks( { 'additional_perms' : str(perms.ADD) } )
 		if not networks:
 			networks_text.append("<p>You do not have access to add static IP addresses to any networks. The USU IT Networking team will be provisioning access to this system in the near future.</p>")
 		else:

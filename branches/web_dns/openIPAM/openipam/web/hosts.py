@@ -10,10 +10,6 @@ from openipam.utilities.perms import Perms
 from openipam.web.resource.utils import redirect_to_referer
 from openipam.config import frontend
 
-web_dir = frontend.static_dir
-
-# FIXME
-
 class Hosts(BasePage):
 	'''The hosts class. This includes all pages that are /hosts/*'''
 
@@ -106,10 +102,6 @@ class Hosts(BasePage):
 		values['domains'] = self.webservice.get_domains( { 'additional_perms' : str(frontend.perms.ADD), 'order_by' : 'name' } )
 		values['expirations'] = self.webservice.get_expiration_types()
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
-
-		# FIXME: why is this needed? it would probably be best just to let the backend determine this by leaving it 'None' or such.
-		values['default_gid'] = frontend.db_default_group_id
-		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
 		
 		return values
 
@@ -191,7 +183,7 @@ class Hosts(BasePage):
 		values['page'] = int(page)
 		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
 
-		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'% web_dir, values=values)
+		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'% frontend.static_dir, values=values)
 	
 	@cherrypy.expose
 	def add(self, **kw):
@@ -216,7 +208,7 @@ class Hosts(BasePage):
 		else:		
 			values = self.mod_host_attributes()
 			
-		return self.__template.wrap(leftcontent=self.get_leftnav(action="Add Host", show_options=False), filename='%s/templates/mod_host.tmpl'%web_dir, values=values)
+		return self.__template.wrap(leftcontent=self.get_leftnav(action="Add Host", show_options=False), filename='%s/templates/mod_host.tmpl'%frontend.static_dir, values=values)
 	
 	@cherrypy.expose
 	def edit(self, macaddr=None, **kw):
@@ -266,7 +258,7 @@ class Hosts(BasePage):
 		values['owners'] = owners
 		values['is_dynamic'] = is_dynamic
 		
-		return self.__template.wrap(leftcontent=self.get_leftnav(show_options=False), filename='%s/templates/mod_host.tmpl'%web_dir, values=values)
+		return self.__template.wrap(leftcontent=self.get_leftnav(show_options=False), filename='%s/templates/mod_host.tmpl'%frontend.static_dir, values=values)
 	
 	@cherrypy.expose
 	def search(self, q=None, page=0, **kw):
@@ -304,7 +296,7 @@ class Hosts(BasePage):
 		else:
 			values['message'] = 'Un-recognized search term. Please use a complete IP address, MAC address, hostname, or CIDR network mask.' 
 		
-		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'%web_dir, values=values)
+		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'%frontend.static_dir, values=values)
 	
 	
 	
