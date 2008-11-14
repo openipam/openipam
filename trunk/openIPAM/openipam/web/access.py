@@ -71,7 +71,7 @@ class Access(BasePage):
 			
 		networks = self.webservice.get_networks( { 'additional_perms' : str(perms.ADD) } )
 		if not networks:
-			networks_text.append("<p>You do not have access to add static IP addresses to any networks. The USU IT Networking team will be provisioning access to this system in the near future.</p>")
+			networks_text.append("<p>You do not have access to add static IP addresses to any networks.</p>")
 		else:
 			networks_text.append("<p>You have access to add static IP addresses to these networks:</p>")
 
@@ -107,43 +107,6 @@ class Access(BasePage):
 					</table>
 					''' % ''.join(rows))
 			
-#		hosts = self.webservice.get_hosts( { 'additional_perms' : perms.OWNER } )
-#		if not hosts:
-#			hosts_text.append("<p>You are not an administrator over any hosts.</p>")
-#		else:
-#			hosts_text.append("<p>You are the owner of the following hosts:</p>")
-#
-#			rows = []
-#
-#			# The template HTML for every item
-#			item_template = '''<tr class="info">
-#								<td>%(hostname)s</td>
-#								<td>%(mac)s</td>
-#								<td>%(expires)s</td>
-#							</tr>
-#							'''
-#			
-#			# Go through the query and make the table HTML using the template
-#			for host in hosts:
-#				rows.append(item_template % (host))
-#			
-#			# Combine all the parts into the table
-#			hosts_text.append('''
-#					<table class="infoTable">
-#						<thead>
-#							<tr>
-#								<th>Hostname</th>
-#								<th>MAC Address</th>
-#								<th>Expires</th>
-#							</tr>
-#						</thead>
-#						<tbody> 
-#						%s
-#						</tbody>
-#					</table>
-#					''' % ''.join(rows))
-#			
-		
 		maincontent = '''
 	
 		<h1>My Access</h1>

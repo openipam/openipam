@@ -17,6 +17,12 @@ ldap_enabled = False
 try:	from ldap_priv import *;
 except: pass
 
+# Automatically create users in openIPAM that authenticate via LDAP
+ldap_auto_create = True
+
+# Require that a user has their email address set in LDAP to use openIPAM
+ldap_require_email = False
+
 # INTERNAL AUTHENTICATION
 internal_enabled = True
 # This can be one of: ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512']

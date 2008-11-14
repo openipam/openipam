@@ -202,7 +202,7 @@ class Networks(BasePage):
 	   
 	   leftnav = str(self.leftnav_actions("Add Network"))
 	   
-	   maincontent = '<h1>Add Network</h1><div class="message"><div>So that we can perform more extensive testing, this section is not functional yet. Contact Mike or Eldon to make network changes until this interface is completed.</div></div>%s' % self.network_form()
+	   maincontent = '<h1>Add Network</h1><div class="message">Under construction.</div>%s' % self.network_form()
 	   
 	   return self.__template.wrap(maincontent, leftnav)
     
