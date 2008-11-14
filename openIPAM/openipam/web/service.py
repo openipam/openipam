@@ -1,18 +1,11 @@
 import cherrypy
 import types
-
-from basepage import BasePage
-
-import datetime
-import time
-
+import re
 import framework
+from basepage import BasePage
 from openipam.web.resource.submenu import submenu
-
 from openipam.config import frontend
 from openipam.utilities import validation
-
-import re
 
 anumbercheck = re.compile('A[0-9]{8}')
 

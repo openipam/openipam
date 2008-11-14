@@ -571,7 +571,7 @@ class DBBaseInterface(object):
 		"""Return a list of all DNS views"""
 		pass
 	
-	def _get_domains( self, did=None, name=None, contains=None, gid=None, additional_perms='00000000', columns=None ):
+	def _get_domains( self, did=None, name=None, contains=None, gid=None, additional_perms='00000000', columns=None, show_reverse=True ):
 		"""Return a filtered list of domains
 		
 		Search through domains by passing a percent sign (%) in the name param
@@ -580,7 +580,8 @@ class DBBaseInterface(object):
 		@param name: return only one domain of this name
 		@param gid: return only the domains in this group ID
 		@param contains: return the most specific domain containing this name
-		@param additional_perms: require these additional permissions also 
+		@param additional_perms: require these additional permissions also
+		@param show_reverse: whether or not to show reverse lookup (in-addr.arpa) domains 
 		"""
 		# require read permissions over associated domains
 		required_perms = perms.READ
@@ -622,6 +623,8 @@ class DBBaseInterface(object):
 			# Awesome...order by descending on the length of domain names
 			# Gives the most specific domains first, followed by the rest
 			query = query.order_by(sqlalchemy.sql.func.length(obj.domains.c.name).desc())
+		if not show_reverse:
+			query = query.where(not_(obj.domains.c.name.like('%.in-addr.arpa')))
 		
 		return query
 	
@@ -2744,7 +2747,7 @@ class DBAuthInterface( DBInterface ):
 		"""
 		This only lets the DBAuthInterface call a small subset of DBInterface functions. 
 		"""
-		if name in ('add_user', 'get_users', 'get_auth_sources'):
+		if name in ('add_user', 'get_users', 'get_auth_sources', 'get_internal_auth'):
 			return DBInterface.__getattr__(self, name)
 		raise AttributeError(name)
 	
