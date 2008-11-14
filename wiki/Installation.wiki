@@ -161,4 +161,20 @@ VALUES (1, 'b109f3bbbc244eb82441917ed06d618b9008dd09b3befd1b5e07394c706a8bb980b1
 
 = Starting the server =
 
+== For development, in a shell session ==
+
+To run the backend server, run this as the `openipam` user:
+{{{
+$ ./openIPAM/openipamd
+}}}
+
+To run the web interface server, run this as the `openipam` user:
+{{{
+$ ./openIPAM/openipam_webd
+}}}
+
+WRITEME: DHCP
+
+== As a startup script ==
+
 WRITEME
