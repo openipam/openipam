@@ -140,8 +140,16 @@ class LDAPInterface(BaseAuthInterface):
 			raise Exception( "No password supplied!" )
 		
 		result = self._search_ldap( username )
-		self.__conn.simple_bind_s( result['dn'], password )
-		self.__conn.bind_s( self.__binddn, self.__bindpw )
+		try:
+			self.__conn.simple_bind_s( result['dn'], password )
+		except:
+			del self.__conn
+			self.__connect()
+			raise
+			
+		# Unbind the bound user
+		self.__conn.unbind_s()
+		
 		return result
 	
 	def __query( self, basedn=None, scope=ldap.SCOPE_SUBTREE, filter=None, attrs=None ):
@@ -170,7 +178,6 @@ class LDAPInterface(BaseAuthInterface):
 		# FIXME: this should probably be in a try/except
 		#self.__conn.bind_s( self.__binddn, self.__bindpw,
 		#		self.__bind_type )
-		self.__conn.simple_bind_s( self.__binddn, self.__bindpw )
 		
 	def _search_ldap(self, username ):
 		"""
@@ -180,9 +187,13 @@ class LDAPInterface(BaseAuthInterface):
 		@raise error.NotUser: if the user doesn't exist in this auth source
 		@return: information from LDAP related to this user
 		"""
-		
-		self.__conn.simple_bind_s( self.__binddn, self.__bindpw )
-		
+
+		try:
+			self.__conn.simple_bind_s( self.__binddn, self.__bindpw )
+		except ldap.LDAPError:
+			del self.__conn
+			self.__connect()
+			
 		result = self.__conn.search_st(self.__basedn, self.__scope, self.__filter % username,
 				[self.__username_attribute,self.__mail_attribute,self.__name_attribute])
 
@@ -216,7 +227,7 @@ class LDAPInterface(BaseAuthInterface):
 		@raise error.NotUser: raise when the user doesn't exist for this auth source
 		@return: nothing ... if no error is thrown, the user exists in this auth source
 		'''
-
+		
 		self._search_ldap(username)
 		# If no error, the user exists so we're done
 		
