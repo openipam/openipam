@@ -29,6 +29,7 @@ import random
 import string
 import datetime
 import time
+import ldap
 
 from openipam.config import backend
 from openipam.config import auth
@@ -132,10 +133,12 @@ class MainWebService(XMLRPCController):
 					# Save the right auth interface for use below
 					auth_interface = auth
 					break
-				except error.NoEmail:
-					raise
-				except Exception:
+				except error.NotUser:
+					# If this user doesn't exist for this auth source, just move on
 					pass
+				except error.NoEmail:
+					# Raise an error if the backend auth requires email address to be set and it is not
+					raise
 			
 			if not auth_interface:
 				raise error.NotImplemented("No other authentication types implemented")
@@ -154,15 +157,13 @@ class MainWebService(XMLRPCController):
 			raise
 		except Exception, e:
 			# Failed login!
-			# For more information, turn traceback=True
-			
+
 			do_traceback = True
-			
 			# Add other error types to this condition if you don't want a traceback when the error is raised
-			if type(e) is error.NotImplemented:
+			if type(e) in (error.NotImplemented, error.InvalidCredentials, ldap.INVALID_CREDENTIALS, ldap.OPERATIONS_ERROR):
 				do_traceback = False
 			
-			cherrypy.log('Failed Login: %s %s' % (str(username), e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
+			cherrypy.log('Failed Login (type %s): %s %s' % (type(e), username, e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
 			
 			# Just don't do: "Invalid password: %s" % password    ;)
 			raise error.InvalidCredentials("Invalid credentials; username: %s" % username)

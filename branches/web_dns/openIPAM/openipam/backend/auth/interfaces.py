@@ -64,7 +64,7 @@ class InternalAuthInterface(BaseAuthInterface):
 		internal_auth_info = auth.dbi.get_internal_auth(uid=user['id'])
 		
 		if not internal_auth_info:
-			raise error.NotUser("No internal auth row.")
+			raise error.NotUser("User does not exist in internal authentication source.")
 		
 		return user, internal_auth_info[0]
 		
@@ -77,7 +77,7 @@ class InternalAuthInterface(BaseAuthInterface):
 		if not username:
 			raise error.InvalidCredentials("Username not supplied")
 		
-		(user, discard) = self._search_internal(username) 
+		self._search_internal(username) 
 		
 	def authenticate( self, username, password ):
 		'''
@@ -123,11 +123,11 @@ class LDAPInterface(BaseAuthInterface):
 		self.__scope = ldap.SCOPE_SUBTREE
 		self.__filter = auth.ldap_filter
 		self.__debuglevel = auth.ldap_debug_level
-		self.__connect()
 		#self.__bind_type = ldap.AUTH_SIMPLE
+		self.__connect()
 		
 	def __del__( self ):
-		if self.__conn:
+		if hasattr(self, '__conn') and self.__conn:
 			self.__conn.unbind_s()
 			
 	def __bind_as( self, username, password ):
@@ -140,8 +140,16 @@ class LDAPInterface(BaseAuthInterface):
 			raise Exception( "No password supplied!" )
 		
 		result = self._search_ldap( username )
-		self.__conn.simple_bind_s( result['dn'], password )
-		self.__conn.bind_s( self.__binddn, self.__bindpw )
+		try:
+			self.__conn.simple_bind_s( result['dn'], password )
+		except:
+			del self.__conn
+			self.__connect()
+			raise
+			
+		# Unbind the bound user
+		self.__conn.unbind_s()
+		
 		return result
 	
 	def __query( self, basedn=None, scope=ldap.SCOPE_SUBTREE, filter=None, attrs=None ):
@@ -170,7 +178,6 @@ class LDAPInterface(BaseAuthInterface):
 		# FIXME: this should probably be in a try/except
 		#self.__conn.bind_s( self.__binddn, self.__bindpw,
 		#		self.__bind_type )
-		self.__conn.simple_bind_s( self.__binddn, self.__bindpw )
 		
 	def _search_ldap(self, username ):
 		"""
@@ -180,6 +187,13 @@ class LDAPInterface(BaseAuthInterface):
 		@raise error.NotUser: if the user doesn't exist in this auth source
 		@return: information from LDAP related to this user
 		"""
+
+		try:
+			self.__conn.simple_bind_s( self.__binddn, self.__bindpw )
+		except ldap.LDAPError:
+			del self.__conn
+			self.__connect()
+			
 		result = self.__conn.search_st(self.__basedn, self.__scope, self.__filter % username,
 				[self.__username_attribute,self.__mail_attribute,self.__name_attribute])
 
@@ -190,9 +204,10 @@ class LDAPInterface(BaseAuthInterface):
 			try:
 				mail = result[0][1][self.__mail_attribute][0]
 			except:
-				mail = ''
-				# FIXME: make this a config option in the LDAP section, something like ldap_require_email
-				# raise error.NoEmail()
+				if auth.ldap_require_email:
+					raise error.NoEmail()
+				else:
+					mail = ''
 			dn = result[0][0]
 			
 			# We're done, we have the information
@@ -204,16 +219,15 @@ class LDAPInterface(BaseAuthInterface):
 		elif result:
 			raise error.NotUnique()
 		else:
-			raise error.NotUser()
-		self.__conn.bind_s( self.__binddn, self.__bindpw )
-	
+			raise error.NotUser("User does not exist in the LDAP auth source.")
+		
 	def verify( self, username ):
 		'''
 		Given a username, determine whether a user exists by username in this auth source
 		@raise error.NotUser: raise when the user doesn't exist for this auth source
 		@return: nothing ... if no error is thrown, the user exists in this auth source
 		'''
-
+		
 		self._search_ldap(username)
 		# If no error, the user exists so we're done
 		
@@ -227,8 +241,10 @@ class LDAPInterface(BaseAuthInterface):
 		ldap_user = self.__bind_as( username, password )
 		
 		if not ldap_user.has_key('email') or (ldap_user.has_key('email') and ldap_user['email'].strip() == ""):
-			# raise error.NoEmail()
-			ldap_user['email'] = ''
+			if auth.ldap_require_email:
+				raise error.NoEmail()
+			else:
+				ldap_user['email'] = ''
 		
 		# Successful bind, continue to authenticate
 		our_user = auth.dbi.get_users(username=ldap_user['username'], source=auth.sources.LDAP)
