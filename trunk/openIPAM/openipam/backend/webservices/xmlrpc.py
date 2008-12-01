@@ -635,7 +635,7 @@ class MainWebService(XMLRPCController):
 				# host and NOT be OWNER over it, verify this state:
 				# (you know you love the double negatives)
 				if (kw.has_key('owners') and ('user_%s' % cherrypy.session['user']['username']) not in kw['owners']
-				and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : db_service_group_id } )):
+				and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : backend.db_service_group_id } )):
 					messages.append("You are not allowed to remove yourself from ownership of this host. However, you can assign other owners and have them remove you from this host.")
 		
 		# Verify that this host MAC and hostname don't exist already
