@@ -7,3 +7,11 @@ DB schema changes for group management:
 {{{
 ALTER TABLE users_to_groups ADD host_permissions BIT(8) NOT NULL REFERENCES permissions(id) ON DELETE RESTRICT DEFAULT '00001111';
 }}}
+
+=== DNS record management ===
+
+DB schema changes for DNS record management:
+{{{
+UPDATE dns_types SET min_permissions = '00000000';
+UPDATE dns_types SET min_permissions = '00000100' WHERE id IN (1, 5, 12, 15, 16, 33);
+}}}
