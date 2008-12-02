@@ -546,17 +546,17 @@ class MainWebService(XMLRPCController):
 			messages.append('Some information required to perform the action was not supplied. %s' % str(kw))
 			
 		if kw['editing'] and not kw.has_key('old_mac'):
-			messages.append("When editing, old_mac is a required argument.")
+			raise error.RequiredArgument("When editing, old_mac is a required argument.")
 		if not kw['is_dynamic'] and not kw['editing'] and (not kw.has_key('network') or (kw.has_key('network') and not kw['network'])):
 			messages.append("This is a static IP registration and the network was not specified.")
 			
 		# Make sure that anything that is dropdown-like (except networks) is using IDs as values
 		if kw.has_key('domain') and kw['domain'] and type(kw['domain']) is not types.IntType:
-			messages.append("The domain specified must be an integer and must be a domain ID.")
+			raise error.InvalidArgument("The domain specified must be an integer and must be a domain ID.")
 		if kw.has_key('expiration') and kw['expiration'] and type(kw['expiration']) is not types.IntType:
-			messages.append("The expiration specified must be an integer and must be an expiration ID.")
+			raise error.InvalidArgument("The expiration specified must be an integer and must be an expiration ID.")
 		if kw.has_key('owners') and kw['owners'] and type(kw['owners']) is not types.ListType and type(kw['owners']) is not types.TupleType:
-			messages.append("The owners argument specified must be a list or tuple of group names.")
+			raise error.InvalidArgument("The owners argument specified must be a list or tuple of group names.")
 		
 		# Raise required argument errors
 		if messages:
@@ -634,8 +634,18 @@ class MainWebService(XMLRPCController):
 				# A normal user (non-admin and not in service group) cannot create a
 				# host and NOT be OWNER over it, verify this state:
 				# (you know you love the double negatives)
-				if (kw.has_key('owners') and ('user_%s' % cherrypy.session['user']['username']) not in kw['owners']
-				and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : db_service_group_id } )):
+				users_groups = self.get_groups( { 'uid' : cherrypy.session['user']['uid'], 'additional_perms' : perms.OWNER } )
+				users_group_names = [row['name'] for row in users_groups]
+				
+				# Am I in a group that has owner over this host?
+				# There is surely a more elegant and pythonic way to compare all elements of lists:
+				has_owner_group = False
+				for name in users_group_names:
+					if name in kw['owners']:
+						has_owner_group = True
+						break
+				
+				if (kw.has_key('owners') and (not has_owner_group and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : backend.db_service_group_id } ))):
 					messages.append("You are not allowed to remove yourself from ownership of this host. However, you can assign other owners and have them remove you from this host.")
 		
 		# Verify that this host MAC and hostname don't exist already

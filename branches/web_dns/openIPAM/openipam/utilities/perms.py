@@ -60,9 +60,13 @@ class Perms( object ):
 		return self.__bits
 	
 	def __eq__(self, a ):
+		if type(a) is types.NoneType:
+			return False
 		return int(self) == int(Perms(a))
 	
 	def __ne__(self, a ):
+		if type(a) is types.NoneType:
+			return True
 		return int(self) != int(Perms(a))
 	
 	def __and__( self, a ):
