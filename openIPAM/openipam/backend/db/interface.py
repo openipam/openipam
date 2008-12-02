@@ -169,7 +169,7 @@ class DBBaseInterface(object):
 		@return: result of query
 		"""
 		if not self.__function_lock.locked():
-			raise Exception("Somehow, I don't have my __function_lock.  This is very bad.")
+			raise error.FatalException("Somehow, I don't have my __function_lock.  This is very bad.")
 		try:
 			function = self.function
 			del self.function
@@ -193,8 +193,8 @@ class DBBaseInterface(object):
 			del kw['order_by']
 		
 		query = function( *args, **kw )
-			
-		
+
+		# Apply given ORDER BY, OFFSET and LIMIT statements
 		if order_by:
 			query = query.order_by(order_by)
 		if page and limit:
@@ -207,7 +207,7 @@ class DBBaseInterface(object):
 
 	def _execute(self, query):
 		if hasattr(self, '_conn') and hasattr(self, '_trans_stack'):
-			# We're doing transactional stuff, probably because of DBInterface
+			# We're doing transactional stuff, probably because of DBInterface.
 			# Use the transactional connection to keep a consistent view of the DB
 			result = self._conn.execute(query).fetchall()
 		else:
@@ -277,19 +277,33 @@ class DBBaseInterface(object):
 			if not group_hosts and not net_hosts:
 				raise error.InsufficientPermissions(error_msg)
 			
-	def find_owners_of_host(self, mac):
+	def find_owners_of_host(self, mac, get_users=False):
 		"""
-		Find all of the contacts related to a hosts
+		Find groups or users who have OWNER over this host
 		where their permissions over a group that contains that host is OWNER
+		
+		@param get_users: whether to go futher than group names and get usernames
+		@return: either groups owners or, if get_users=True, usernames
 		"""
 		
 		self.require_perms(perms.READ)
 		
+		# Groups --> Hosts to Groups
 		fromobject = obj.groups.join(obj.hosts_to_groups, and_(obj.hosts_to_groups.c.gid == obj.groups.c.id, obj.hosts_to_groups.c.mac == mac))
-		fromobject = fromobject.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid == obj.hosts_to_groups.c.gid,
-												obj.users_to_groups.c.permissions.op('&')(str(perms.OWNER)) == str(perms.OWNER)))
 		
-		query = select([obj.groups], from_obj=fromobject)
+		# Make sure to OR users_to_groups.host_permissions after finding the user's group permissions
+		# Hosts to Groups --> Users to Groups
+		fromobject = fromobject.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid == obj.hosts_to_groups.c.gid,
+												obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER)))
+		
+		if get_users:
+			# Users to Groups --> Users
+			fromobject = fromobject.join(obj.users, obj.users.c.id == obj.users_to_groups.c.uid)
+		
+		if get_users:
+			query = select([obj.users], from_obj=fromobject, distinct=True)
+		else:
+			query = select([obj.groups], from_obj=fromobject, distinct=True)
 		
 		return self._execute(query)
 	
@@ -465,18 +479,11 @@ class DBBaseInterface(object):
 		
 		@return: filtered DNS records
 		"""
-		# the permissions here could be troublesome...
-		# If you have read access to a host, you should be able to look at records related to that host.
-		# What constitutes related?
-		#
 		# A: A record -> IP -> mac
 		# CNAME: content=A record name -> IP -> mac,
 		# MX: name = A record -> ip -> mac
 		# SRV: content = '% <A record name>' -> IP -> mac
 		# PTR: name = A record ip_content reverse
-		# 
-		# If you have access to a domain, you should be able to see all records in that domain.
-		# FIXME: implement more granular permissions
 		
 		self.require_perms( perms.READ )
 		columns = [obj.dns_records]
@@ -620,8 +627,8 @@ class DBBaseInterface(object):
 			
 			query = query.where(obj.domains.c.name.in_(domains))
 			
-			# Awesome...order by descending on the length of domain names
-			# Gives the most specific domains first, followed by the rest
+			# Awesome...order by descending on the length of domain names.
+			# Gives the most specific domains first, followed by the rest.
 			query = query.order_by(sqlalchemy.sql.func.length(obj.domains.c.name).desc())
 		if not show_reverse:
 			query = query.where(not_(obj.domains.c.name.like('%.in-addr.arpa')))
@@ -655,7 +662,7 @@ class DBBaseInterface(object):
 			query = query.where(obj.guest_tickets.c.ticket == ticket)
 			
 		if uid:
-			if not self.has_min_perms(perms.DEITY) and self._uid != uid:
+			if self._uid != uid and not self.has_min_perms(perms.DEITY):
 				# I'm not a DEITY and I'm trying to get someone else's tickets
 				raise error.InsufficientPermissions()
 			
@@ -663,13 +670,15 @@ class DBBaseInterface(object):
 			
 		return query
 			
-	def _get_groups( self, gid=None, name=None, ignore_usergroups=False ):
+	def _get_groups( self, gid=None, name=None, ignore_usergroups=False, uid=None, additional_perms=None):
 		"""
 		Return groups
 		
 		@param gid: return a single group of this database ID
 		@param name: return a single group of this name
 		@param ignore_usergroups: a boolean, if true no groups prepended with 'user_' will be returned
+		@param uid: a user's database ID, returns a user's groups, optionally filtered by permissions in that group
+		@param additional_perms: return groups where the users_to_groups.permissions meet these additional permission requirements
 		"""
 		
 		# require read permissions over associated groups
@@ -677,8 +686,19 @@ class DBBaseInterface(object):
 		
 		if gid and name:
 			raise error.RequiredArgument("Specify exactly one of gid or name")
+		if (gid or name or ignore_usergroups) and (uid or additional_perms):
+			raise error.RequiredArgument("If uid or additional_perms is specified, you cannot filter by gid, name, or use ignore_usergroups.")
 		
-		query = select( [obj.groups] )
+		if uid:
+			if additional_perms is None:
+				additional_perms = '00000000'
+				
+			fromobj = obj.groups.join(obj.users_to_groups, and_(and_(obj.groups.c.id==obj.users_to_groups.c.gid, obj.users_to_groups.c.uid == uid), 
+												obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(additional_perms)) == str(additional_perms)))
+		else:
+			fromobj = obj.groups
+		
+		query = select( [obj.groups], from_obj=fromobj )
 		
 		if gid:
 			query = query.where(obj.groups.c.id == gid)
@@ -765,7 +785,10 @@ class DBBaseInterface(object):
 				hosts = hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
 			if uid:
 				hosts = hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
-				hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,  and_(obj.users_to_groups.c.uid == uid, obj.users_to_groups.c.permissions.op('&')(str(perms.OWNER)) == str(perms.OWNER))))
+				# Make sure to bitwise OR users_to_groups.host_permissions after finding the user's group permissions
+				hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,
+									and_(obj.users_to_groups.c.uid == uid,
+									obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
 			
 			# Create the selectable	
 			hosts = select( columns, from_obj=hosts, distinct=True )
@@ -776,7 +799,7 @@ class DBBaseInterface(object):
 			# because, technically, 9 in ASCII is before 11 in ASCII ... think about it 	
 			if funky_ordering:
 				hosts = hosts.order_by('len DESC').order_by(obj.hosts.c.hostname.desc())
-				
+			
 			return hosts
 		else:
 			
@@ -799,12 +822,12 @@ class DBBaseInterface(object):
 				net_hosts = net_hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
 				direct_hosts = direct_hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
 			if uid:
-				# This code is untested, but users should never be in a state that let's them get to this code just yet
 				net_hosts = net_hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
 				direct_hosts = direct_hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
-				net_hosts = net_hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,  and_(obj.users_to_groups.c.uid == uid, obj.users_to_groups.c.permissions.op('&')(str(perms.OWNER)) == str(perms.OWNER))))
-				direct_hosts = direct_hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,  and_(obj.users_to_groups.c.uid == uid, obj.users_to_groups.c.permissions.op('&')(str(perms.OWNER)) == str(perms.OWNER))))
 				
+				net_hosts = net_hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid, obj.users_to_groups.c.uid == uid))
+				direct_hosts = direct_hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid, obj.users_to_groups.c.uid == uid))
+			
 			# Create the selectables
 			net_select = select( columns, from_obj=net_hosts, distinct=True )
 			host_select = select( columns, from_obj=direct_hosts, distinct=True )
@@ -839,7 +862,7 @@ class DBBaseInterface(object):
 		fromobj = (obj.hosts_to_groups.join( obj.hosts, and_(obj.hosts_to_groups.c.mac==obj.hosts.c.mac, obj.hosts_to_groups.c.mac.in_(hosts_list) ) )
 			.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid, obj.users_to_groups.c.uid == self._uid)))
 		
-		query = select([obj.hosts.c.mac, obj.users_to_groups.c.permissions], from_obj=fromobj)
+		query = select([obj.hosts.c.mac, obj.users_to_groups.c.permissions, obj.users_to_groups.c.host_permissions], from_obj=fromobj)
 		
 		results = self._execute(query)
 		
@@ -847,9 +870,11 @@ class DBBaseInterface(object):
 		
 		for row in results:
 			if permissions.has_key(row['mac']):
-				permissions[row['mac']] = Perms(permissions[row['mac']]) | row['permissions']
+				# We've already touched this host's total permissions via another group, bitwise OR more permissions
+				permissions[row['mac']] = (Perms(permissions[row['mac']]) | row['permissions']) | row['host_permissions']
 			else:
-				permissions[row['mac']] = row['permissions']
+				# This is the first time, through the first group, that we have touched this host's total permissions
+				permissions[row['mac']] = Perms(row['permissions']) | row['host_permissions']
 			
 		# OR my minimum permissions with the determined permissions
 		for mac in hosts_list:
@@ -1595,10 +1620,13 @@ class DBInterface( DBBaseInterface ):
 		return result
 	
 	def add_host_to_group( self, mac, gid=None, group_name=None ):
-		'''Add a host to a group
+		'''
+		Add a host to a group
+		
 		@param mac: the host's mac address
 		@param gid: the database group ID
-		@param group_name: if not gid, give the group_name and gid will be determined'''
+		@param group_name: if not gid, give the group_name and gid will be determined
+		'''
 
 
 		# Get the gid if not given
@@ -1624,7 +1652,6 @@ class DBInterface( DBBaseInterface ):
 									'changed_by' : self._uid } )
 			
 			result = self._execute_set( query )
-			
 			
 			# Commit the transaction
 			self._commit()
@@ -2051,7 +2078,7 @@ class DBInterface( DBBaseInterface ):
 		
 		return query
 	
-	def add_user_to_group( self, uid, gid, permissions):
+	def add_user_to_group( self, uid, gid, permissions, host_permissions=None ):
 		'''Add a user to a group
 		@param info: a dictionary of information for the bridge relation'''
 
@@ -2059,10 +2086,17 @@ class DBInterface( DBBaseInterface ):
 		if not self._is_user_in_group(gid=backend.db_service_group_id):
 			self.require_perms(perms.DEITY)
 		
-		query = obj.users_to_groups.insert( values={'uid' : uid,
-								'gid' : gid,
-								'permissions' : permissions,
-								'changed_by' : self._uid } )
+		values={
+			'uid' : uid,
+			'gid' : gid,
+			'permissions' : permissions,
+			'changed_by' : self._uid
+		}
+		
+		if host_permissions is not None:
+			values['host_permissions'] = host_permissions
+		
+		query = obj.users_to_groups.insert( values )
 
 		return self._execute_set(query)
 	
@@ -2573,39 +2607,23 @@ class DBInterface( DBBaseInterface ):
 			
 			# Update owners in every state if it is specified
 			if owners:
-				# Delete all owners
+				# Find which owners have been deleted or added
 				old_owners = self.find_owners_of_host(mac=mac)
-				
-				my_usergroup = 'user_%s' % self._username
-				am_global_owner = self.has_min_perms(perms.OWNER)
-				
-				for owner in old_owners:
-					if am_global_owner or (not am_global_owner and owner['name'] != my_usergroup):
-						self.del_host_to_group(mac=mac, gid=owner['id'])
-				
-				# Recreate the owners
-				save_my_ownership = False
-				for owner in owners:
+				old_owner_names = [row['name'] for row in old_owners]
+
+				# Wow, there's got to be a more pythonic way of doing this. Anyone?
+				for new_owner in owners:
 					# Make sure it actually exists and is not ''
-					if owner:
-						if am_global_owner or (not am_global_owner and (owner != my_usergroup)):  
-							self.add_host_to_group(mac=mac, group_name=owner)
-						if owner == my_usergroup:
-							save_my_ownership = True
-						
-				if not am_global_owner and not save_my_ownership:		
-					self.del_host_to_group(mac=mac, group_name=(my_usergroup))
-			
-			result = {}
-			
+					if new_owner and new_owner not in old_owner_names:
+						self.add_host_to_group(mac=mac, group_name=new_owner)
+				for old_owner in old_owners:
+					if old_owner['name'] not in owners:
+						self.del_host_to_group(mac=mac, gid=old_owner['id'])
+					 
 			self._commit()
 		except:
 			self._rollback()
 			raise
-
-		return result
-		
-				
 
 	def update_dhcp_group( self, gid, name, description ):
 		'''Update a DHCP Group's information

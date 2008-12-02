@@ -1,3 +1,4 @@
+
 /*
  * Add Host
  */
@@ -91,7 +92,7 @@ function addOwner(ownerName) {
 }
 
 function addOwnerToRow(ownerName) {
-	$('#currentOwners').append('<tr id="'+ownerName+'"><td>'+ownerName+'</td><td class="actions"><a id="removeOwner" href="javascript:;">Remove</a></td></tr>');
+	$('#currentOwners').append('<tr id="'+ownerName+'" class="info"><td>'+ownerName+'</td><td class="actions"><a id="removeOwner" href="javascript:;">Remove</a></td></tr>');
 	$('#currentOwners tr[id="'+ownerName+'"] td #removeOwner').click(function () {
 		removeOwner($('#currentOwners tr[id="'+ownerName+'"]').attr('id'));
 	});
@@ -112,6 +113,25 @@ function updateOwnersList() {
 			addOwnerToRow(owners_list[i]);
 		}
 	}
+}
+
+function bindAddAsOwner() {
+	$('.addOwner').click(function () {
+		addOwner(this.name);
+		$('#ownersToAdd tr:has(td.actions a.addOwner[name="'+this.name+'"])').html('<td>'+this.name+'</td><td class="actions">Done</td>');
+	});
+}
+
+function addGroupRow(name) {
+	$('#ownersToAdd').append('<tr class="info"><td>'+name+'</td><td class="actions"><a class="addOwner" name="'+name+'" href="javascript:;">Add as owner</a></td></tr>');
+}
+
+function showGroups() {
+	$('#ownersToAdd').html('');
+	for (i in full_group_list) {
+		addGroupRow(full_group_list[i]);
+	}
+	bindAddAsOwner();
 }
 
 /*
@@ -139,10 +159,12 @@ $(function() {
 	$("#group_dialog").show().dialog({ 
 				    modal: true,
 				    autoOpen : false,
-				    buttons: { 
+				    buttons: {
+						/*
 				    	' Cancel ' : function() {
 			    			$("#group_dialog").dialog("close");
 			    		},
+			    		*/
 				    	' Apply ' : function() {
 				    		var owners = $('#owners_list').val()
 			    			$("#owners").text(owners.substr(0, owners.length-1));
@@ -162,26 +184,32 @@ $(function() {
 		removeOwner($('#currentOwners tr').attr('id'));
 	});
 	
+	$('#searchHelpIcon').click(function () {
+		$('#searchHelp').toggle();
+		this.blur();
+	});
+	
+	$('#currentOwners tr td #removeOwner').click(function () {
+		removeOwner($('#currentOwners tr').attr('id'));
+	});
+	
 	$('#usernameSearch').click(function () {
 		$(this).after('<img src="/images/interface/loader.gif" id="loaderIcon" />');
+		$('#showGroupsAgain').show();
 		$.ajax({
 			url: "/ajax/ajax_get_groups/",
 			data: { name : 'user_'+$('#username').val() },
 			success: function(data) {
 				if (data == '') {
 					$('#ownersToAdd').text("");
-					$('#searchMessage').text("Could not find any user by that name.");
+					$('#searchMessage').text("Could not find any user by that name.").show();
 				} else {
 					$('#ownersToAdd').text("");
-					$('#searchMessage').text("");
+					$('#searchMessage').text("").hide();
 					
 					// can't do .text here for some reason
-					$('#ownersToAdd').append('<tr><td>'+data[0].name+'</td><td class="actions"><a id="addOwner" name="'+data[0].name+'" href="javascript:;">Add as owner</a></td></tr>');
-					$('#addOwner').click(function () {
-						addOwner(data[0].name);
-						$('#ownersToAdd').text("");
-						$('#ownersToAdd').append('<tr><td>'+data[0].name+'</td><td class="actions">Done</td></tr>');
-					});
+					addGroupRow(data[0].name);
+					bindAddAsOwner();
 				}
 				$("#loaderIcon").remove();
 			}
@@ -189,12 +217,19 @@ $(function() {
 		return false;
 	});
 	
-	$('#searchHelpIcon').click(function () {
-		$('#searchHelp').toggle();
-		this.blur();
+	$('#showGroupsAgain').click(function () {
+		$('#searchMessage').text("").hide();
+		$('#showGroupsAgain').hide();
+		showGroups();
 	});
 	
-	if ($('input[@name="old_mac"]').length) {
+	// For the initial groups that are shown
+	if ($("#group_dialog").length) {
+		full_group_list = $('#full_group_list').val().split("-*-");
+		showGroups();
+	}
+	
+	if ($('input[name="old_mac"]').length) {
 		// We're editing a host
 
 		$('#ipContent').hide();
@@ -216,7 +251,7 @@ $(function() {
 		}
 	}
 	
-	if (!$('input[@name="did_not_change_ip"]').length) {
+	if (!$('input[name="did_not_change_ip"]').length) {
 		// We're not editing a static host
 		$('#dynamicIP').click(function () {
 			toggleIPField();
