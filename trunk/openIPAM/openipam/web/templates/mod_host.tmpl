@@ -43,6 +43,9 @@
 	#end if
 #end if
 
+#set SEPERATOR = "-*-"
+#set full_group_list = $SEPERATOR.join([$group.name for $group in $groups]) 
+
 <h1>$title</h1>
 
 #if 'message' in $template_keys:
@@ -52,7 +55,8 @@
 #end if
 
 <form action="" method="post" class="form">
-	<input type="hidden" name="owners_list" id="owners_list" value="$owners_list" />
+	<input type="hidden" id="owners_list" name="owners_list" value="$owners_list" />
+	<input type="hidden" id="full_group_list" value="$full_group_list" />
 	<div id="element">
 		<div id="label">Ethernet Address:</div>
 		<div id="value">
@@ -69,6 +73,7 @@
 			#if not $editing or ($editing and $has_domain_access):
 				<input type="text" class="text" id="hostname" name="hostname" value="$host.hostname" /> .
 				<select id="domains_for_hosts" name="domain">
+						<option value="">...</option>
 						#set selected = ''
 						#for $one_domain in $domains:
 							#if $editing and ($one_domain.id == int($domain)):
@@ -141,6 +146,7 @@
 					<div id="label">Network:</div>
 					<div id="value">
 						<select name="network">
+							<option value="">...</option>
 							#set selected = ''
 							#for $one_network in $networks:
 								#if $one_network.network == $network:
@@ -226,45 +232,50 @@
 </form>
 
 <div id="group_dialog" class="dialog">
-	<div class="message">
-	   	<div>
-		   	This section is currently in its alpha phase.
-		   	Look for new features coming very soon, including groups
-		   	for shared owners of hosts and bulk editing of contact information.
-	   	</div>
-	</div>
-
-	<h4>Current owners</h4>
-	<table class="infoTable">
+	<h4>Current group owners</h4>
+	<table class="infoTable" style="margin-bottom: 0pt">
 		<thead>
 			<tr>
 				<th>Group name</th>
 				<th>&nbsp;</th>
 			</tr>
 		</thead>
-		<tbody id="currentOwners"> 
-		</tbody>
 	</table>
+	<div style="height: 100px; overflow: auto; border: 1px solid black;">
+		<table class="infoTable" style="border: none;">
+			<tbody id="currentOwners"> 
+			</tbody>
+		</table>
+	</div>
 	
-	<h4 style="padding-top: 20pt">Add owners</h4>
+	<h4 style="padding-top: 5pt">Add group owners</h4>
 	
 	<form action="" method="post">
-		<h5>Search by username</h5>
-		<p><input type="text" id="username" name="username" value="" /><input type="submit" id="usernameSearch" name="usernameSearch" value="Search" /></p>
+		<div style="float: left">
+			<p><span>Search by username: </span><input type="text" id="username" name="username" value="" /><input type="submit" id="usernameSearch" name="usernameSearch"  class="button" value="Search" /></p>
+		</div>
+		<div style="float: right;">
+			<a href="javascript:;" id="showGroupsAgain" class="hidden">Show groups again</a>
+		</div>
 	</form>
 	
-	<table class="infoTable">
+	<div class="clear"><!-- --></div>
+	
+	<div id="searchMessage" class="message hidden">
+	</div>
+	
+	<table class="infoTable" style="margin-bottom: 0pt">
 		<thead>
 			<tr>
 				<th>Group name</th>
 				<th>&nbsp;</th>
 			</tr>
 		</thead>
-		<tbody id="ownersToAdd"> 
-			
-		</tbody>
 	</table>
-	
-	<div id="searchMessage">
+	<div style="height: 150px; overflow: auto; border: 1px solid black;">
+		<table class="infoTable" style="border: none;">
+				<tbody id="ownersToAdd"> 
+				</tbody>
+		</table>
 	</div>
 </div>

@@ -100,7 +100,10 @@ def perm_query( uid, min_perms, hosts=False, networks=False, domains=False, gid=
 	
 	# If we need to require a certain level of permissions, and my min_perms don't satisify that, then ask the DB:
 	if required_perms and (required_perms & min_perms != required_perms):
-		whereclause = and_(whereclause, users_to_groups.c.permissions.op('|')(str(min_perms)).op('&')( str(required_perms) ) == str(required_perms) )
+		if not hosts:
+			whereclause = and_(whereclause, users_to_groups.c.permissions.op('|')(str(min_perms)).op('&')( str(required_perms) ) == str(required_perms) )
+		else:
+			whereclause = and_(whereclause, users_to_groups.c.permissions.op('|')(users_to_groups.c.host_permissions).op('|')(str(min_perms)).op('&')( str(required_perms) ) == str(required_perms) )
  
 	if gid:
 		whereclause = and_( whereclause, users_to_groups.c.gid == gid)

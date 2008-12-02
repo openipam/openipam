@@ -94,6 +94,10 @@ class RequiredArgument(BaseException):
 	"""Raised when a needed argument hasn't been passed"""
 	pass
 
+class InvalidArgument(BaseException):
+	"""Raised when a needed argument is invalid"""
+	pass
+
 class NotImplemented(BaseException):
 	"""Raised when needed for things that haven't been implemented"""
 	pass

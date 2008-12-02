@@ -102,7 +102,7 @@ class Hosts(BasePage):
 		values['allow_dynamic_ip'] = frontend.allow_dynamic_ip
 
 		values['networks'] = self.webservice.get_networks( { 'additional_perms' : str(frontend.perms.ADD), 'order_by' : 'network' } )
-		values['domains'] = self.webservice.get_domains( { 'additional_perms' : str(frontend.perms.ADD), 'order_by' : 'name' } )
+		values['domains'] = self.webservice.get_domains( { 'additional_perms' : str(frontend.perms.ADD), 'show_reverse' : False, 'order_by' : 'name' } )
 		values['expirations'] = self.webservice.get_expiration_types()
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
 		
@@ -120,12 +120,12 @@ class Hosts(BasePage):
 			{
 			'mac' : kw['mac'],
 			'hostname' : kw['hostname'],
-			'domain' : int(kw['domain']),
+			'domain' : int(kw['domain']) if kw['domain'] else None,
 			'description' : kw['description'],
 			'expiration' : int(kw['expiration']),
 			'is_dynamic' : kw.has_key('dynamicIP'),
 			'owners_list' : kw['owners_list'], 
-			'network' : (kw['network'] if kw.has_key('network') else None),
+			'network' : (kw['network'] if kw.has_key('network') and kw['network'] else None),
 			'add_host_to_my_group' : False,
 			'address' : (kw['ip'] if kw.has_key('ip') else None)
 			})

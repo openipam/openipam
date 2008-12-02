@@ -178,6 +178,7 @@ class LDAPInterface(BaseAuthInterface):
 		# FIXME: this should probably be in a try/except
 		#self.__conn.bind_s( self.__binddn, self.__bindpw,
 		#		self.__bind_type )
+		self.__conn.simple_bind_s( self.__binddn, self.__bindpw )
 		
 	def _search_ldap(self, username ):
 		"""

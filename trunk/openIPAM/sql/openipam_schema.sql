@@ -67,7 +67,8 @@ CREATE TABLE users_to_groups(
 	id				SERIAL PRIMARY KEY,
 	uid				integer NOT NULL REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	gid				integer NOT NULL REFERENCES groups(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	permissions		BIT(8)  NOT NULL REFERENCES permissions(id)  ON DELETE RESTRICT,
+	permissions		BIT(8)  NOT NULL REFERENCES permissions(id) ON DELETE RESTRICT,
+	host_permissions BIT(8) NOT NULL REFERENCES permissions(id) ON DELETE RESTRICT DEFAULT '00001111';
 	changed			timestamp DEFAULT NOW(),
 	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 	UNIQUE (uid, gid)
