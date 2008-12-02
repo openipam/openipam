@@ -67,7 +67,6 @@
 			<tbody>
 		<form action="" method="post">
 			#for $record in $dns:
-				$record<br /><br />
 				<tr class="info" id="$record.id">
 					#if $record.has_modify_perm:
 						<td><input name="name" id="name$record.id" class="name" type="text" value="$record.name" size="35"></td>
