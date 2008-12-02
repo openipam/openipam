@@ -496,7 +496,10 @@ class DBBaseInterface(object):
 		whereclause = []
 		
 		if id:
-			whereclause.append( obj.dns_records.c.id == id ) 
+			if type(id) is types.IntType:
+				whereclause.append( obj.dns_records.c.id == id )
+			elif type(id) is types.TupleType or type(id) is types.ListType:
+				whereclause.append( obj.dns_records.c.id.in_(id) )
 		if address:
 			whereclause.append( obj.dns_records.c.ip_content == address )
 		if tid:

@@ -24,23 +24,23 @@ function saveRecords() {
 	submitList = [];
 	
 	//loop through existing rows
-	rows = $('tr.info').each(function(){
-		temp_record = {};
+	rows = $('tr.info').each(function(){		
+		var temp_record = new Object();
 		
-		temp_record['id'] = $(this).attr('id');
+		temp_record.id = $(this).attr('id');
 
 		if($(this).find('input[name="delete"]:checked').val()){
-			temp_record['deleted'] = true;
+			temp_record.deleted = true;
 		}
 		else{
 			var name = $(this).find('input[name="name"]').val();
-			temp_record['name'] = name;
-			temp_record['tid'] = $(this).find('select[name="tid"]').val();
+			temp_record.name = name;
+			temp_record.tid = $(this).find('select[name="tid"]').val();
 			var content = $(this).find('input[name="content"]').val();
-			temp_record['content'] = content;
+			temp_record.content = content;
 		}
 		
-		if(temp_record['deleted'] || (name || content)){
+		if(temp_record.deleted || (name || content)){
 			submitList.push(temp_record);
 		}
 		
@@ -74,7 +74,7 @@ function saveRecords() {
 		url: "/ajax/ajax_change_dns_records",
 		data: submitList,
 		success: function(){
-			alert("Success");
+			//alert("Success");
 		}
 	});
 	
