@@ -13,5 +13,6 @@ ALTER TABLE users_to_groups ADD host_permissions BIT(8) NOT NULL REFERENCES perm
 DB schema changes for DNS record management:
 {{{
 UPDATE dns_types SET min_permissions = '00000000';
-UPDATE dns_types SET min_permissions = '00000100' WHERE id IN (1, 5, 12, 15, 16, 33);
+UPDATE dns_types SET min_permissions = '00000100' WHERE id IN (1, 5, 12, 16, 33);
+UPDATE dns_types SET min_permissions = '11111111' WHERE id IN (2, 6, 15);
 }}}
