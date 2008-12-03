@@ -34,7 +34,7 @@
 					<td id="ttl$i" class="ttl">86400</td>
 					<td>
 						<select name="tid" id="type$i" class="type">
-							#for $type in $dns_types:
+							#for $type in $dns_types_dropdown:
 								<option value="$type.id">$type.name</option>
 							#end for
 						</select>
@@ -74,7 +74,7 @@
 						<td>
 							<select name="tid" id="type$record.id" class="type">
 								#set selected = ''
-								#for $type in $dns_types:
+								#for $type in $dns_types_dropdown:
 									#if $record.type == $type.name:
 										#set selected = ' selected=""'
 									#end if
@@ -86,7 +86,6 @@
 						#set text_ip = $record.text_content if $record.text_content else $record.ip_content
 	
 						##TODO find better function to replace quotes
-	
 						#set text_ip = $text_ip.replace('"', '&quot;')
 						<td><input name="content" id="text$record.id" type="text" value="$text_ip" size="50"></td>
 					#else:
@@ -96,11 +95,14 @@
 						#set text_ip = $record.text_content if $record.text_content else $record.ip_content
 	
 						##TODO find better function to replace quotes
-	
 						#set text_ip = $text_ip.replace('"', '&quot;')
 						<td class="text-only">$text_ip</td>
 					#end if
+					#if $record.has_delete_perm:
 					<td><label><input id="deleteRow$record.id" name="delete" type="checkbox" onclick="deleteChecked($record.id)"> Delete</td></label>
+					#else
+					<td>&nbsp;</td>
+					#end if
 				</tr>
 			#end for
 				#for i in range(1, 11)
@@ -109,7 +111,7 @@
 					<td id="ttl$i" class="ttl">$record.ttl</td>
 					<td>
 						<select name="tid" id="type$i" class="type">
-							#for $type in $dns_types:
+							#for $type in $dns_types_dropdown:
 								<option value="$type.id">$type.name</option>
 							#end for
 						</select>

@@ -114,7 +114,7 @@ class DNS(BasePage):
 		values = {}
 		values['show_search_here'] = True
 		values['title'] = 'DNS Search Results'
-		values['dns_types'] = self.webservice.get_dns_types({ 'min_perms' : str(frontend.perms.READ), 'order_by' : 'name'  })
+		values['dns_types_dropdown'] = self.webservice.get_dns_types({ 'only_useable' : True, 'order_by' : 'name' })
 		
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/dns.tmpl'%frontend.static_dir, values=values)
 
@@ -137,11 +137,11 @@ class DNS(BasePage):
 		q = str(q).strip()
 		
 		values['search'] = q
-		values['dns_types'] = self.webservice.get_dns_types({ 'min_perms' : str(frontend.perms.READ), 'order_by' : 'name'  })
+		values['dns_types_dropdown'] = self.webservice.get_dns_types({ 'only_useable' : True, 'order_by' : 'name' })
 		
 		# Search by MAC if query is a hostname
 		if validation.is_fqdn(q):
-			host = self.webservice.get_hosts( { 'hostname' : q } )
+			host = self.webservice.get_hosts({ 'hostname' : q })
 			if host:
 				values['dns'] = self.get_dns( mac=host[0]['mac'] )
 		

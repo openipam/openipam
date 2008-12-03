@@ -583,15 +583,15 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_types( self, min_perms=None ):
+	def _get_dns_types( self, only_useable=False ):
 		"""
 		Returns all DNS resource record types
 		"""
 		
 		query = select([obj.dns_types])
 		
-		if min_perms is not None:
-			query = query.where( obj.dns_types.c.min_permissions.op('&')(str(min_perms)) == obj.dns_types.c.min_permissions )
+		if only_useable:
+			query = query.where( and_(not_(obj.dns_types.c.min_permissions == '00000000'), obj.dns_types.c.min_permissions.op('&')(str(self._min_perms)) == obj.dns_types.c.min_permissions))
 
 		return query
 
@@ -985,8 +985,6 @@ class DBBaseInterface(object):
 		@param records: a list of dictionaries of DNS records, or a list of DNS record names
 		'''
 		
-		# possible FIXME: This is EXtreeemely complex to do in the database, but eventually this
-
 		# Create a list of names, get the hosts who have those names, then get the permissions for those hosts
 		names = [row['name'] for row in records]
 
@@ -1003,8 +1001,7 @@ class DBBaseInterface(object):
 		domain_perms = domain_perms[0] if domain_perms else {}
 		
 		# Get the DNS types so that we can clear permissions to default if they can't read the type
-		# PHILOSOPHY OF DNS TYPE PERMISSIONS: if you can read it (00000100), you can use it
-		dns_types = self.get_dns_types( min_perms=perms.READ)
+		dns_types = self.get_dns_types( only_useable=True )
 		dns_type_perms = {}
 		# Have [ { 'id' : 0, 'name' : 'blah' }, ... ]
 		for type in dns_types:
