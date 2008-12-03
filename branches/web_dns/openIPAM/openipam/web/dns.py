@@ -79,10 +79,13 @@ class DNS(BasePage):
 		count = 0
 		dns_results = []
 		for record in dns_records:
-			if ( (cherrypy.session['show_a_records'] and record['tid'] == 1)
-			   and (cherrypy.session['show_ns'] and record['tid'] == 2)
-			   and (cherrypy.session['show_cnames'] and record['tid'] == 5) ):
-				dns_results.append(i)
+			if (cherrypy.session['show_a_records'] and record['tid'] == 1):
+				dns_results.append(record)
+			elif (cherrypy.session['show_ns'] and record['tid'] == 2):
+				dns_results.append(record)
+			elif (cherrypy.session['show_cnames'] and record['tid'] == 5):
+				dns_results.append(record)
+				
 			if (not cherrypy.session['show_a_records'] and not cherrypy.session['show_ns'] and not cherrypy.session['show_cnames']):
 				return dns_records
 			count += 1
