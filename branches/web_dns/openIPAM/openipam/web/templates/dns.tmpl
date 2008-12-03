@@ -84,6 +84,10 @@
 							</select>
 						</td>
 						#set text_ip = $record.text_content if $record.text_content else $record.ip_content
+						
+						#if $record.priority:
+							#set text_ip = '%s %s' % ($record.priority, $text_ip)
+						#end if
 	
 						##TODO find better function to replace quotes
 						#set text_ip = $text_ip.replace('"', '&quot;')
@@ -93,7 +97,11 @@
 						<td style="height: 34px;" class="ttl">$record.ttl</td>
 						<td class="text-only">$record.type</td>
 						#set text_ip = $record.text_content if $record.text_content else $record.ip_content
-	
+						
+						#if $record.priority:
+							#set text_ip = '%s %s' % ($record.priority, $text_ip)
+						#end if
+						
 						##TODO find better function to replace quotes
 						#set text_ip = $text_ip.replace('"', '&quot;')
 						<td class="text-only">$text_ip</td>
