@@ -1300,7 +1300,7 @@ class MainWebService(XMLRPCController):
 		"""
 		Change a set of DNS records.
 		
-		@param args[0]: a list of dictionaries of DNS records. For each DNS record dictionary, follow the following rules:
+		@param records: a list of dictionaries of DNS records. For each DNS record dictionary, follow the following rules:
 		- If the DNS record is new, no id should be present in the dictionary
 		- If it is deleted, a key of 'deleted' should be present with a value of true
 		- If the record has been edited, or has been left the same, just pass the dictionary
@@ -1310,9 +1310,9 @@ class MainWebService(XMLRPCController):
 		db = self.__check_session()
 		
 		# Begin transaction
-		db.begin_transation()
+		db._begin_transaction()
 		try:
-			(edited, deleted, new) = self.validate_dns_records( args )
+			(edited, deleted, new) = self.validate_dns_records( *args )
 		
 			for row in edited:
 				pass
@@ -1322,85 +1322,195 @@ class MainWebService(XMLRPCController):
 			for row in new:
 				pass
 			
-			if messages:
-				raise error.ListXMLRPCFault(messages)
 		except Exception, e:
 			# Raise required argument errors
-			db.rollback() #rollback transaction if there were errors
+			db._rollback() #rollback transaction if there were errors
 			raise
 	
 	@cherrypy.expose
 	def validate_dns_records(self, *args):
 		"""
 		Validate a set of DNS records
-		
 		@raise Exception( messages list ) if any errors occur
 		"""
 		
-		messages = []
-		kw = args[0]
-		
-		def validate_syntax(row):
+		def validate_syntax(row, new_record=False):
 			"""
 			Validate the syntax of both new rows and updated rows
 			@param row: a dictionary based on a dns_records table row
+			@param new_record: is this a new record or a changed one?
 			"""
+			
+			# TODO: make sure no records exist that have the same name as an added CNAME
+			# MOSTLYDONE: make sure required arguments exist (name, content, etc.)
+			# TODO: changed ip must already belong to another a-record in this zone
+			# TODO: priority handling
+			# TODO: update did on dns record change
+			
+			# Validate deleted rows have an id
+			if row.has_key('deleted'):
+				if not row.has_key('id'):
+					raise error.RequiredArgument("Deleted rows need to specify 'id' key. Row info: %s" % row)
+				else:
+					return
+			
+			# Validate row has a tid
+			if not row.has_key('tid'):
+				raise error.RequiredArgument("tid is required to validate a DNS record")
 			
 			# Validate records based on type
 			if row['tid'] in (15, 33): # MX or SRV records
-				# Make sure that priority was set
+				
+				if new_record and not row.has_key('priority'):
+					messages.append("Priority is required for MX and SRV records.")
+				else:
+					if not validation.is_mx_content(row['text_content'], contains_priority=False):
+						messages.append("Invalid content, use a fully qualified domain name: %s" % row['text_content'])
+						
 				if not row.has_key('priority'):
 					messages.append("Priority is required for MX and SRV records.")
+			
+			# Validate both name and content are present
+			if new_record and not row['tid'] == 1 and (not row.has_key('name') or not row.has_key('text_content')):
+				raise error.RequiredArgument("Name and content are required for new records.")
 		
-			# Validate records based on attributes
+			# Validate: Name
 			if row.has_key('name'):
-				#validation.is_fqdn(row['name'])
-				pass
+				# validate that each name is a fqdn. we are assuming that every name 'should' always be a fqdn...
+				if not validation.is_fqdn(row['name']):
+					messages.append("Invalid name, use a fully qualified domain name: %s" % row['name'] )
+			
+			# Validate: Text Content
 			if row.has_key('text_content'):
-				#find out what type it is
-				if row['tid'] in (2, 5, 15): # NS, CNAME
-					#validate.is_fqdn()
-					pass
-				elif row['tid'] == 33: # SRV
-					#validate (maybe?) "#number #number fqdn" 
-					pass
+				# NS, CNAME, PTR, MX
+				if row['tid'] in (2, 5, 12, 15) and not validation.is_fqdn(row['text_content']): 
+					messages.append("Invalid content, use a fully qualified domain name: %s" % row['text_content'])
+				# SOA
+				elif row['tid'] == 6 and not validation.is_soa(row['text_content']): 
+					messages.append("Invalid content, use properly formatted SOA content: %s" % row['text_content'])
+				# SRV
+				elif row['tid'] == 33 and not validation.is_srv(row['text_content']): 
+					messages.append("Invalid content, use properly formatted SRV content: %s" % row['text_content'])
 				else:
 					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
-			if row.has_key('ip_content'):
-				#validate.is_ip()
-				pass
+			
+			# Validate: IP Content
+			if row.has_key('ip_content') and not validation.is_ip(row['ip_content']):
+				messages.append("Invalid IP, use a properly formatted IP address: %s" % row['ip_content'])
+			
+			# Validate: TTL
 			if row.has_key('ttl'):
 				raise error.NotImplemented("Validation for changes in TTL values is not currently supported." )
-						
-		#get list of ids from form submission & get records
-		ids = [(row['id'] if row.has_key('id') else '') for row in form_submission]
-		result = self.__sanitize(db.get_dns_records(id = ids))
+			
+			
+		def transform_content(row):
+			"""
+			Transform content field from the form into either ip_content or text_content
+			@param row: row from the form
+			"""
+			
+			if(row['tid'] == 1):
+				row['ip_content'] = row.pop('content')
+			else:
+				row['text_content'] = row.pop('content')
 		
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		# Initialize blank lists
+		messages = []
+		edited = []
+		deleted = []
+		new = []
+		
+		# **** for testing purposes only ****
+		form_submission = [
+						   {'tid': '1', 'content': '129.123.28.154', 'id': '20464', 'name': 'hawkman.ser.usu.edu'}, 
+						   {'tid': '1', 'content': '127.0.0.0', 'name': 'tech.usu.edu' },
+						   {'tid': '2', 'content': '', 'name': 'ted.usu.edu' },
+						   { 'deleted' : True, 'id' : '20453' },
+						  ]
+		
+		#form_submission = args[0]
+		
+		# Retrieve list of ids from the form submission & call get records with those ids
+		ids = []
+		for row in form_submission:
+			if row.has_key('id'):
+				ids.append(row['id'])
+		
+		result = self.__sanitize(db.get_dns_records(id = ids))
+
 		# VALIDATE ARGUMENTS AND SYNTAX
-		for row in result: #loop over results from backend
-			for values in form_submission: #loop over results from form
-				if(not id): #new record
-					#check syntax for the row
-					#add to new records list
-					pass
-					break
-				elif(delete): #delete flag exists
-					#add to deleted list (not list?)
-					pass
-					break
-				elif row['id'] == values['id']:
+		for form_row in form_submission: #loop over results from form
+			# Type casting from strings to integers for some frontend form fields (i.e.: id, ttl, etc.)
+			for column in ('id', 'tid', 'priority', 'ttl', 'did'):
+				if form_row.has_key(column):
+					form_row[column] = int(form_row[column])
+			
+			# State: new record
+			if(not form_row.has_key('id')):
+				transform_content(form_row)
+				
+				# Make sure that priority was set, or set it if they passed it
+				if backend_row['tid'] != 1:
+						match = validation.is_mx_content(row['text_content'], contains_priority=True)
+						
+						if match:
+							# We have priority in the content
+						    form_row['priority'] = x.group(1)
+						    form_row['text_content'] = x.group(2)
+				   
+				validate_syntax(form_row, new_record=True)
+				new.append(form_row)
+				continue
+			
+			# State: deleted record
+			elif(form_row.has_key('deleted') and form_row['deleted']):
+				validate_syntax(form_row)
+				deleted.append(form_row['id'])
+				continue
+			
+			# State: changed record
+			for backend_row in result: 
+				if backend_row['id'] == form_row['id']:
 					#pass in tid always
-					tempDict = { 'tid' : row['tid']}
-					for column in row.keys(): #generic loop to go through each column
-						if (row[column] != values[column]): #TODO compare each dictionary's column to find changes
-							tempDict[column] = values[column] #what was this supposed to do?
+					changedRow = { 'id' : form_row['id'], 'tid' : backend_row['tid'] }
+					didChange = False
+					
+					#transform content into either ip_content or text_content
+					transform_content(form_row)
+					
+					# Make sure that priority was set, or set it if they passed it
+					if backend_row['tid'] != 1:
+						match = validation.is_mx_content(row['text_content'], contains_priority=True)
+						
+						if match:
+							# We have priority in the content
+						    form_row['priority'] = x.group(1)
+						    form_row['text_content'] = x.group(2)
+					
+					# Find out if the record has been edited and add it to the 'edited' list.
+					# Otherwise, no change has occurred, so we just leave it alone.
+					for column in form_row.keys():
+						if (backend_row[column] != form_row[column]):
+							changedRow[column] = form_row[column] 
+							didChange = True
+					
+					validate_syntax(changedRow)
+					
+					if didChange:
+						edited.append(changedRow)
+					
+					break
 						
 		# Raise syntax errors
 		if messages:
 			raise error.ListXMLRPCFault(messages)
 
 		# VALIDATE SEMANTICS
-		
+		# loop over each element of the three lists and check permissions
 			
 		# Raise semantic errors
 		if messages:
