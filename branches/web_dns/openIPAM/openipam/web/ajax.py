@@ -15,6 +15,10 @@ class AjaxTransport(BasePage, XMLRPCController):
 	This exposes the backend webservices to clients without the need for exposing
 	the backend server itself via firewall rules.
 	
+	You can do nested structures through an Ajax call by:
+		data: { 'json' : JSON.stringify(...some JSON object...) },
+	If 'json' is specified, all arguments to the function you are calling will be
+	the replaced with the value of the 'json' key (after it's decoded from JSON).
 	
 	Datetime note:
 	
@@ -74,6 +78,9 @@ class AjaxTransport(BasePage, XMLRPCController):
 		del self.__name
 		self.__name_lock.release()
 		function = getattr(self.webservice, name)
+		
+		if kw.has_key('json'):
+			kw = cjson.decode(kw['json'])
 		
 		result = function(kw)
 		

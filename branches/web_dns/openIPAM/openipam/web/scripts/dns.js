@@ -68,15 +68,13 @@ function saveRecords() {
 	}); // end newRows loop
 	
 	//sent list to webservice
-	console.log(submitList);
-	
-	$.ajax({
+	console.log($.ajax({
 		url: "/ajax/ajax_change_dns_records",
-		data: submitList,
+		data: { 'json' : JSON.stringify(submitList) },
 		success: function(){
 			//alert("Success");
 		}
-	});
+	}));
 	
 	return false;
 };

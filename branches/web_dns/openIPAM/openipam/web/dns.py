@@ -18,7 +18,7 @@ class DNS(BasePage):
 		BasePage.__init__(self)
 		
 		# Object for wrapping HTML into the template
-		self.__template = framework.Basics("dns", javascript=("/scripts/jquery/ui/jquery-ui-personalized.min.js", "/scripts/dns.js"))
+		self.__template = framework.Basics("dns", javascript=("/scripts/jquery/ui/jquery-ui-personalized.min.js", "/scripts/dns.js", "/scripts/json2.js"))
 	
 	#------------------------  Private Functions  ------------------------
 	
