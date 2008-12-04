@@ -2090,11 +2090,12 @@ class DBInterface( DBBaseInterface ):
 			'uid' : uid,
 			'gid' : gid,
 			'permissions' : permissions,
-			'changed_by' : self._uid
+			'changed_by' : self._uid,
+			'host_permissions' :  backend.default_host_permissions
 		}
 		
 		if host_permissions is not None:
-			values['host_permissions'] = host_permissions
+			values['host_permissions'] = str(host_permissions)
 		
 		query = obj.users_to_groups.insert( values )
 
