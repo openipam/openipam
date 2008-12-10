@@ -534,6 +534,10 @@ class MainWebService(XMLRPCController):
 			# If given an owners CSV string, make it a list
 			kw['owners'] = kw['owners_list'].split(',')
 			del kw['owners_list']
+			
+		# If new host and no owners, add me as the only owner
+		if not kw['editing'] and not kw.has_key('owners_list') and not kw['owners']:
+			kw['owners'] = [cherrypy.session['user']['username'],]
 		
 		if (not kw.has_key('mac')
 		or not kw.has_key('hostname')

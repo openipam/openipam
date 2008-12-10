@@ -586,6 +586,11 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration )
 
+	def do_add_user( self, arg ):
+		vals = self.get_from_user( [ ('username',), ('source',), ('min_perms',), ] )
+
+		self.iface.add_user( username=vals['username'], source=vals['source'], min_perms=vals['min_perms'] )
+
 	def do_add_dynamic_host( self, arg ):
 		vals = self.get_from_user( [ ('hostname',), ('mac',), ('owners','additional owners (space separated users or groups)'), ('pool','pool id',), ], defaults={ 'pool': 1, } )
 		hostname = vals['hostname']
