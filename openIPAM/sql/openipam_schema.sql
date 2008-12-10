@@ -42,10 +42,11 @@ CREATE TABLE users (
 	min_permissions	BIT(8) NOT NULL DEFAULT B'00000000' REFERENCES permissions(id) ON DELETE RESTRICT
 );
 
+-- FIXME: Trim this list down, we may not need the dhcp user 
 INSERT INTO users (username, source, min_permissions) VALUES ('admin', 1, B'11111111');
-INSERT INTO users (username, source, min_permissions) VALUES ('import', 1, B'00001111');
-INSERT INTO users (username, source, min_permissions) VALUES ('pdns', 1, B'00000000');
 INSERT INTO users (username, source, min_permissions) VALUES ('dhcp', 1, B'11111111');
+INSERT INTO users (username, source, min_permissions) VALUES ('auth', 1, B'11111111');
+INSERT INTO users (username, source, min_permissions) VALUES ('guest', 1, B'00000100');
 
 CREATE TABLE groups(
 	-- These groups are used for user groups, host groups, permissions, etc.

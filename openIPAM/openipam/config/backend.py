@@ -80,7 +80,7 @@ def get_pool_id(address):
 
 func_get_pool_id = get_pool_id
 
-auth_user = 'admin'
+auth_user = 'auth'
 guest_user = 'guest'
 
 from openipam_config.backend import *
