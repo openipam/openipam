@@ -535,10 +535,6 @@ class MainWebService(XMLRPCController):
 			kw['owners'] = kw['owners_list'].split(',')
 			del kw['owners_list']
 			
-		# If new host and no owners, add me as the only owner
-		if not kw['editing'] and not kw.has_key('owners_list') and not kw.has_key('owners'):
-			kw['owners'] = [cherrypy.session['user']['username'],]
-		
 		if (not kw.has_key('mac')
 		or not kw.has_key('hostname')
 		or not kw.has_key('domain')
@@ -573,7 +569,7 @@ class MainWebService(XMLRPCController):
 			messages.append('The specified hostname is invalid. Please use only letters, numbers, and dashes.')
 		if not kw['is_dynamic'] and kw.has_key('network') and kw['network'] and not validation.is_cidr(kw['network']):
 			messages.append('The specified network is invalid. Please give a valid network in CIDR notation.')
-		if kw.has_key('owners') and kw['owners'] and not kw['owners']:
+		if kw.has_key('owners') and not kw['owners']:
 			messages.append('At least one owner must be specified.')
 			
 		if kw['editing'] and not validation.is_mac(kw['old_mac']):
@@ -617,8 +613,7 @@ class MainWebService(XMLRPCController):
 		domain = domain[0]
 		
 		# Make the new hostname fully qualified
-		if not kw['editing'] or (kw['editing'] and kw['domain']
-						    	    	    	    and kw['hostname']):
+		if not kw['editing'] or (kw['editing'] and kw['domain'] and kw['hostname']):
 			kw['hostname'] = '%s.%s' % (kw['hostname'], domain['name'])
 			
 		# Make description NULL if blank string (for DB)
@@ -632,7 +627,8 @@ class MainWebService(XMLRPCController):
 				raise error.NotFound("The host you were editing was not found.")
 			old_host = old_host[0]
 		
-		if not backend.allow_non_admin_host_transfer:
+		# If we're not allowing non-admin host transfers, and you didn't specify add_host_to_my_group (or you did specify it, but it's False)
+		if not backend.allow_non_admin_host_transfer and (not kw.has_key('add_host_to_my_group') or (kw.has_key('add_host_to_my_group') and not kw['add_host_to_my_group'])):
 			has_min_admin_perms = Perms(cherrypy.session['user']['min_permissions']) & perms.ADMIN == perms.ADMIN
 			if not has_min_admin_perms:
 				# A normal user (non-admin and not in service group) cannot create a
@@ -648,7 +644,7 @@ class MainWebService(XMLRPCController):
 					if name in kw['owners']:
 						has_owner_group = True
 						break
-				
+					
 				if (kw.has_key('owners') and (not has_owner_group and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : backend.db_service_group_id } ))):
 					messages.append("You are not allowed to remove yourself from ownership of this host. However, you can assign other owners and have them remove you from this host.")
 		
