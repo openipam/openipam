@@ -539,6 +539,34 @@ class IPMCmdInterface( cmd.Cmd ):
 				for r in failed:
 					m,a,n,d = r
 					print '%s,%s,%s,%s' % (m,n,a,d)
+					
+	def do_assign_hosts( self, arg ):
+		mac = name = desc = address = None
+		fields = []
+		file = None
+		vals = self.get_from_user( [ ('username',), ('group_name',),] )
+		
+		hosts = self.iface.get_hosts(username=vals['username'])
+		
+		macs = [row['mac'] for row in hosts]
+		
+		failed = []
+		group = self.iface.get_groups(name=vals['group_name'])
+		
+		if not group:
+			raise Exception('Group not found: %s' % vals['group_name'])
+		
+		gid = group[0]['id']
+		
+		for mac in macs:
+			try:
+				self.iface.add_host_to_group(mac=mac, gid=gid)
+			except:
+				failed.append(mac)
+				
+		if failed:
+			print "\nThe following MAC addresses failed to insert:\n\t"
+			print '\n\t'.join(failed)
 
 	def do_add_static_host( self, arg ):
 		vals = self.get_from_user( [ ('hostname',), ('mac',), ('addr','address or CIDR network',),
