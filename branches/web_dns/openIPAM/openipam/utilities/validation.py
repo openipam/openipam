@@ -46,24 +46,13 @@ def is_hostname(string):
 	return re_hostname.search(string)
 
 
-def is_mx_content(string, contains_priority=True):
-	'''Validate an mx record's content field'''
+def is_srv_content(string):
+	'''
+	Validate an srv record's content field
+	Assumes priority has already been stripped out
+	'''
 	
-	if contains_priority:
-		re_mx = re.compile('^([0-9]{1,2}) (%s)$' % fqdn)
-	else:
-		re_mx = re.compile("^"+fqdn+"$")
-		
-	return re_mx.search(string)
-
-
-def is_srv_content(string, contains_priority=True):
-	'''Validate an srv record's content field'''
-	
-	if contains_priority:
-		re_srv = re.compile('^([0-9]{1,2}) \d+ \d+ (%s)$' % fqdn)
-	else:
-		re_srv = re.compile('^\d+ \d+ (%s)$' % fqdn)
+	re_srv = re.compile('^(\d+ \d+ %s)$' % fqdn)
 		
 	return re_srv.search(string)
 

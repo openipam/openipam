@@ -1040,7 +1040,7 @@ class DBBaseInterface(object):
 				perms_to_add = domain_name_perms[rr['name']] if domain_name_perms.has_key(rr['name']) else domain_name_perms[first_level_domain_name]
 				permissions[rr['id']] = str(Perms(permissions[rr['id']]) |  perms_to_add)
 				
-			# If they cannot READ the DNS type of this record, even if they have host
+			# If they cannot use the DNS type of this record, even if they have host
 			# or domain perms over it, then they cannot modify it 
 			if not dns_type_perms.has_key(rr['tid']):
 				permissions[rr['id']] = str(backend.db_default_min_permissions)
