@@ -115,36 +115,11 @@ class MainWebService(XMLRPCController):
 		@raise error.NoEmail: if an LDAP user authenticates successfully, but has no email address set
 		"""
 		
-		# FIXME: put most of this function into config/auth_sources.py
-		auth_interface_objects = auth_sources.interfaces
-		
 		try:
 			if not username or not password:
 				raise Exception()
 			
-			auth_interface = None
-	
-			# Loop through our authentication interfaces
-			for auth in auth_interface_objects:
-				try:
-					auth.verify(username)
-				
-					# If here, then the user exists in this auth source
-					# Save the right auth interface for use below
-					auth_interface = auth
-					break
-				except error.NotUser:
-					# If this user doesn't exist for this auth source, just move on
-					pass
-				except error.NoEmail:
-					# Raise an error if the backend auth requires email address to be set and it is not
-					raise
-			
-			if not auth_interface:
-				raise error.NotImplemented("No other authentication types implemented")
-				
-			# This will raise an exception if the password is wrong
-			user = auth_interface.authenticate(username, password.encode('utf8'))
+			user = auth_sources.authenticate(username, password)
 	
 			cherrypy.log('Successful login: %s' % str(user.__dict__), context='', severity=logging.DEBUG, traceback=False) 
 	
@@ -154,6 +129,8 @@ class MainWebService(XMLRPCController):
 			# Done!
 			return user.__dict__
 		except error.NoEmail:
+			# FIXME: it looks like the except below could be made to catch this one, so maybe we should get rid of this
+			cherrypy.log('Failed Login: User does not have Email address: %s' % str(user.__dict__), context='', severity=logging.DEBUG, traceback=False) 
 			raise
 		except Exception, e:
 			# Failed login!
@@ -171,6 +148,15 @@ class MainWebService(XMLRPCController):
 		# We should never get here
 		raise error.FatalException()
 	
+	@cherrypy.expose
+	def get_user_info(self, info):
+		if perms.DEITY & cherrypy.session['user']['min_permissions'] != perms.DEITY:
+			raise Exception('Insufficient permissions to look up user information.')
+		info = auth_sources.get_info( **info )
+		if info:
+			return info.__dict__
+		return None
+
 	@cherrypy.expose
 	def have_session(self):
 		try:
