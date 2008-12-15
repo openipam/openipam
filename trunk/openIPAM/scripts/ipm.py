@@ -14,8 +14,6 @@ import atexit
 import datetime
 import IPy
 
-sys.path.insert(0,'/home/esk/src/ipm/trunk/openIPAM')
-
 from openipam.web.resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
 
 histfile = os.path.join( os.environ['HOME'], '.openipam_history' )
@@ -26,8 +24,11 @@ class XMLRPCInterface(object):
 		self.__url = url
 		self.__user = username
 		self.__pass = password
+		ssl = True
+		if url[:5] == 'http:':
+			ssl = False
 		self.ipam = xmlrpclib.ServerProxy(self.__url,
-				transport=CookieAuthXMLRPCSafeTransport(),
+				transport=CookieAuthXMLRPCSafeTransport(ssl=ssl),
 				allow_none=True)
 		#self.ipam.login( self.__user, self.__pass )
 
@@ -134,7 +135,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		args = line.split()
 		arg_len = len(args)
 		if arg_len % 2:
-			print 'command requires an even number of arguments, got "%s" which has %s' % ( line, arg_len )
+			raise Exception('command requires an even number of arguments, got "%s" which has %s' % ( line, arg_len ) )
 		filter = {}
 		for i in range(arg_len/2):
 			base=2*i
@@ -166,7 +167,7 @@ class IPMCmdInterface( cmd.Cmd ):
 				name_l = len(record['name'])
 			if record['text_content'] and len(record['text_content']) > content_l:
 				content_l = len( record['text_content'] )
-		fmt_str = '\tname: %%(name)-%ds type: %%(type)-6s content: %%(content)-%ds prio: %%(priority)4s ttl: %%(ttl)5s id: %%(id)6s\n' % (name_l, content_l)
+		fmt_str = '\tname: %%(name)-%ds type: %%(type)-6s content: %%(content)-%ds prio: %%(priority)4s ttl: %%(ttl)5s view: %%(vid)5s id: %%(id)6s\n' % (name_l, content_l)
 		for record in dicts:
 			r = record.copy()
 			r['type'] = self.dns_ids[r['tid']]
@@ -202,6 +203,16 @@ class IPMCmdInterface( cmd.Cmd ):
 			self.show_dicts( result, [('mac','mac',),('reason','reason',),('disabled','disabled',),('disabled_by','disabled_by (uid)',), ], separator='--------\n' )
 		else:
 			print 'No hosts currently disabled.'
+	
+	def do_show_user( self, arg ):
+		username = arg.strip()
+		result = self.iface.get_user_info( username=username )
+		if result:
+			print 'User:'
+			print result
+			self.show_dicts( [result,], [('username','username',),('name','name',),('uid','user id (from db)',),('email','email address',), ], separator='--------\n' )
+		else:
+			print 'No such username: "%s"' % username
 	
 	def do_show_host( self, arg ):
 		filter = self.mkdict( arg )

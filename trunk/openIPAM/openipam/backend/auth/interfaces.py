@@ -1,4 +1,5 @@
 import ldap
+import thread
 
 from openipam.config import auth
 from openipam.config import backend
@@ -68,6 +69,19 @@ class InternalAuthInterface(BaseAuthInterface):
 		
 		return user, internal_auth_info[0]
 		
+	def __verify(self, username, password=(False,)):
+		(user, internal_auth_info) = self._search_internal(username)
+		if password is not (False,):
+			# Hash the user's password for comparison
+			hash = hash_password(password)
+			
+			# Compare the retrieved hashed password to the hashed password we were given
+			if internal_auth_info['hash'] != hash:
+				# "Invalid password: %s" % password
+				# ;)
+				raise error.InvalidCredentials("Invalid password for user: %s" % username)
+		return User(uid=user['id'], username=user['username'], name=internal_auth_info['name'], source=auth.sources.INTERNAL, min_perms=user['min_permissions'], email=internal_auth_info['email'])
+
 	def verify(self, username):
 		'''
 		Given a username, determine whether that user exists in this auth source
@@ -76,8 +90,7 @@ class InternalAuthInterface(BaseAuthInterface):
 		'''
 		if not username:
 			raise error.InvalidCredentials("Username not supplied")
-		
-		self._search_internal(username) 
+		return self.__verify(username)
 		
 	def authenticate( self, username, password ):
 		'''
@@ -89,22 +102,39 @@ class InternalAuthInterface(BaseAuthInterface):
 		@raise error.InvalidCredentials: will be raised if the credentials are wrong 
 		@return: a user object 
 		'''
-		
-		(user, internal_auth_info) = self._search_internal(username)
-		
-		# Hash the user's password for comparison
-		hash = hash_password(password)
-		
-		# Compare the retrieved hashed password to the hashed password we were given
-		if internal_auth_info['hash'] != hash:
-			# "Invalid password: %s" % password
-			# ;)
-			raise error.InvalidCredentials("Invalid password for user: %s" % username)
+		if not password:
+			raise error.InvalidCredentials("Password not supplied")
 		
 		# Authentication successful
-		return User(uid=user['id'], username=user['username'], name=internal_auth_info['name'], source=auth.sources.INTERNAL, min_perms=user['min_permissions'], email=internal_auth_info['email'])
+		return self.__verify(username, password)
 		
+class LockingWrapper(object):
+	def __init__( self, obj ):
+		# Make a lock
+		# store the object
+		self.obj_lock = thread.allocate_lock()
+		self.obj = obj
+		self.obj_fcn = None
+	def __getattr__( self, name ):
+		obj_fcn = getattr( self.obj, name )
+		# lock
+		self.obj_lock.acquire()
+		# set fcn
+		self.obj_fcn = obj_fcn
+		return self.__do_call_unlock
+	def __do_call_unlock( self, *args, **kw ):
+		# call fcn
+		try:
+			ret = self.obj_fcn( *args, **kw )
+		except:
+			self.obj_fcn = None
+			self.obj_lock.release()
+			raise
+		# unlock
+		self.obj_fcn = None
+		self.obj_lock.release()
 
+		return ret
 
 class LDAPInterface(BaseAuthInterface):
 	'''
@@ -163,7 +193,7 @@ class LDAPInterface(BaseAuthInterface):
 		
 		# If trace_level is set to 1, passwords and other info will be output to stdout ...
 		# don't do this unless you REALLY want to...which, if you do, I'd like to talk to you sometime
-		self.__conn = ldap.initialize( self.__uri, trace_level=0 )
+		self.__conn = LockingWrapper( obj = ldap.initialize( self.__uri, trace_level=0 ) )
 		
 		ldap.set_option( ldap.OPT_DEBUG_LEVEL, self.__debuglevel )
 		self.__conn.set_option( ldap.OPT_PROTOCOL_VERSION, ldap.VERSION3 )
@@ -222,24 +252,17 @@ class LDAPInterface(BaseAuthInterface):
 		else:
 			raise error.NotUser("User does not exist in the LDAP auth source.")
 		
-	def verify( self, username ):
-		'''
-		Given a username, determine whether a user exists by username in this auth source
-		@raise error.NotUser: raise when the user doesn't exist for this auth source
-		@return: nothing ... if no error is thrown, the user exists in this auth source
-		'''
-		
-		self._search_ldap(username)
-		# If no error, the user exists so we're done
-		
-	def authenticate( self, username, password ):
+	def __verify( self, username, password=(False,) ):
 		'''
 		Check to see that the password is correct for this user in this auth source
 		@raise error.InvalidCredentials: will be raised if the credentials are wrong 
 		@return: a user object 
 		'''
-		# Bind as this user, dies if unsuccessful
-		ldap_user = self.__bind_as( username, password )
+		if password != (False,):
+			# Bind as this user, dies if unsuccessful
+			ldap_user = self.__bind_as( username, password )
+		else:
+			ldap_user = self._search_ldap( username )
 		
 		if not ldap_user.has_key('email') or (ldap_user.has_key('email') and ldap_user['email'].strip() == ""):
 			if auth.ldap_require_email:
@@ -266,12 +289,17 @@ class LDAPInterface(BaseAuthInterface):
 		
 		return User(uid=our_user['id'], username=our_user['username'], name=ldap_user['name'], source=auth.sources.LDAP, min_perms=our_user['min_permissions'], email=ldap_user['email'] )
 			
+	def verify( self, username ):
+		'''
+		Given a username, determine whether a user exists by username in this auth source
+		@raise error.NotUser: raise when the user doesn't exist for this auth source
+		@return: nothing ... if no error is thrown, the user exists in this auth source
+		'''
+		return self.__verify(username)
 		
-	
 
-
-
-
-
-
-
+	def authenticate( self, username, password ):
+		if not password:
+			raise error.InvalidCredentials("Password not supplied")
+		return self.__verify( username, password )
+		
