@@ -38,11 +38,17 @@ def get_info( username ):
 
 def authenticate( username, password ):
 	info = auth.dbi.get_users(username=username)
+	
 	if not info and not auth.ldap_auto_create:
 		raise error.NotFound('User does not exist in DB.')
+	
 	auth_sources = [ i['source'] for i in info ]
+	
 	if auth.ldap_auto_create and auth.sources.LDAP not in auth_sources:
 			auth_sources.append( auth.sources.LDAP )
+			
+	auth_interface = None
+	
 	for src in auth_sources:
 		iface = interfaces[src]
 		try:
