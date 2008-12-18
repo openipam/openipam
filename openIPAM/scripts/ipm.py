@@ -562,6 +562,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		macs = [row['mac'] for row in hosts]
 		
 		failed = []
+		
 		group = self.iface.get_groups(name=vals['group_name'])
 		
 		if not group:
@@ -572,6 +573,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		for mac in macs:
 			try:
 				self.iface.add_host_to_group(mac=mac, gid=gid)
+				print "Added host: %s" % mac
 			except:
 				failed.append(mac)
 				

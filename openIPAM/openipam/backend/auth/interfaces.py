@@ -69,9 +69,11 @@ class InternalAuthInterface(BaseAuthInterface):
 		
 		return user, internal_auth_info[0]
 		
-	def __verify(self, username, password=(False,)):
+	def __verify(self, username, password=False):
+		
 		(user, internal_auth_info) = self._search_internal(username)
-		if password is not (False,):
+		
+		if password != False:
 			# Hash the user's password for comparison
 			hash = hash_password(password)
 			
@@ -80,6 +82,7 @@ class InternalAuthInterface(BaseAuthInterface):
 				# "Invalid password: %s" % password
 				# ;)
 				raise error.InvalidCredentials("Invalid password for user: %s" % username)
+		
 		return User(uid=user['id'], username=user['username'], name=internal_auth_info['name'], source=auth.sources.INTERNAL, min_perms=user['min_permissions'], email=internal_auth_info['email'])
 
 	def verify(self, username):
@@ -258,6 +261,7 @@ class LDAPInterface(BaseAuthInterface):
 		@raise error.InvalidCredentials: will be raised if the credentials are wrong 
 		@return: a user object 
 		'''
+		
 		if password != (False,):
 			# Bind as this user, dies if unsuccessful
 			ldap_user = self.__bind_as( username, password )
