@@ -37,15 +37,15 @@ def get_info( username ):
 	return None
 
 def authenticate( username, password ):
-	info = auth.dbi.get_users(username=username)
+	user = auth.dbi.get_users(username=username)
 	
-	if not info and not auth.ldap_auto_create:
-		raise error.NotFound('User does not exist in DB.')
+	if not user and not auth.ldap_auto_create:
+		raise error.NotUser('User does not exist in DB.')
 	
-	auth_sources = [ i['source'] for i in info ]
+	auth_sources = [ i['source'] for i in user ]
 	
 	if auth.ldap_auto_create and auth.sources.LDAP not in auth_sources:
-			auth_sources.append( auth.sources.LDAP )
+		auth_sources.append( auth.sources.LDAP )
 			
 	auth_interface = None
 	
@@ -61,9 +61,6 @@ def authenticate( username, password ):
 		except error.NotUser:
 			# If this user doesn't exist for this auth source, just move on
 			pass
-		except error.NoEmail:
-			# Raise an error if the backend auth requires email address to be set and it is not
-			raise
 	
 	if not auth_interface:
 		# FIXME: NotUser might be a better exception here
