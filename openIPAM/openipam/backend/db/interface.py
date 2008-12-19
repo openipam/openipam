@@ -1815,8 +1815,6 @@ class DBInterface( DBBaseInterface ):
 		a full insert of a registration for a host.
 		"""
 		
-		# FIXME: MAYBE make this function accept dns_records and add them all when registering the host ... this may be useful for the frontend
-		
 		expires = self._finalize_expires(expires=expires, expiration_format=expiration_format)
 		
 		# If this is a dynamic host and no pool is specified, use the default pool
