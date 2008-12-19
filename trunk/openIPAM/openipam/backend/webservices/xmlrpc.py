@@ -1525,6 +1525,7 @@ class MainWebService(XMLRPCController):
 				# No guest hosts registered yet:
 				hostname = hostname_fmt % '1'
 			
+			__guest_db._begin_transaction()
 			try:
 				__guest_db.register_host( mac = macaddr,
 								hostname = hostname,
@@ -1534,9 +1535,13 @@ class MainWebService(XMLRPCController):
 								add_host_to_my_group = False )
 				
 				# FIXME: it might be better to associate these with the owner of the ticket
-				__guest_db.add_host_to_group( mac = macaddr, gid=backend.default_guest_group_id )
+				# -- We'll probably need to do both, they should probably be in the guest group in any case
+				__guest_db.add_host_to_group( mac = macaddr, gid=backend.db_default_guest_group_id )
+				
+				__guest_db._commit()
 			except Exception, e:
-				raise error.AlreadyExists("MAC address already exists ... couldn't add guest host. Error was: %s" % e)
+				__guest_db._rollback()
+				raise error.AlreadyExists("MAC address may already exists ... couldn't add guest host. Error was: %s" % e)
 			
 			
 		else:
