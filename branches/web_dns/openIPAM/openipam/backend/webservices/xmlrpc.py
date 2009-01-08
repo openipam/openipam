@@ -30,6 +30,7 @@ import string
 import datetime
 import time
 import ldap
+import re
 
 from openipam.config import backend
 from openipam.config import auth
@@ -1342,9 +1343,7 @@ class MainWebService(XMLRPCController):
 			"""
 			
 			# TODO: make sure no records exist that have the same name as an added CNAME
-			# MOSTLYDONE: make sure required arguments exist (name, content, etc.)
 			# TODO: changed ip must already belong to another a-record in this zone
-			# TODO: priority handling
 			# TODO: update did on dns record change
 			
 			# Validate deleted rows have an id
@@ -1363,12 +1362,6 @@ class MainWebService(XMLRPCController):
 				
 				if new_record and not row.has_key('priority'):
 					messages.append("Priority is required for MX and SRV records.")
-				else:
-					if not validation.is_mx_content(row['text_content'], contains_priority=False):
-						messages.append("Invalid content, use a fully qualified domain name: %s" % row['text_content'])
-						
-				if not row.has_key('priority'):
-					messages.append("Priority is required for MX and SRV records.")
 			
 			# Validate both name and content are present
 			if new_record and not row['tid'] == 1 and (not row.has_key('name') or not row.has_key('text_content')):
@@ -1383,14 +1376,17 @@ class MainWebService(XMLRPCController):
 			# Validate: Text Content
 			if row.has_key('text_content'):
 				# NS, CNAME, PTR, MX
-				if row['tid'] in (2, 5, 12, 15) and not validation.is_fqdn(row['text_content']): 
-					messages.append("Invalid content, use a fully qualified domain name: %s" % row['text_content'])
+				if row['tid'] in (2, 5, 12, 15):
+					if not validation.is_fqdn(row['text_content']): 
+						messages.append("Invalid content, use a fully qualified domain name: %s" % row['text_content'])
 				# SOA
-				elif row['tid'] == 6 and not validation.is_soa(row['text_content']): 
-					messages.append("Invalid content, use properly formatted SOA content: %s" % row['text_content'])
+				elif row['tid'] == 6:
+					if not validation.is_soa_content(row['text_content']): 
+						messages.append("Invalid content, use properly formatted SOA content: %s" % row['text_content'])
 				# SRV
-				elif row['tid'] == 33 and not validation.is_srv(row['text_content']): 
-					messages.append("Invalid content, use properly formatted SRV content: %s" % row['text_content'])
+				elif row['tid'] == 33:
+					if not validation.is_srv_content(row['text_content']): 
+						messages.append("Invalid content, use properly formatted SRV content: %s" % row['text_content'])
 				else:
 					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
 			
@@ -1414,6 +1410,24 @@ class MainWebService(XMLRPCController):
 			else:
 				row['text_content'] = row.pop('content')
 		
+		def set_priority(row):
+			"""
+			Checks for priority and sets it if it exists
+			@param row: row from the form
+			"""
+			# Make sure that priority was set, or set it if they passed it
+			match = None
+			if row['tid'] != 1:
+				if row['tid'] == 15: # MX
+					match = re.compile('^([0-9]{1,2}) (.*)$').search(row['text_content'])
+				elif row['tid'] == 33: # SRV
+					match = re.compile('^([0-9]{1,2}) (\d+ \d+ .*)$').search(row['text_content'])
+				
+				if match:
+					# We have priority in the content
+				    row['priority'] = match.group(1)
+				    row['text_content'] = match.group(2)
+		
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
@@ -1424,23 +1438,28 @@ class MainWebService(XMLRPCController):
 		deleted = []
 		new = []
 		
-		# **** for testing purposes only ****
-		form_submission = [
-						   {'tid': '1', 'content': '129.123.28.154', 'id': '20464', 'name': 'hawkman.ser.usu.edu'}, 
-						   {'tid': '1', 'content': '127.0.0.0', 'name': 'tech.usu.edu' },
-						   {'tid': '2', 'content': '', 'name': 'ted.usu.edu' },
-						   { 'deleted' : True, 'id' : '20453' },
-						  ]
-		
-		#form_submission = args[0]
+		form_submission = args[0]
 		
 		# Retrieve list of ids from the form submission & call get records with those ids
 		ids = []
 		for row in form_submission:
+			print '$$$'
+			print row
 			if row.has_key('id'):
 				ids.append(row['id'])
+				
+		print '###'
+		print ids
+		
+		del row
 		
 		result = self.__sanitize(db.get_dns_records(id = ids))
+		
+		print '%%%'
+		print result
+		
+		perms = db.find_permissions_for_dns_records([row['name'] for row in result] + [row['name'] for row in new])
+		#perms = db.find_permissions_for_dns_records([row['name'] for row in result])
 
 		# VALIDATE ARGUMENTS AND SYNTAX
 		for form_row in form_submission: #loop over results from form
@@ -1451,17 +1470,12 @@ class MainWebService(XMLRPCController):
 			
 			# State: new record
 			if(not form_row.has_key('id')):
+				#transform content into either ip_content or text_content
 				transform_content(form_row)
 				
-				# Make sure that priority was set, or set it if they passed it
-				if backend_row['tid'] != 1:
-						match = validation.is_mx_content(row['text_content'], contains_priority=True)
-						
-						if match:
-							# We have priority in the content
-						    form_row['priority'] = x.group(1)
-						    form_row['text_content'] = x.group(2)
-				   
+				#check for priority and set it if it exists
+				set_priority(form_row)
+				
 				validate_syntax(form_row, new_record=True)
 				new.append(form_row)
 				continue
@@ -1482,14 +1496,8 @@ class MainWebService(XMLRPCController):
 					#transform content into either ip_content or text_content
 					transform_content(form_row)
 					
-					# Make sure that priority was set, or set it if they passed it
-					if backend_row['tid'] != 1:
-						match = validation.is_mx_content(row['text_content'], contains_priority=True)
-						
-						if match:
-							# We have priority in the content
-						    form_row['priority'] = x.group(1)
-						    form_row['text_content'] = x.group(2)
+					#check for priority and set it if it exists
+					set_priority(form_row)
 					
 					# Find out if the record has been edited and add it to the 'edited' list.
 					# Otherwise, no change has occurred, so we just leave it alone.
@@ -1511,7 +1519,12 @@ class MainWebService(XMLRPCController):
 
 		# VALIDATE SEMANTICS
 		# loop over each element of the three lists and check permissions
-			
+		
+		# perms = { 'hawkman.ser.usu.edu' : '00001111', ... }
+		
+		for row in deleted:
+			perms[row['name']]
+		
 		# Raise semantic errors
 		if messages:
 			db.rollback() #rollback transaction if there were errors

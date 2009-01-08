@@ -985,8 +985,19 @@ class DBBaseInterface(object):
 		@param records: a list of dictionaries of DNS records, or a list of DNS record names
 		'''
 		
-		# Create a list of names, get the hosts who have those names, then get the permissions for those hosts
-		names = [row['name'] for row in records]
+		print '&&&'
+		print records
+		
+		if not records:
+			return {}
+		
+		if isinstance(records[0], dict):
+			# Create a list of names, get the hosts who have those names, then get the permissions for those hosts
+			names = [row['name'] for row in records]
+		elif isinstance(records[0], str):
+			names = records
+		else:
+			raise error.NotImplemented("Please supply list of dictionaries or a list of strings. Type given: %s" % type(records[0]))
 
 		hosts = self.get_hosts( hostname=names )
 		
