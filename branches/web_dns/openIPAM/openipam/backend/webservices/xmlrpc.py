@@ -1274,10 +1274,10 @@ class MainWebService(XMLRPCController):
 	@cherrypy.expose
 	def find_permissions_for_dns_records(self, *args):
 		"""
-		Returns a dictionary of { domain ID : permissions bitstring } 
+		Returns a dictionary of { dns record : permissions bitstring } 
 		for this user's overall permissions on the hosts
 		
-		@param args[0]['domains']: a list of domain IDs, or a list of dictionaries of domains that have an 'id' key
+		@param args[0]['domains']: a list of DNS record IDs, or a list of dictionaries of DNS records that have an 'id' key
 		"""
 		
 		# Check permissions -- do this in every exposed function
@@ -1441,26 +1441,23 @@ class MainWebService(XMLRPCController):
 		form_submission = args[0]
 		
 		# Retrieve list of ids from the form submission & call get records with those ids
-		ids = []
-		for row in form_submission:
-			print '$$$'
-			print row
-			if row.has_key('id'):
-				ids.append(row['id'])
-				
-		print '###'
-		print ids
-		
+		ids = [row['id'] for row in form_submission if row.has_key('id')]
+
+		# Wow ... for loop vars don't fall out of scope
 		del row
 		
-		result = self.__sanitize(db.get_dns_records(id = ids))
+		result = self.__sanitize(db.get_dns_records(id=ids))
+		new_records = [row for row in form_submission if not row.has_key('id')]
 		
-		print '%%%'
-		print result
+		id_perms = db.find_permissions_for_dns_records(result)
+		id_perms = id_perms[0] if id_perms else {}
 		
-		perms = db.find_permissions_for_dns_records([row['name'] for row in result] + [row['name'] for row in new])
-		#perms = db.find_permissions_for_dns_records([row['name'] for row in result])
-
+		fqdn_perms = db.find_domain_permissions_for_fqdns([row['name'] for row in new_records])
+		fqdn_perms = fqdn_perms[0] if fqdn_perms else {}
+		
+		dns_type_perms = db.get_dns_types(only_useable=True)
+		dns_type_perms = dns_type_perms[0] if dns_type_perms else {}
+		
 		# VALIDATE ARGUMENTS AND SYNTAX
 		for form_row in form_submission: #loop over results from form
 			# Type casting from strings to integers for some frontend form fields (i.e.: id, ttl, etc.)
@@ -1469,7 +1466,7 @@ class MainWebService(XMLRPCController):
 					form_row[column] = int(form_row[column])
 			
 			# State: new record
-			if(not form_row.has_key('id')):
+			if not form_row.has_key('id'):
 				#transform content into either ip_content or text_content
 				transform_content(form_row)
 				
@@ -1478,10 +1475,16 @@ class MainWebService(XMLRPCController):
 				
 				validate_syntax(form_row, new_record=True)
 				new.append(form_row)
+				
+				# VALIDATE SEMANTICS & PERMISSIONS
+				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
+				and (dns_type_perms.has_key(form_row['tid']))):
+					messages.append('Insufficient permissions to add record %s' % form_row['name'])
+				
 				continue
 			
 			# State: deleted record
-			elif(form_row.has_key('deleted') and form_row['deleted']):
+			elif form_row.has_key('deleted') and form_row['deleted']:
 				validate_syntax(form_row)
 				deleted.append(form_row['id'])
 				continue
@@ -1517,13 +1520,13 @@ class MainWebService(XMLRPCController):
 		if messages:
 			raise error.ListXMLRPCFault(messages)
 
-		# VALIDATE SEMANTICS
-		# loop over each element of the three lists and check permissions
-		
-		# perms = { 'hawkman.ser.usu.edu' : '00001111', ... }
-		
-		for row in deleted:
-			perms[row['name']]
+#		# VALIDATE SEMANTICS
+#		# loop over each element of the three lists and check permissions
+#		
+#		# perms = { 'hawkman.ser.usu.edu' : '00001111', ... }
+#		
+#		for row in deleted:
+#			id_perms[row['id']]
 		
 		# Raise semantic errors
 		if messages:

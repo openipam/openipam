@@ -980,82 +980,98 @@ class DBBaseInterface(object):
 	def find_permissions_for_dns_records(self, records):
 		'''
 		Returns a dictionary of { DNS record ID : permissions bitstring } 
-		for this user's overall permissions on the DNS records
+		for this user's overall permissions on the DNS records.
 		
 		@param records: a list of dictionaries of DNS records, or a list of DNS record names
 		'''
 		
-		print '&&&'
-		print records
-		
 		if not records:
-			return {}
+			return [{}]
 		
 		if isinstance(records[0], dict):
-			# Create a list of names, get the hosts who have those names, then get the permissions for those hosts
+			# Create a list of names
 			names = [row['name'] for row in records]
-		elif isinstance(records[0], str):
-			names = records
 		else:
-			raise error.NotImplemented("Please supply list of dictionaries or a list of strings. Type given: %s" % type(records[0]))
+			raise error.NotImplemented("Please supply a list of DNS records as dictionaries.")
 
+		# Get the hosts who have names from above, then get the permissions for those hosts
 		hosts = self.get_hosts( hostname=names )
-		
 		host_perms = self.find_permissions_for_hosts( hosts, alternate_perms_key=obj.hosts.c.hostname )
-		
 		host_perms = host_perms[0] if host_perms else {}
 
-		# Get the domains who have those names, then get the permissions for those domains
-		domains = self.get_domains( contains=names )
-		domain_perms = self.find_permissions_for_domains( domains )
-		
-		domain_perms = domain_perms[0] if domain_perms else {}
-		
+		# Get the domain permissions for these names
+		fqdn_perms = self.find_domain_permissions_for_fqdns(names=names)
+		fqdn_perms = fqdn_perms[0] if fqdn_perms else {}
+
 		# Get the DNS types so that we can clear permissions to default if they can't read the type
 		dns_types = self.get_dns_types( only_useable=True )
 		dns_type_perms = {}
 		# Have [ { 'id' : 0, 'name' : 'blah' }, ... ]
 		for type in dns_types:
 			dns_type_perms[type['id']] = type
-		# Now have { 0 : { ... dns dict ... }, 12 : { ... dns dict ... } ... }
+			# Now have { 0 : { ... dns dict ... }, 12 : { ... dns dict ... } ... }
 		
+		# Time to make the final permission set...
 		permissions = {}
 		
 		# Initialize the permissions dictionary with my min_perms to GUARANTEE a result for every record input
 		for rr in records:
 			permissions[rr['id']] = str(self._min_perms)
 		
-		# Turn the domain_perms from { domain ID : permissions } into { name : permissions } so that we can do O(1) lookups
-		domain_name_perms = {}
-		for id in domain_perms:
-			# Hmm ... can we do this better than O(n^2)? probably...
-			
-			# Search through the hosts for this ID and, when found, take the name and
-			# add that to domain_name_perms with the ID's original permissions
-			for domain in domains:
-				if domain['id'] == id:
-					# We found the correct row, strip the name out and add it to the domain_name_perms dictionary
-					domain_name_perms[domain['name']] = domain_perms[id]
-					break
-				
 		for rr in records:
 			# For every record that was a host, add that permission set to the final result
-			
 			if host_perms.has_key(rr['name']):
-				permissions[rr['id']] = str(Perms(permissions[rr['id']]) |  host_perms[rr['name']])
-			
-			first_level_domain_name = '.'.join(rr['name'].split('.')[1:])
+				permissions[rr['id']] = str(Perms(permissions[rr['id']]) | host_perms[rr['name']])
 
 			# For every record that was a domain, or had permissions via a domain, add in those permissions
-			if domain_name_perms.has_key(rr['name']) or domain_name_perms.has_key( first_level_domain_name ):
-				perms_to_add = domain_name_perms[rr['name']] if domain_name_perms.has_key(rr['name']) else domain_name_perms[first_level_domain_name]
-				permissions[rr['id']] = str(Perms(permissions[rr['id']]) |  perms_to_add)
+			if fqdn_perms.has_key(rr['name']):
+				permissions[rr['id']] = str(Perms(permissions[rr['id']]) | fqdn_perms[rr['name']])
 				
 			# If they cannot use the DNS type of this record, even if they have host
 			# or domain perms over it, then they cannot modify it 
 			if not dns_type_perms.has_key(rr['tid']):
 				permissions[rr['id']] = str(backend.db_default_min_permissions)
 
+		return [permissions]
+	
+	def find_domain_permissions_for_fqdns(self, names):
+		'''
+		Get the permissions for a set of fully-qualified domain names based
+		on the domain of each name. This must be combined (later, in any view)
+		with DNS type permissions for the "complete" permissions over any
+		DNS record.
+		
+		@param records: a list of fully-qualified domain names
+		@return: { 'dns.record.name' : permissions bitstring, ... }
+		'''
+		
+		if not names:
+			return [{}]
+		
+		# Get the domains who have those names, then get the permissions for those domains
+		domains = self.get_domains( contains=names )
+		domain_perms = self.find_permissions_for_domains( domains )
+		
+		domain_perms = domain_perms[0] if domain_perms else {}
+		
+		permissions = {}
+		
+		# Initialize the permissions dictionary with my min_perms to GUARANTEE a result for every record input
+		for name in names:
+			permissions[name] = str(self._min_perms)
+		
+		# Turn the domain_perms from { domain ID : permissions } into { name : permissions } so that we can do O(1) lookups
+		domain_name_perms = self.find_permissions_for_domains( domains, alternate_perms_key=obj.domains.c.name )
+		domain_name_perms = domain_name_perms[0] if domain_name_perms else {}
+		
+		for name in names:
+			first_level_domain_name = '.'.join(name.split('.')[1:])
+
+			# For every name, add in the domain permissions over that name
+			if domain_name_perms.has_key(name) or domain_name_perms.has_key(first_level_domain_name):
+				perms_to_add = domain_name_perms[name] if domain_name_perms.has_key(name) else domain_name_perms[first_level_domain_name]
+				permissions[name] = str(Perms(permissions[name]) | perms_to_add)
+				
 		return [permissions]
 	
 	def _get_hosts_to_groups( self, mac=None, gid=None ):
