@@ -1316,13 +1316,29 @@ class MainWebService(XMLRPCController):
 			(edited, deleted, new) = self.validate_dns_records( *args )
 		
 			for row in edited:
-				pass
+				db.del_dns_record(rid=row['id'])
+				db.add_dns_record(
+					name=row['name'],
+					tid=row['tid'],
+					ip_content=row['ip_content'],
+					text_content=row['text_content'],
+					priority=row['priority'],
+					vid=row['vid']
+				)
 			
-			# Delete DNS records (pass all IDs to del_dns_records)
+			for id in deleted:
+				db.del_dns_record(rid=id)
 			
 			for row in new:
-				pass
+				db.add_dns_record(
+					name=row['name'],
+					tid=row['tid'],
+					ip_content=row.get('ip_content', None),
+					text_content=row.get('text_content', None),
+					priority=row.get('priority', None)
+				)
 			
+			db._commit()
 		except Exception, e:
 			# Raise required argument errors
 			db._rollback() #rollback transaction if there were errors
@@ -1343,8 +1359,7 @@ class MainWebService(XMLRPCController):
 			"""
 			
 			# TODO: make sure no records exist that have the same name as an added CNAME
-			# TODO: changed ip must already belong to another a-record in this zone
-			# TODO: update did on dns record change
+			# TODO: changed ip can only be changed to a static address
 			
 			# Validate deleted rows have an id
 			if row.has_key('deleted'):
@@ -1398,7 +1413,6 @@ class MainWebService(XMLRPCController):
 			if row.has_key('ttl'):
 				raise error.NotImplemented("Validation for changes in TTL values is not currently supported." )
 			
-			
 		def transform_content(row):
 			"""
 			Transform content field from the form into either ip_content or text_content
@@ -1428,7 +1442,6 @@ class MainWebService(XMLRPCController):
 				    row['priority'] = match.group(1)
 				    row['text_content'] = match.group(2)
 		
-		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
@@ -1455,8 +1468,7 @@ class MainWebService(XMLRPCController):
 		fqdn_perms = db.find_domain_permissions_for_fqdns([row['name'] for row in new_records])
 		fqdn_perms = fqdn_perms[0] if fqdn_perms else {}
 		
-		dns_type_perms = db.get_dns_types(only_useable=True)
-		dns_type_perms = dns_type_perms[0] if dns_type_perms else {}
+		dns_type_perms = self.get_dns_types({ 'only_useable' : True, 'make_dictionary' : True })
 		
 		# VALIDATE ARGUMENTS AND SYNTAX
 		for form_row in form_submission: #loop over results from form
@@ -1465,7 +1477,7 @@ class MainWebService(XMLRPCController):
 				if form_row.has_key(column):
 					form_row[column] = int(form_row[column])
 			
-			# State: new record
+			# STATE: new record
 			if not form_row.has_key('id'):
 				#transform content into either ip_content or text_content
 				transform_content(form_row)
@@ -1478,23 +1490,27 @@ class MainWebService(XMLRPCController):
 				
 				# VALIDATE SEMANTICS & PERMISSIONS
 				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
-				and (dns_type_perms.has_key(form_row['tid']))):
+				and (dns_type_perms.has_key(str(form_row['tid'])))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 				
 				continue
 			
-			# State: deleted record
+			# STATE: deleted record
 			elif form_row.has_key('deleted') and form_row['deleted']:
 				validate_syntax(form_row)
 				deleted.append(form_row['id'])
+				
+				# VALIDATE SEMANTICS & PERMISSIONS
+				if not (Perms(id_perms[form_row['id']]) & perms.DELETE == perms.DELETE):
+					messages.append('Insufficient permissions to delete record %s' % form_row['name'])
 				continue
 			
-			# State: changed record
+			# STATE: changed record
 			for backend_row in result: 
 				if backend_row['id'] == form_row['id']:
 					#pass in tid always
-					changedRow = { 'id' : form_row['id'], 'tid' : backend_row['tid'] }
-					didChange = False
+					changed_row = { 'id' : form_row['id'], 'tid' : backend_row['tid'] }
+					did_change = False
 					
 					#transform content into either ip_content or text_content
 					transform_content(form_row)
@@ -1506,33 +1522,26 @@ class MainWebService(XMLRPCController):
 					# Otherwise, no change has occurred, so we just leave it alone.
 					for column in form_row.keys():
 						if (backend_row[column] != form_row[column]):
-							changedRow[column] = form_row[column] 
-							didChange = True
+							changed_row[column] = form_row[column] 
+							did_change = True
 					
-					validate_syntax(changedRow)
+					validate_syntax(changed_row)
 					
-					if didChange:
-						edited.append(changedRow)
+					if did_change:
+						# Since we delete and then re-add, we must have all attributes of the old record
+						backend_row.update(changed_row)
+						edited.append(backend_row)
+						
+						# VALIDATE SEMANTICS & PERMISSIONS
+						if not (Perms(id_perms[form_row['id']]) & perms.MODIFY == perms.MODIFY):
+							messages.append('Insufficient permissions to modify record %s' % form_row['name'])
 					
 					break
 						
-		# Raise syntax errors
+		# Raise syntax & semantic errors errors
 		if messages:
 			raise error.ListXMLRPCFault(messages)
 
-#		# VALIDATE SEMANTICS
-#		# loop over each element of the three lists and check permissions
-#		
-#		# perms = { 'hawkman.ser.usu.edu' : '00001111', ... }
-#		
-#		for row in deleted:
-#			id_perms[row['id']]
-		
-		# Raise semantic errors
-		if messages:
-			db.rollback() #rollback transaction if there were errors
-			raise error.ListXMLRPCFault(messages)
-		
 		return (edited, deleted, new)
 	
 	@cherrypy.expose

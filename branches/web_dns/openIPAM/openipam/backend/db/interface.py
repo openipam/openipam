@@ -982,17 +982,16 @@ class DBBaseInterface(object):
 		Returns a dictionary of { DNS record ID : permissions bitstring } 
 		for this user's overall permissions on the DNS records.
 		
-		@param records: a list of dictionaries of DNS records, or a list of DNS record names
+		@param records: a list of dictionaries of DNS records
 		'''
 		
 		if not records:
 			return [{}]
 		
-		if isinstance(records[0], dict):
-			# Create a list of names
+		try:
 			names = [row['name'] for row in records]
-		else:
-			raise error.NotImplemented("Please supply a list of DNS records as dictionaries.")
+		except Exception, e:
+			raise error.NotImplemented("You likely did not supply a list of dictionaries of DNS records. Error was: %s" % e)
 
 		# Get the hosts who have names from above, then get the permissions for those hosts
 		hosts = self.get_hosts( hostname=names )
@@ -2342,7 +2341,15 @@ class DBInterface( DBBaseInterface ):
 		
 		# If MAC is not specified, require DEITY
 		if not mac:
-			self.require_perms(perms.DEITY)
+			records = self.get_dns_records(id=rid)
+			
+			if not records:
+				raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
+			
+			id_perms = self.find_permissions_for_dns_records(records)[0]
+			
+			if Perms(id_perms[rid]) & perms.DELETE != perms.DELETE:
+				raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, records[0]['name']))
 		else:
 			# Require DELETE permissions if MAC is specified
 			self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
@@ -2840,9 +2847,10 @@ class DBInterface( DBBaseInterface ):
 		@param old_address: the old IP address
 		@param address: the new IP address
 		"""
-		
-		# FIXME: implement updating of other RR types
 
+		# TODO: Update did on record change
+
+		# FIXME: implement updating of other RR types
 		# If MAC is not specified, require DEITY
 		if not mac:
 			self.require_perms(perms.DEITY)
