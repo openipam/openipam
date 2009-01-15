@@ -150,7 +150,7 @@ class MainWebService(XMLRPCController):
 	
 	@cherrypy.expose
 	def get_user_info(self, info):
-		if perms.DEITY & cherrypy.session['user']['min_permissions'] != perms.DEITY:
+		if perms.ADMIN & cherrypy.session['user']['min_permissions'] != perms.DEITY:
 			raise Exception('Insufficient permissions to look up user information.')
 		info = auth_sources.get_info( **info )
 		if info:
