@@ -91,31 +91,13 @@ if frontend.proxied:
 
 # parse command line options
 parser = OptionParser()
-parser.add_option("-a","--all",action="store_true",dest="start_all",help="Run both the backend and the web interface. This option is default.")
-parser.add_option("-b","--backend",action="store_true",dest="start_backend",help="Run only the backend system and webservices.")
-parser.add_option("-w","--web",action="store_true",dest="start_web",help="Run only the web interface.")
 parser.add_option("-v","--version",action="store_true",dest="version",help="Print the version and exit.")
-parser.add_option("-f","--nofork",action="store_true",dest="nofork",help="Do not become a daemon.")
 parser.add_option("-d","--daemon",action="store_true",dest="daemon",help="Start program as a daemon.")
 parser.add_option("-s","--signals",action="store_true",dest="signals",help="Use signal processing code.")
 
 parser.add_option("-p","--pidfile",action="store",type='string',dest="pidfile",help="Use the given filename to store the PID of the server.")
 
 (options,args) = parser.parse_args()
-
-if not (options.start_all or options.start_backend or options.start_web):
-	msg = "No startup flag specified ... assuming default of --all"
-	cherrypy.log(msg, context='', severity=logging.DEBUG, traceback=False) 
-	options.start_all = True
-elif options.start_all and (options.start_backend or options.start_web):
-	msg = "Cannot mix --all argument with --backend or --web"
-	cherrypy.log(msg, context='', severity=logging.FATAL, traceback=False) 
-	os._exit(-1)
-elif options.start_backend and options.start_web:
-	msg = "Cannot mix --backend argument with --web"
-	cherrypy.log(msg, context='', severity=logging.FATAL, traceback=False) 
-	os._exit(-1)
-	
 
 if (options.version):
 	print "%s version %s" % (__progname__,__version__)
@@ -125,10 +107,7 @@ if (options.version):
 start_daemon = False
 process_signals = False
 	
-if (options.nofork):
-	start_daemon = False
-if (options.daemon):
-	start_daemon = True
+start_daemon = options.daemon
 
 if (options.signals):
 	process_signals = True
@@ -178,7 +157,7 @@ if __name__ == '__main__':
 	if (start_daemon):
 		print "Starting in daemon mode."
 
-		daemon.daemonize(start_server,pidfile)
+		daemon.daemonize(start_server, pidfile)
 	else:
 		print "Starting in foreground mode."
 		print "Starting %s version %s on port %s" % (__progname__,__version__,cp_settings['global']['server.socket_port'])
