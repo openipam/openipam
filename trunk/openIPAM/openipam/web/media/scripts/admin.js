@@ -19,6 +19,7 @@ function restoreUserRemove( id ) {
 function removeUser( id ){
 	$.ajax({
 		url: "/ajax/ajax_del_user_from_group/?uid="+id+"&gid="+$('input#gid').val(),
+		type: "GET",
 		success: function() {
 				$("#user" + id).remove();
 			}
@@ -28,6 +29,7 @@ function removeUser( id ){
 function addUserToGroup( uid, permissions ){
 	$.ajax({
 		url: "/ajax/ajax_add_user_to_group/?uid="+uid+"&gid="+$('input#gid').val()+"&permissions="+permissions,
+		type: "GET",
 		success: function() {
 			$("#add" + uid).after('Done').remove();
 		}
@@ -58,6 +60,7 @@ function restoreDomainRemove( id ) {
 function removeDomain( id ){
 	$.ajax({
 		url: "/ajax/ajax_del_domain_from_group/?did="+id+"&gid="+$('input#gid').val(),
+		type: "GET",
 		success: function() {
 				$("#domain" + id).remove();
 			}
@@ -67,6 +70,7 @@ function removeDomain( id ){
 function addDomainToGroup( did, pid ){
 	$.ajax({
 		url: "/ajax/ajax_add_domain_to_group/?did="+did+"&gid="+$('input#gid').val(),
+		type: "GET",
 		success: function() {
 			$("#add" + did).after('Done').remove();
 		}
@@ -91,6 +95,7 @@ function restoreNetworkRemove( id ) {
 function removeNetwork( id ){
 	$.ajax({
 		url: "/ajax/ajax_del_network_from_group/?nid="+id+"&gid="+$('input#gid').val(),
+		type: "GET",
 		success: function() {
 				$("#network" + id).remove();
 			}
@@ -100,6 +105,7 @@ function removeNetwork( id ){
 function addNetworkToGroup( nid, pid ){
 	$.ajax({
 		url: "/ajax/ajax_add_network_to_group/?nid="+nid+"&gid="+$('input#gid').val(),
+		type: "GET",
 		success: function() {
 			$("#add" + nid).after('Done').remove();
 		}
@@ -123,6 +129,7 @@ function restoreHostRemove( mac ) {
 function removeHost( mac ){
 	$.ajax({
 		url: "/ajax/ajax_del_host_from_group/?mac="+mac+"&gid="+$('input#gid').val(),
+		type: "GET",
 		success: function() {
 				$("#host" + mac).remove();
 			}
@@ -131,6 +138,7 @@ function removeHost( mac ){
 
 function addHostToGroup( mac ){
 	$.ajax({
+		type: "GET",
 		url: "/ajax/ajax_add_host_to_group/?mac="+mac+"&gid="+$('input#gid').val(),
 		success: function() {
 			$("#add" + mac).after('Done').remove();
@@ -155,7 +163,7 @@ function restoreDelGroup( gid ) {
 function delGroup( gid ){
 	$.ajax({
 		url: "/ajax/ajax_del_group/?gid="+gid,
-		dataType: "json",
+		type: "GET",
 		success: function(data) {
 			$("#group" + gid).remove();
 		}
