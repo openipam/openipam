@@ -131,6 +131,21 @@ class IPMCmdInterface( cmd.Cmd ):
 	def do_EOF( self, arg ):
 		sys.stdout.write('\nExiting on EOF\n\n')
 		exit()
+
+	def do_save( self, arg ):
+		( filename, cmd ) = arg.split(' ',1)
+		output = open( filename.strip(), 'w' )
+		old_stdout = os.dup(sys.stdout.fileno())
+		os.dup2( output.fileno(), sys.stdout.fileno() )
+		try:
+			self.onecmd( cmd )
+			os.dup2( old_stdout, sys.stdout.fileno() )
+			output.close()
+		except:
+			os.dup2( old_stdout, sys.stdout.fileno() )
+			output.close()
+			raise
+
 	def mkdict( self, line ):
 		args = line.split()
 		arg_len = len(args)
