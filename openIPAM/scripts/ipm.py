@@ -304,6 +304,38 @@ class IPMCmdInterface( cmd.Cmd ):
 			print "Leased addresses:"
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 	
+	def do_show_full_mac( self, arg ):
+		arg = arg.strip()
+		hosts = self.iface.get_hosts( mac=arg )
+		addrs = self.iface.get_addresses( mac=arg )
+		leases = self.iface.get_leases( mac=arg )
+		disabled = self.iface.is_disabled( mac=arg )
+		if disabled:
+			print '!! HOST IS DISABLED'
+			if disabled[0]['reason']:
+				print '\treason for disabling: %s' % disabled[0]['reason']
+		if hosts:
+			print "Host entries:"
+			self.show_dicts( hosts, [('hostname','Hostname',),('mac','mac',),('expires','expires'),('description','description',),], prefix='\t' )
+		else:
+			print "Host is not registered."
+		if addrs:
+			print "Static addresses:"
+			self.show_dicts( addrs, prefix='\t' )
+		if leases:
+			print "Leased addresses:"
+			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
+		owners = self.iface.find_owners_of_host(mac=arg,get_users=True)
+		if owners:
+			#print owners
+			print "Owners:"
+			for owner in owners:
+				result = self.iface.get_user_info( username=owner['username'] )
+				print "\t%(username)s\t%(name)s\t%(email)s" % result
+				
+		else:
+			print "No owners found."
+
 	def do_show_network(self, arg=None):
 		if arg:
 			net = arg.strip()
