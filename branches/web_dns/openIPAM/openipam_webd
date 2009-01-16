@@ -17,11 +17,9 @@ import atexit
 import errno
 from optparse import OptionParser
 
-# Set path for root module 
+import openipam.log	# Keep in mind there is a 'logging' module up above that we need...
 from openipam.utilities import daemon
-
-# Keep in mind there is a 'logging' module up above that we need...
-import openipam.log
+from openipam.web.resource import webroot
 from openipam.config import frontend
 
 __progname__ = "openIPAM"
@@ -93,31 +91,13 @@ if frontend.proxied:
 
 # parse command line options
 parser = OptionParser()
-parser.add_option("-a","--all",action="store_true",dest="start_all",help="Run both the backend and the web interface. This option is default.")
-parser.add_option("-b","--backend",action="store_true",dest="start_backend",help="Run only the backend system and webservices.")
-parser.add_option("-w","--web",action="store_true",dest="start_web",help="Run only the web interface.")
 parser.add_option("-v","--version",action="store_true",dest="version",help="Print the version and exit.")
-parser.add_option("-f","--nofork",action="store_true",dest="nofork",help="Do not become a daemon.")
 parser.add_option("-d","--daemon",action="store_true",dest="daemon",help="Start program as a daemon.")
 parser.add_option("-s","--signals",action="store_true",dest="signals",help="Use signal processing code.")
 
 parser.add_option("-p","--pidfile",action="store",type='string',dest="pidfile",help="Use the given filename to store the PID of the server.")
 
 (options,args) = parser.parse_args()
-
-if not (options.start_all or options.start_backend or options.start_web):
-	msg = "No startup flag specified ... assuming default of --all"
-	cherrypy.log(msg, context='', severity=logging.DEBUG, traceback=False) 
-	options.start_all = True
-elif options.start_all and (options.start_backend or options.start_web):
-	msg = "Cannot mix --all argument with --backend or --web"
-	cherrypy.log(msg, context='', severity=logging.FATAL, traceback=False) 
-	os._exit(-1)
-elif options.start_backend and options.start_web:
-	msg = "Cannot mix --backend argument with --web"
-	cherrypy.log(msg, context='', severity=logging.FATAL, traceback=False) 
-	os._exit(-1)
-	
 
 if (options.version):
 	print "%s version %s" % (__progname__,__version__)
@@ -127,10 +107,7 @@ if (options.version):
 start_daemon = False
 process_signals = False
 	
-if (options.nofork):
-	start_daemon = False
-if (options.daemon):
-	start_daemon = True
+start_daemon = options.daemon
 
 if (options.signals):
 	process_signals = True
@@ -141,52 +118,7 @@ else: pidfile=None
 def start_server():
 	# WE'RE RUNNING THE WEB COMPONENT 
 	
-	# Import the classes for CherryPy mappings
-	from openipam.web.basepage import BasePage
-	from openipam.web.hosts import Hosts
-	from openipam.web.networks import Networks
-	from openipam.web.dns import DNS
-	from openipam.web.access import Access
-	from openipam.web.ajax import AjaxTransport
-	from openipam.web.service import Service
-	from openipam.web.admin.admin import Admin
-	from openipam.web.admin.attributes.host import AdminHostAttributes
-	from openipam.web.admin.dhcp.groups import AdminDHCPGroups
-	from openipam.web.admin.dhcp.group_options import AdminDHCPGroupOptions
-	from openipam.web.admin.dhcp.options import AdminDHCPOptions
-	from openipam.web.admin.dns.types import AdminDNSTypes
-	from openipam.web.admin.groups.groups import AdminGroups
-	from openipam.web.admin.groups.user import AdminGroupsUser
-	from openipam.web.admin.groups.domain import AdminGroupsDomain
-	from openipam.web.admin.groups.network import AdminGroupsNetwork
-	from openipam.web.admin.groups.host import AdminGroupsHost
-	from openipam.web.admin.system.system import AdminSystem
-	from openipam.web.admin.users.users import AdminUsers
-	
-	# Set up the object mappings for CherryPy
-	root = BasePage()
-	root.hosts = Hosts()
-	root.networks = Networks()
-	root.dns = DNS()
-	root.dhcp = BasePage()
-	root.access = Access()
-	root.ajax = AjaxTransport()
-	root.service = Service()
-	root.admin = Admin()
-	root.admin.users = AdminUsers()
-	root.admin.groups = AdminGroups()
-	root.admin.groups.user = AdminGroupsUser()
-	root.admin.groups.domain = AdminGroupsDomain()
-	root.admin.groups.network = AdminGroupsNetwork()
-	root.admin.groups.host = AdminGroupsHost()
-	root.admin.dns = AdminDNSTypes()
-	root.admin.dhcp = BasePage()
-	root.admin.dhcp.groups = AdminDHCPGroups()
-	root.admin.dhcp.groups.options = AdminDHCPGroupOptions()
-	root.admin.dhcp.options = AdminDHCPOptions()
-	root.admin.attr = BasePage()
-	root.admin.attr.host = AdminHostAttributes()
-	root.admin.sys = AdminSystem()
+	root = webroot.get_web_root()
 	
 	try:
 		# Make sure the right directories exist
@@ -225,7 +157,7 @@ if __name__ == '__main__':
 	if (start_daemon):
 		print "Starting in daemon mode."
 
-		daemon.daemonize(start_server,pidfile)
+		daemon.daemonize(start_server, pidfile)
 	else:
 		print "Starting in foreground mode."
 		print "Starting %s version %s on port %s" % (__progname__,__version__,cp_settings['global']['server.socket_port'])

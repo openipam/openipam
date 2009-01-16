@@ -2015,8 +2015,6 @@ class DBInterface( DBBaseInterface ):
 		a full insert of a registration for a host.
 		"""
 		
-		# FIXME: MAYBE make this function accept dns_records and add them all when registering the host ... this may be useful for the frontend
-		
 		expires = self._finalize_expires(expires=expires, expiration_format=expiration_format)
 		
 		# If this is a dynamic host and no pool is specified, use the default pool
@@ -2290,11 +2288,12 @@ class DBInterface( DBBaseInterface ):
 			'uid' : uid,
 			'gid' : gid,
 			'permissions' : permissions,
-			'changed_by' : self._uid
+			'changed_by' : self._uid,
+			'host_permissions' :  backend.default_host_permissions
 		}
 		
 		if host_permissions is not None:
-			values['host_permissions'] = host_permissions
+			values['host_permissions'] = str(host_permissions)
 		
 		query = obj.users_to_groups.insert( values )
 

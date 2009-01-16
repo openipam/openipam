@@ -14,8 +14,6 @@ import atexit
 import datetime
 import IPy
 
-sys.path.insert(0,'/home/esk/src/ipm/trunk/openIPAM')
-
 from openipam.web.resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
 
 histfile = os.path.join( os.environ['HOME'], '.openipam_history' )
@@ -26,8 +24,11 @@ class XMLRPCInterface(object):
 		self.__url = url
 		self.__user = username
 		self.__pass = password
+		ssl = True
+		if url[:5] == 'http:':
+			ssl = False
 		self.ipam = xmlrpclib.ServerProxy(self.__url,
-				transport=CookieAuthXMLRPCSafeTransport(),
+				transport=CookieAuthXMLRPCSafeTransport(ssl=ssl),
 				allow_none=True)
 		#self.ipam.login( self.__user, self.__pass )
 
@@ -130,11 +131,26 @@ class IPMCmdInterface( cmd.Cmd ):
 	def do_EOF( self, arg ):
 		sys.stdout.write('\nExiting on EOF\n\n')
 		exit()
+
+	def do_save( self, arg ):
+		( filename, cmd ) = arg.split(' ',1)
+		output = open( filename.strip(), 'w' )
+		old_stdout = os.dup(sys.stdout.fileno())
+		os.dup2( output.fileno(), sys.stdout.fileno() )
+		try:
+			self.onecmd( cmd )
+			os.dup2( old_stdout, sys.stdout.fileno() )
+			output.close()
+		except:
+			os.dup2( old_stdout, sys.stdout.fileno() )
+			output.close()
+			raise
+
 	def mkdict( self, line ):
 		args = line.split()
 		arg_len = len(args)
 		if arg_len % 2:
-			print 'command requires an even number of arguments, got "%s" which has %s' % ( line, arg_len )
+			raise Exception('command requires an even number of arguments, got "%s" which has %s' % ( line, arg_len ) )
 		filter = {}
 		for i in range(arg_len/2):
 			base=2*i
@@ -166,7 +182,7 @@ class IPMCmdInterface( cmd.Cmd ):
 				name_l = len(record['name'])
 			if record['text_content'] and len(record['text_content']) > content_l:
 				content_l = len( record['text_content'] )
-		fmt_str = '\tname: %%(name)-%ds type: %%(type)-6s content: %%(content)-%ds prio: %%(priority)4s ttl: %%(ttl)5s id: %%(id)6s\n' % (name_l, content_l)
+		fmt_str = '\tname: %%(name)-%ds type: %%(type)-6s content: %%(content)-%ds prio: %%(priority)4s ttl: %%(ttl)5s view: %%(vid)5s id: %%(id)6s\n' % (name_l, content_l)
 		for record in dicts:
 			r = record.copy()
 			r['type'] = self.dns_ids[r['tid']]
@@ -202,6 +218,16 @@ class IPMCmdInterface( cmd.Cmd ):
 			self.show_dicts( result, [('mac','mac',),('reason','reason',),('disabled','disabled',),('disabled_by','disabled_by (uid)',), ], separator='--------\n' )
 		else:
 			print 'No hosts currently disabled.'
+	
+	def do_show_user( self, arg ):
+		username = arg.strip()
+		result = self.iface.get_user_info( username=username )
+		if result:
+			print 'User:'
+			print result
+			self.show_dicts( [result,], [('username','username',),('name','name',),('uid','user id (from db)',),('email','email address',), ], separator='--------\n' )
+		else:
+			print 'No such username: "%s"' % username
 	
 	def do_show_host( self, arg ):
 		filter = self.mkdict( arg )
@@ -293,6 +319,38 @@ class IPMCmdInterface( cmd.Cmd ):
 			print "Leased addresses:"
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 	
+	def do_show_full_mac( self, arg ):
+		arg = arg.strip()
+		hosts = self.iface.get_hosts( mac=arg )
+		addrs = self.iface.get_addresses( mac=arg )
+		leases = self.iface.get_leases( mac=arg )
+		disabled = self.iface.is_disabled( mac=arg )
+		if disabled:
+			print '!! HOST IS DISABLED'
+			if disabled[0]['reason']:
+				print '\treason for disabling: %s' % disabled[0]['reason']
+		if hosts:
+			print "Host entries:"
+			self.show_dicts( hosts, [('hostname','Hostname',),('mac','mac',),('expires','expires'),('description','description',),], prefix='\t' )
+		else:
+			print "Host is not registered."
+		if addrs:
+			print "Static addresses:"
+			self.show_dicts( addrs, prefix='\t' )
+		if leases:
+			print "Leased addresses:"
+			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
+		owners = self.iface.find_owners_of_host(mac=arg,get_users=True)
+		if owners:
+			#print owners
+			print "Owners:"
+			for owner in owners:
+				result = self.iface.get_user_info( username=owner['username'] )
+				print "\t%(username)s\t%(name)s\t%(email)s" % result
+				
+		else:
+			print "No owners found."
+
 	def do_show_network(self, arg=None):
 		if arg:
 			net = arg.strip()
@@ -539,6 +597,36 @@ class IPMCmdInterface( cmd.Cmd ):
 				for r in failed:
 					m,a,n,d = r
 					print '%s,%s,%s,%s' % (m,n,a,d)
+					
+	def do_assign_hosts( self, arg ):
+		mac = name = desc = address = None
+		fields = []
+		file = None
+		vals = self.get_from_user( [ ('username',), ('group_name',),] )
+		
+		hosts = self.iface.get_hosts(username=vals['username'])
+		
+		macs = [row['mac'] for row in hosts]
+		
+		failed = []
+		
+		group = self.iface.get_groups(name=vals['group_name'])
+		
+		if not group:
+			raise Exception('Group not found: %s' % vals['group_name'])
+		
+		gid = group[0]['id']
+		
+		for mac in macs:
+			try:
+				self.iface.add_host_to_group(mac=mac, gid=gid)
+				print "Added host: %s" % mac
+			except:
+				failed.append(mac)
+				
+		if failed:
+			print "\nThe following MAC addresses failed to insert:\n\t"
+			print '\n\t'.join(failed)
 
 	def do_add_static_host( self, arg ):
 		vals = self.get_from_user( [ ('hostname',), ('mac',), ('addr','address or CIDR network',),
@@ -557,6 +645,11 @@ class IPMCmdInterface( cmd.Cmd ):
 		expiration = datetime.datetime.today().replace( hour=0, minute=0, second=0, microsecond=0 ) + datetime.timedelta( 365 )
 
 		self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration )
+
+	def do_add_user( self, arg ):
+		vals = self.get_from_user( [ ('username',), ('source',), ('min_perms',), ] )
+
+		self.iface.add_user( username=vals['username'], source=vals['source'], min_perms=vals['min_perms'] )
 
 	def do_add_dynamic_host( self, arg ):
 		vals = self.get_from_user( [ ('hostname',), ('mac',), ('owners','additional owners (space separated users or groups)'), ('pool','pool id',), ], defaults={ 'pool': 1, } )

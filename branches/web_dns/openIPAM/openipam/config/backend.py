@@ -61,6 +61,9 @@ db_service_group_id = 3
 # WRITEME
 pool_map = []
 
+# When adding a user to a group, what will host_permissions default to?
+default_host_permissions	= '00001111'
+
 def get_pool_id(address):
 	"""
 	Take an address and return a pool ID ...
@@ -77,7 +80,7 @@ def get_pool_id(address):
 
 func_get_pool_id = get_pool_id
 
-auth_user = 'admin'
+auth_user = 'auth'
 guest_user = 'guest'
 
 from openipam_config.backend import *
