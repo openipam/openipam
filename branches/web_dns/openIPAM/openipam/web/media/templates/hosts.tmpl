@@ -55,6 +55,7 @@
 					<td>$host.expires</td>
 					<td class="actions">
 					#if $host.has_permissions:
+						<a href="/dns/search/?q=$host.hostname">Manage DNS</a> | 
 						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
 						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> 
 					#end if

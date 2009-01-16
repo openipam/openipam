@@ -1353,7 +1353,10 @@ class DBInterface( DBBaseInterface ):
 		if not uid or not min_perms:
 			# bootstrap - this perm is required to do the query
 			self._min_perms = perms.READ
-			user = self.get_users(username=username)[0]
+			user = self.get_users(username=username)
+			if not user:
+				raise error.NotFound('Auth user not found. May need to create it in the database or check config settings.')
+			user = user[0]
 			uid = user['id']
 			min_perms = user['min_permissions']
 		self._uid = uid
