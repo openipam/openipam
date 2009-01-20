@@ -1585,7 +1585,7 @@ class DBInterface( DBBaseInterface ):
 			@param add_ptr: Adds a PTR record when an A record is added
 			"""
 		if (not ip_content and not text_content) or (ip_content and text_content):
-			raise error.RequiredArgument("Pass exactly one of ip_content or text_content to add_dns_record")
+			raise error.RequiredArgument("Pass exactly one of ip_content or text_content to add_dns_record. Got: (%s, %s)" % (ip_content, text_content))
 		
 		# Important, lowercase the name
 		name = name.lower()

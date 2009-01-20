@@ -1441,15 +1441,18 @@ class MainWebService(XMLRPCController):
 		
 		# Retrieve list of ids from the form submission & call get records with those ids
 		ids = [row['id'] for row in form_submission if row.has_key('id')]
+		new_records = [row for row in form_submission if not row.has_key('id')]
 
 		# Wow ... for loop vars don't fall out of scope
 		del row
 		
-		result = self.__sanitize(db.get_dns_records(id=ids))
-		new_records = [row for row in form_submission if not row.has_key('id')]
-		
-		id_perms = db.find_permissions_for_dns_records(result)
-		id_perms = id_perms[0] if id_perms else {}
+		if ids:
+			result = self.__sanitize(db.get_dns_records(id=ids))
+			id_perms = db.find_permissions_for_dns_records(result)
+			id_perms = id_perms[0] if id_perms else {}
+		else:
+			result = []
+			id_perms = {}
 		
 		fqdn_perms = db.find_domain_permissions_for_fqdns([row['name'] for row in new_records])
 		fqdn_perms = fqdn_perms[0] if fqdn_perms else {}
@@ -1516,6 +1519,14 @@ class MainWebService(XMLRPCController):
 					if did_change:
 						# Since we delete and then re-add, we must have all attributes of the old record
 						backend_row.update(changed_row)
+
+						# If something goes from A Record to other, or vice versa, make sure the
+						# content gets updated correctly 
+						if form_row['tid'] == 1 and backend_row['tid'] != 1:
+							backend_row['text_content'] = None
+						elif form_row['tid'] != 1 and backend_row['tid'] == 1:
+							backend_row['ip_content'] = None
+						
 						edited.append(backend_row)
 						
 						# VALIDATE SEMANTICS & PERMISSIONS

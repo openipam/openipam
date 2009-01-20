@@ -109,6 +109,7 @@ $(function() {
 	
 	names = [];
 	
+	/*
 	$.ajax({
 		url: "/ajax/ajax_get_domains/",
 		data: { additional_perms : '00000010' },
@@ -122,5 +123,6 @@ $(function() {
 			});
 		}
 	});
+	*/
 	
 });
