@@ -16,7 +16,6 @@ function deleteChecked(i, k) {
 	ttlEl.disabled = disabledState;
 	typeEl.disabled = disabledState;
 	textEl.disabled = disabledState;
-
 };
 
 function saveRecords() {
@@ -67,7 +66,7 @@ function saveRecords() {
 		
 	}); // end newRows loop
 	
-	console.log(submitList);
+	//console.log(submitList);
 	
 	//sent list to webservice
 	$.ajax({
@@ -75,6 +74,15 @@ function saveRecords() {
 		data: { 'json' : JSON.stringify(submitList) },
 		success: function(){
 			//alert("Success");
+			var separator = '?';
+			if (location.href.indexOf("?") != -1){
+				separator = '&';
+			};
+			var url = location.href;
+			if (url.indexOf("success=True") == -1){
+				url = url + separator + 'success=True';
+			}
+			location.href = url;
 		}
 	});
 	
@@ -107,9 +115,9 @@ $(function() {
 		$('#addRecord').click();
 	};
 	
+	/*
 	names = [];
 	
-	/*
 	$.ajax({
 		url: "/ajax/ajax_get_domains/",
 		data: { additional_perms : '00000010' },

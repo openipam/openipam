@@ -62,6 +62,12 @@
 				console.error(arguments);
 			}
 	}
+	
+	// not finished
+	$.openipam.success = function(message) {
+		$('<div class="hidden">'+message+'</div>').prependTo($('#col3_content'));
+		$('#col3_content').slideDown(1000);
+	}
 
 
 })(jQuery);

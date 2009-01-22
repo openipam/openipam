@@ -27,9 +27,9 @@ class DNS(BasePage):
 		Returns the html for the leftnav options on the Manage DNS tab
 		'''
 		
-		options = ('Show only A records', 'Show only CNAMEs', 'Show only NS records')
-		options_links = ('/dns/?show_a_records', '/dns/?show_cnames', '/dns/?show_ns')
-		selected = (cherrypy.session['show_a_records'], cherrypy.session['show_cnames'], cherrypy.session['show_ns'])
+		options = ('Show A records', 'Show CNAMEs')
+		options_links = ('/dns/?show_a_records', '/dns/?show_cnames')
+		selected = (cherrypy.session['show_a_records'], cherrypy.session['show_cnames'])
 		
 		return OptionsSubmenu(values=options, links=options_links, title="Options", selected=selected)
 	
@@ -57,7 +57,7 @@ class DNS(BasePage):
 			}
 
 		# Set the limit if wildcard is in the search
-		if name and ('%' in name):
+		if (name and ('%' in name)) or (content and ('%' in content)):
 			values['limit'] = cherrypy.session['dns_records_limit']
 		
 		#call webservice to get values
@@ -95,7 +95,7 @@ class DNS(BasePage):
 	#------------------------  Public Functions  ------------------------
 	
 	@cherrypy.expose
-	def index(self, **kw):
+	def index(self, success=False, **kw):
 		"""
 		The DNS management page
 		"""
@@ -117,12 +117,14 @@ class DNS(BasePage):
 		values = {}
 		values['show_search_here'] = True
 		values['title'] = 'DNS Search Results'
+		if success:
+			values['global_success'] = 'Records Updated Successfully!'
 		values['dns_types_dropdown'] = self.webservice.get_dns_types({ 'only_useable' : True, 'order_by' : 'name' })
 		
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/dns.tmpl'%frontend.static_dir, values=values)
 
 	@cherrypy.expose
-	def search(self, q=None, **kw):
+	def search(self, q=None, success=False, **kw):
 		'''
 		The search page where the search form POSTs
 		'''
@@ -135,6 +137,9 @@ class DNS(BasePage):
 		
 		if not q:
 			raise cherrypy.InternalRedirect('/dns')
+		
+		if success:
+			values['global_success'] = 'Records Updated Successfully!'
 		
 		# Strip the query string and make sure it's a string
 		q = str(q).strip()

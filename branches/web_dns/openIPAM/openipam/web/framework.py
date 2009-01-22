@@ -82,6 +82,12 @@ class Basics(object):
 		
 		text.append('''
 					<div id="col3_content" class="clearfix">
+					''')
+		if values and values.has_key("global_success"):
+			text.append('''
+							<div class="successMessage">'''+values['global_success']+'''</div>
+						''')
+		text.append('''
 					<noscript>
 						<div class="message"><div>JavaScript is required for openIPAM to function properly. Please enable JavaScript.</div></div>
 					</noscript>

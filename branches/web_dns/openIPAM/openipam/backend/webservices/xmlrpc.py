@@ -1527,6 +1527,9 @@ class MainWebService(XMLRPCController):
 						elif form_row['tid'] != 1 and backend_row['tid'] == 1:
 							backend_row['ip_content'] = None
 						
+						if backend_row['tid'] not in (33, 15):
+							backend_row['priority'] = None
+						
 						edited.append(backend_row)
 						
 						# VALIDATE SEMANTICS & PERMISSIONS
