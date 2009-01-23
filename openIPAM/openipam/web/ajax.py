@@ -65,7 +65,6 @@ class AjaxTransport(BasePage, XMLRPCController):
 	@cherrypy.expose
 	def call_wrapper(self, **kw):
 		# Confirm user authentication and make sure we have a webservice object
-		self.check_session()
 		
 		if not self.__name_lock.locked():
 			raise Exception("Somehow, I don't have my __name_lock.  This is very bad.")
@@ -73,8 +72,9 @@ class AjaxTransport(BasePage, XMLRPCController):
 		name = self.__name
 		del self.__name
 		self.__name_lock.release()
-		function = getattr(self.webservice, name)
 		
+		function = getattr(self.webservice, name)
+		self.check_session()
 		result = function(kw)
 		
 		# Go through the result rows (better be dictionaries)
