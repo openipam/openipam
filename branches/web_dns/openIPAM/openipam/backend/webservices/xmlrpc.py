@@ -1428,6 +1428,9 @@ class MainWebService(XMLRPCController):
 				    row['priority'] = match.group(1)
 				    row['text_content'] = match.group(2)
 		
+		def is_static_address(self, ip):
+			address = db._get_addresses(address=ip)
+		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
@@ -1444,7 +1447,8 @@ class MainWebService(XMLRPCController):
 		new_records = [row for row in form_submission if not row.has_key('id')]
 
 		# Wow ... for loop vars don't fall out of scope
-		del row
+		if locals().has_key('row'):
+			del row
 		
 		if ids:
 			result = self.__sanitize(db.get_dns_records(id=ids))
@@ -1481,7 +1485,7 @@ class MainWebService(XMLRPCController):
 				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
 				and (dns_type_perms.has_key(str(form_row['tid'])))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
-				
+					
 				continue
 			
 			# STATE: deleted record
