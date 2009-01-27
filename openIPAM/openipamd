@@ -16,6 +16,8 @@ import signal
 import atexit
 import errno
 
+sys.path.insert(0, '/media/openipam/doug/openIPAM/')
+
 # Set path for root module 
 from openipam.utilities import daemon
 
@@ -118,7 +120,7 @@ def start_server():
 	
 	# Object mappings for /api -- the main webservice
 	root = get_api_mapping()
-	
+
 	try:
 		# Make sure the right directories exist
 		if not os.path.isdir(backend.session_dir):

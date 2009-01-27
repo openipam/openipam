@@ -30,6 +30,7 @@ import string
 import datetime
 import time
 import ldap
+import re
 
 from openipam.config import backend
 from openipam.config import auth
@@ -197,7 +198,7 @@ class MainWebService(XMLRPCController):
 				temp_dict[perm['id']] = perm
 				
 			result = temp_dict
-			# Now have [ { '00000000' : { ...perms dict... }, '00000001' : { ...perms dict... } ... } ]
+			# Now have { '00000000' : { ...perms dict... }, '00000001' : { ...perms dict... } ... }
 
 		return result
 		
@@ -803,15 +804,13 @@ class MainWebService(XMLRPCController):
 		Returns a dictionary of { MAC address : permissions bitstring } 
 		for this user's overall permissions on the hosts
 		
-		@param args[0]['hosts']: a list of dictionaries of hosts ... the dictionary
-		must have 'mac' key, all others keys are not used
+		@param args[0]['hosts']: a list of host MACs, or a list of dictionaries of hosts that have a 'mac' key
 		"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		# Don't not sanitize this, it needs to be in its current form
-		return db.find_permissions_for_hosts( **args[0] )
+		return self.__sanitize(db.find_permissions_for_hosts( **args[0] ))
 	
 	@cherrypy.expose
 	def get_next_hostname(self, *args):
@@ -1259,11 +1258,328 @@ class MainWebService(XMLRPCController):
 		
 		if not args:
 			args = ({},)
-		
+			
 		return self.__sanitize(db.get_dns_records( **args[0] ))
 	
 	@cherrypy.expose
-	def add_dns_record(self, *args):
+	def find_permissions_for_dns_records(self, *args):
+		"""
+		Returns a dictionary of { dns record : permissions bitstring } 
+		for this user's overall permissions on the hosts
+		
+		@param args[0]['domains']: a list of DNS record IDs, or a list of dictionaries of DNS records that have an 'id' key
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		result = db.find_permissions_for_dns_records( **args[0] )
+		
+		# We have to do this because XMLRPC doesn't support integer keys on structs
+		# Ggrrrraaarrgggghhhh
+		 
+		new_result = {}
+		
+		if result:
+			for key in result[0]:
+				new_result[str(key)] = result[0][key]
+ 		
+		return self.__sanitize( [new_result] )
+	
+	@cherrypy.expose
+	def change_dns_records(self, *args):
+		"""
+		Change a set of DNS records.
+		
+		@param records: a list of dictionaries of DNS records. For each DNS record dictionary, follow the following rules:
+		- If the DNS record is new, no id should be present in the dictionary
+		- If it is deleted, a key of 'deleted' should be present with a value of true
+		- If the record has been edited, or has been left the same, just pass the dictionary
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		# Begin transaction
+		db._begin_transaction()
+		try:
+			(edited, deleted, new) = self.validate_dns_records( *args )
+		
+			for row in edited:
+				db.del_dns_record(rid=row['id'])
+				db.add_dns_record(
+					name=row['name'],
+					tid=row['tid'],
+					ip_content=row['ip_content'],
+					text_content=row['text_content'],
+					priority=row['priority'],
+					vid=row['vid']
+				)
+			
+			for id in deleted:
+				db.del_dns_record(rid=id)
+			
+			for row in new:
+				db.add_dns_record(
+					name=row['name'],
+					tid=row['tid'],
+					ip_content=row.get('ip_content', None),
+					text_content=row.get('text_content', None),
+					priority=row.get('priority', None)
+				)
+			
+			db._commit()
+		except Exception, e:
+			# Raise required argument errors
+			db._rollback() #rollback transaction if there were errors
+			raise
+	
+	@cherrypy.expose
+	def validate_dns_records(self, *args):
+		"""
+		Validate a set of DNS records
+		@raise Exception( messages list ) if any errors occur
+		"""
+		
+		def validate_syntax(row, new_record=False):
+			"""
+			Validate the syntax of both new rows and updated rows
+			@param row: a dictionary based on a dns_records table row
+			@param new_record: is this a new record or a changed one?
+			"""
+			
+			temp_messages = []
+			
+			# TODO: make sure no records exist that have the same name as an added CNAME
+			# TODO: changed ip can only be changed to a static address
+			
+			# Validate deleted rows have an id
+			if row.has_key('deleted'):
+				if not row.has_key('id'):
+					raise error.RequiredArgument("Deleted rows need to specify 'id' key. Row info: %s" % row)
+				else:
+					return
+			
+			# Validate row has a tid
+			if not row.has_key('tid'):
+				raise error.RequiredArgument("tid is required to validate a DNS record")
+			
+			# Validate records based on type
+			if row['tid'] in (15, 33): # MX or SRV records
+				
+				if new_record and not row.has_key('priority'):
+					temp_messages.append("Priority is required for MX and SRV records.")
+			
+			# Validate both name and content are present
+			if new_record and not row['tid'] == 1 and (not row.has_key('name') or not row.has_key('text_content')):
+				raise error.RequiredArgument("Name and content are required for new records.")
+		
+			# Validate: Name
+			if row.has_key('name'):
+				# validate that each name is a fqdn. we are assuming that every name 'should' always be a fqdn...
+				if not validation.is_fqdn(row['name']):
+					temp_messages.append("Invalid name, use a fully qualified domain name: %s %s" % (row['name'], row['text_content']) )
+			
+			# Validate: Text Content
+			if row.has_key('text_content'):
+				# NS, CNAME, PTR, MX
+				if row['tid'] in (2, 5, 12, 15):
+					if not validation.is_fqdn(row['text_content']): 
+						temp_messages.append("Invalid fully qualified domain name: %s" % row['text_content'])
+				# SOA
+				elif row['tid'] == 6:
+					if not validation.is_soa_content(row['text_content']): 
+						temp_messages.append("Invalid SOA content: %s" % row['text_content'])
+				# SRV
+				elif row['tid'] == 33:
+					if not validation.is_srv_content(row['text_content']): 
+						temp_messages.append("Invalid SRV content: %s" % row['text_content'])
+				else:
+					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
+			
+			# Validate: IP Content
+			if row.has_key('ip_content') and not validation.is_ip(row['ip_content']):
+				temp_messages.append("Invalid IP: %s" % row['ip_content'])
+			
+			# Validate: TTL
+			if row.has_key('ttl'):
+				raise error.NotImplemented("Validation for changes in TTL values is not currently supported." )
+			
+			if temp_messages:
+				messages.extend(temp_messages)
+				return False
+			else:
+				return True
+			
+		def transform_content(row):
+			"""
+			Transform content field from the form into either ip_content or text_content
+			@param row: row from the form
+			"""
+			
+			if(row['tid'] == 1):
+				row['ip_content'] = row.pop('content')
+			else:
+				row['text_content'] = row.pop('content')
+		
+		def set_priority(row):
+			"""
+			Checks for priority and sets it if it exists
+			@param row: row from the form
+			"""
+			# Make sure that priority was set, or set it if they passed it
+			match = None
+			if row['tid'] != 1:
+				if row['tid'] == 15: # MX
+					match = re.compile('^([0-9]{1,2}) (.*)$').search(row['text_content'])
+				elif row['tid'] == 33: # SRV
+					match = re.compile('^([0-9]{1,2}) (\d+ \d+ .*)$').search(row['text_content'])
+				
+				if match:
+					# We have priority in the content
+				    row['priority'] = match.group(1)
+				    row['text_content'] = match.group(2)
+		
+		def validate_arecord(ip_content):
+			"""
+			Checks ip in a-record to make sure it is a statically assigned ip
+			@param ip_content: ip address of record
+			"""
+			address = db.get_addresses(address=ip_content)
+
+			if not address:
+				messages.append('A Record must be in an allocated network. Could not add record: %s %s' % (form_row['name'], form_row['ip_content']))
+			
+			if address and address[0]['mac'] == None:
+				messages.append('A Record must point to a static IP. Could not add record: %s %s' % (form_row['name'], form_row['ip_content']))
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		# Initialize blank lists
+		messages = []
+		edited = []
+		deleted = []
+		new = []
+		
+		form_submission = args[0]
+		
+		# Retrieve list of ids from the form submission & call get records with those ids
+		ids = [row['id'] for row in form_submission if row.has_key('id')]
+		new_records = [row for row in form_submission if not row.has_key('id')]
+
+		# Wow ... for loop vars don't fall out of scope
+		if locals().has_key('row'):
+			del row
+		
+		if ids:
+			result = self.__sanitize(db.get_dns_records(id=ids))
+			id_perms = db.find_permissions_for_dns_records(result)
+			id_perms = id_perms[0] if id_perms else {}
+		else:
+			result = []
+			id_perms = {}
+		
+		fqdn_perms = db.find_domain_permissions_for_fqdns([row['name'] for row in new_records])
+		fqdn_perms = fqdn_perms[0] if fqdn_perms else {}
+		
+		dns_type_perms = self.get_dns_types({ 'only_useable' : True, 'make_dictionary' : True })
+		
+		# VALIDATE ARGUMENTS AND SYNTAX
+		for form_row in form_submission: #loop over results from form
+			# Type casting from strings to integers for some frontend form fields (i.e.: id, ttl, etc.)
+			for column in ('id', 'tid', 'priority', 'ttl', 'did'):
+				if form_row.has_key(column):
+					form_row[column] = int(form_row[column])
+			
+			# STATE: new record
+			if not form_row.has_key('id'):
+				#transform content into either ip_content or text_content
+				transform_content(form_row)
+				
+				#check for priority and set it if it exists
+				set_priority(form_row)
+				
+				is_valid = validate_syntax(form_row, new_record=True)
+				
+				# VALIDATE SEMANTICS & PERMISSIONS
+				if is_valid and form_row['tid'] == 1:
+					validate_arecord(form_row['ip_content'])
+				
+				new.append(form_row)
+				
+				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
+				and (dns_type_perms.has_key(str(form_row['tid'])))):
+					messages.append('Insufficient permissions to add record %s' % form_row['name'])
+					
+				continue
+			
+			# STATE: deleted record
+			elif form_row.has_key('deleted') and form_row['deleted']:
+				validate_syntax(form_row)
+				
+				# VALIDATE SEMANTICS & PERMISSIONS
+				if not (Perms(id_perms[form_row['id']]) & perms.DELETE == perms.DELETE):
+					messages.append('Insufficient permissions to delete record %s' % form_row['name'])
+				else:
+					deleted.append(form_row['id'])
+				continue
+			
+			# STATE: changed record
+			for backend_row in result: 
+				if backend_row['id'] == form_row['id']:
+					#pass in tid always
+					changed_row = { 'id' : form_row['id'], 'tid' : backend_row['tid'] }
+					did_change = False
+					
+					#transform content into either ip_content or text_content
+					transform_content(form_row)
+					
+					#check for priority and set it if it exists
+					set_priority(form_row)
+					
+					# Find out if the record has been edited and add it to the 'edited' list.
+					# Otherwise, no change has occurred, so we just leave it alone.
+					for column in form_row.keys():
+						if (backend_row[column] != form_row[column]):
+							changed_row[column] = form_row[column] 
+							did_change = True
+					
+					is_valid = validate_syntax(changed_row)
+					
+					if did_change:
+						# Since we delete and then re-add, we must have all attributes of the old record
+						backend_row.update(changed_row)
+
+						# If something goes from A Record to other, or vice versa, make sure the
+						# content gets updated correctly 
+						if form_row['tid'] == 1 and backend_row['tid'] != 1:
+							backend_row['text_content'] = None
+						elif form_row['tid'] != 1 and backend_row['tid'] == 1:
+							backend_row['ip_content'] = None
+						
+						if backend_row['tid'] not in (33, 15):
+							backend_row['priority'] = None
+						
+						edited.append(backend_row)
+						
+						# VALIDATE SEMANTICS & PERMISSIONS
+						if is_valid and backend_row['tid'] == 1:
+							validate_arecord(form_row['ip_content'])
+							
+						if not (Perms(id_perms[form_row['id']]) & perms.MODIFY == perms.MODIFY):
+							messages.append('Insufficient permissions to modify record %s' % form_row['name'])
+					
+					break
+						
+		# Raise syntax & semantic errors errors
+		if messages:
+			raise error.ListXMLRPCFault(messages)
+
+		return (edited, deleted, new)
+	
+	@cherrypy.expose
+	def add_dns_record(self, *args):   
 		"""
 		Add a DNS record
 		"""
@@ -1305,8 +1621,25 @@ class MainWebService(XMLRPCController):
 		
 		if not args:
 			args = ({},)
+			
+		make_dictionary = args[0].has_key('make_dictionary')
+		if make_dictionary:
+			del args[0]['make_dictionary'] 
+			
+		result = self.__sanitize(db.get_dns_types( **args[0] ))
 		
-		return self.__sanitize(db.get_dns_types( **args[0] ))
+		if make_dictionary:
+			temp_dict = {}
+			
+			# Have [ { 'id' : '0', 'name' : 'blah' }, ... ]
+			for rr in result:
+				temp_dict[str(rr['id'])] = rr
+			
+			result = temp_dict
+			# Now have { '0' : { ... dns dict ... }, '12' : { ... dns dict ... } ... }
+			
+		return result
+			
 	
 	#------------------ EXPIRATIONS AND NOTIFICATIONS --------------------
 	

@@ -415,16 +415,10 @@ class AdminGroups(Admin):
 
 		if int(kw['gid']) == 0:
 			# We're adding a new group
-			try:
-				self.webservice.add_group({ 'name' : kw['name'], 'description' : kw['description']})
-			except Exception, detail:
-				raise Exception("Could not add group\n"+str(detail))
+			self.webservice.add_group({ 'name' : kw['name'], 'description' : kw['description']})
 		else:
 			# We're updating a group
-			#try:
 			self.webservice.edit_group( { 'gid' : kw['gid'], 'name' : kw['name'], 'description' : kw['description']})
-			#except:
-			#	raise Exception("Could not update group.")
 			
 		raise cherrypy.InternalRedirect("/admin/groups")
 	

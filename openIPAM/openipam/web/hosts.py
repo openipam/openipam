@@ -17,7 +17,7 @@ class Hosts(BasePage):
 		BasePage.__init__(self)
 		
 		# Object for wrapping HTML into the template
-		self.__template = framework.Basics("hosts", javascript=("/scripts/jquery/ui/jquery-ui-dialog-combined-1.5.2.min.js", "/scripts/hosts.js"))
+		self.__template = framework.Basics("hosts", javascript=("/scripts/jquery/ui/jquery-ui-personalized.min.js", "/scripts/hosts.js"))
 		
 	def leftnav_actions(self, current=None):
 		'''
@@ -78,11 +78,9 @@ class Hosts(BasePage):
 			host['clean_mac'] = misc.fix_mac(host['mac'])
 			host['description'] = host['description'].encode('utf8') if host['description'] else ''
 			
-		# Generate a list of MAC addresses
-		macs = [host['mac'] for host in hosts]
-		
 		# Get permissions for those MAC addresses
-		perms = self.webservice.find_permissions_for_hosts( { 'hosts' : macs } )
+		perms = self.webservice.find_permissions_for_hosts( { 'hosts' : hosts } )
+		perms = perms[0] if perms else perms
 		
 		for host in hosts:
 			host['has_permissions'] = ((Perms(perms[host['mac']]) & frontend.perms.OWNER) == frontend.perms.OWNER)

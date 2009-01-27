@@ -261,6 +261,14 @@ div.message {
 	margin-bottom: 10px;
 	padding: 10px;
 }
+
+div.successMessage {
+	width: 99%;
+	background: #dffde6;
+	border: 1px dotted green;
+	margin-bottom: 10px;
+	padding: 10px;
+}
 	
 .hidden {
 	display: none;	
@@ -598,16 +606,3 @@ div.pageLinks {
 	font-weight: normal;
 	color: #212121 !important;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
