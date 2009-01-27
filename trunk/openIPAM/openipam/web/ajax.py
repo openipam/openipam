@@ -77,8 +77,8 @@ class AjaxTransport(BasePage, XMLRPCController):
 		del self.__name
 		self.__name_lock.release()
 		
-		function = getattr(self.webservice, name)
 		self.check_session()
+		function = getattr(self.webservice, name)
 		if kw.has_key('json'):
 			kw = cjson.decode(kw['json'])
 		
