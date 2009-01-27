@@ -383,7 +383,7 @@ CREATE TABLE dns_types (
 	id				INTEGER PRIMARY KEY,
 	name			varchar(16),
 	description		text,
-	min_permissions	BIT(8) NOT NULL DEFAULT B'11111111' REFERENCES permissions(id) ON DELETE RESTRICT
+	min_permissions	BIT(8) NOT NULL DEFAULT B'00000000' REFERENCES permissions(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX dns_types_id_index ON dns_types(id);
@@ -456,12 +456,14 @@ COPY dns_types ( id, name, description ) FROM stdin;
 32769	DLV	DNSSEC Lookaside Validation [RFC 4431]
 \.
 
--- By default, permissions to use a resource record require DEITY access
--- Give normal users access to A, CNAME,  MX, PTR, and SRV records
+-- Give normal users access to A, CNAME, MX, TXT, and SRV records
 UPDATE dns_types
 SET min_permissions = '00000100'
-WHERE id IN (1, 5, 12, 15, 33);
-
+WHERE id IN (1, 5, 12, 16, 33);
+-- Give DEITY users access to NS, PTR, and SOA records
+UPDATE dns_types
+SET min_permissions = '11111111'
+WHERE id IN (2, 6, 15);
 
 CREATE TABLE dns_views (
 	id			SERIAL PRIMARY KEY,
