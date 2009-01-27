@@ -498,6 +498,7 @@ class MainWebService(XMLRPCController):
 	#------------------------	 HOSTS	  ----------------------------
 	# Host management
 	
+	# FIXME: should this be exposed? I don't think so...
 	@cherrypy.expose
 	def validate_host_info(self, *args):
 		"""
@@ -510,10 +511,6 @@ class MainWebService(XMLRPCController):
 		
 		messages = []
 		kw = args[0]
-		
-				
-		# Check permissions -- do this in every exposed function
-		db = self.__check_session()
 		
 		# VALIDATE ARGUMENTS
 		if not kw.has_key('editing'):
