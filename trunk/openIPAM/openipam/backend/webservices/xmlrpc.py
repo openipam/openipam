@@ -1306,6 +1306,8 @@ class MainWebService(XMLRPCController):
 			(edited, deleted, new) = self.validate_dns_records( *args )
 		
 			for row in edited:
+				# TODO: make this check for an existing PTR before the delete
+				# if there is one, set add_ptr=True, otherwise False
 				db.del_dns_record(rid=row['id'])
 				db.add_dns_record(
 					name=row['name'],
@@ -1325,7 +1327,8 @@ class MainWebService(XMLRPCController):
 					tid=row['tid'],
 					ip_content=row.get('ip_content', None),
 					text_content=row.get('text_content', None),
-					priority=row.get('priority', None)
+					priority=row.get('priority', None),
+					add_ptr=False
 				)
 			
 			db._commit()
