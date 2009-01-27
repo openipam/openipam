@@ -452,6 +452,12 @@ class IPMCmdInterface( cmd.Cmd ):
 		if self.get_bool_from_user( 'delete this record', default=False ):
 			self.iface.del_dns_record( rid=id )
 	
+	def do_del_network( self, arg ):
+		net = arg.strip()
+		self.onecmd( 'show_network %s' % net )
+		if self.get_bool_from_user( 'delete this network', default=False ):
+			self.iface.del_network( network=net )
+	
 	def do_add_domain( self, arg ):
 		type='MASTER'
 		if self.get_bool_from_user( 'slave domain', default=False):
