@@ -178,3 +178,7 @@ WRITEME: DHCP
 == As a startup script ==
 
 WRITEME
+
+= Final step =
+
+Email us! Let us know a little about who you are, where you're from or what organization, and what brought you here. Are you attempting to use openIPAM in production, or did you just feel the need to download and test out an IP address management solution? :) Let us know! http://openipam.org/htm/contact
