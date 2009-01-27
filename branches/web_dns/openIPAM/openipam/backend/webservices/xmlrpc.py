@@ -1344,6 +1344,8 @@ class MainWebService(XMLRPCController):
 			@param new_record: is this a new record or a changed one?
 			"""
 			
+			temp_messages = []
+			
 			# TODO: make sure no records exist that have the same name as an added CNAME
 			# TODO: changed ip can only be changed to a static address
 			
@@ -1362,7 +1364,7 @@ class MainWebService(XMLRPCController):
 			if row['tid'] in (15, 33): # MX or SRV records
 				
 				if new_record and not row.has_key('priority'):
-					messages.append("Priority is required for MX and SRV records.")
+					temp_messages.append("Priority is required for MX and SRV records.")
 			
 			# Validate both name and content are present
 			if new_record and not row['tid'] == 1 and (not row.has_key('name') or not row.has_key('text_content')):
@@ -1372,32 +1374,38 @@ class MainWebService(XMLRPCController):
 			if row.has_key('name'):
 				# validate that each name is a fqdn. we are assuming that every name 'should' always be a fqdn...
 				if not validation.is_fqdn(row['name']):
-					messages.append("Invalid name, use a fully qualified domain name: %s" % row['name'] )
+					temp_messages.append("Invalid name, use a fully qualified domain name: %s %s" % (row['name'], row['text_content']) )
 			
 			# Validate: Text Content
 			if row.has_key('text_content'):
 				# NS, CNAME, PTR, MX
 				if row['tid'] in (2, 5, 12, 15):
 					if not validation.is_fqdn(row['text_content']): 
-						messages.append("Invalid content, use a fully qualified domain name: %s" % row['text_content'])
+						temp_messages.append("Invalid fully qualified domain name: %s" % row['text_content'])
 				# SOA
 				elif row['tid'] == 6:
 					if not validation.is_soa_content(row['text_content']): 
-						messages.append("Invalid content, use properly formatted SOA content: %s" % row['text_content'])
+						temp_messages.append("Invalid SOA content: %s" % row['text_content'])
 				# SRV
 				elif row['tid'] == 33:
 					if not validation.is_srv_content(row['text_content']): 
-						messages.append("Invalid content, use properly formatted SRV content: %s" % row['text_content'])
+						temp_messages.append("Invalid SRV content: %s" % row['text_content'])
 				else:
 					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
 			
 			# Validate: IP Content
 			if row.has_key('ip_content') and not validation.is_ip(row['ip_content']):
-				messages.append("Invalid IP, use a properly formatted IP address: %s" % row['ip_content'])
+				temp_messages.append("Invalid IP: %s" % row['ip_content'])
 			
 			# Validate: TTL
 			if row.has_key('ttl'):
 				raise error.NotImplemented("Validation for changes in TTL values is not currently supported." )
+			
+			if temp_messages:
+				messages.extend(temp_messages)
+				return False
+			else:
+				return True
 			
 		def transform_content(row):
 			"""
@@ -1428,8 +1436,18 @@ class MainWebService(XMLRPCController):
 				    row['priority'] = match.group(1)
 				    row['text_content'] = match.group(2)
 		
-		def is_static_address(self, ip):
-			address = db._get_addresses(address=ip)
+		def validate_arecord(ip_content):
+			"""
+			Checks ip in a-record to make sure it is a statically assigned ip
+			@param ip_content: ip address of record
+			"""
+			address = db.get_addresses(address=ip_content)
+
+			if not address:
+				messages.append('A Record must be in an allocated network. Could not add record: %s %s' % (form_row['name'], form_row['ip_content']))
+			
+			if address and address[0]['mac'] == None:
+				messages.append('A Record must point to a static IP. Could not add record: %s %s' % (form_row['name'], form_row['ip_content']))
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
@@ -1478,10 +1496,14 @@ class MainWebService(XMLRPCController):
 				#check for priority and set it if it exists
 				set_priority(form_row)
 				
-				validate_syntax(form_row, new_record=True)
-				new.append(form_row)
+				is_valid = validate_syntax(form_row, new_record=True)
 				
 				# VALIDATE SEMANTICS & PERMISSIONS
+				if is_valid and form_row['tid'] == 1:
+					validate_arecord(form_row['ip_content'])
+				
+				new.append(form_row)
+				
 				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
 				and (dns_type_perms.has_key(str(form_row['tid'])))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
@@ -1491,11 +1513,12 @@ class MainWebService(XMLRPCController):
 			# STATE: deleted record
 			elif form_row.has_key('deleted') and form_row['deleted']:
 				validate_syntax(form_row)
-				deleted.append(form_row['id'])
 				
 				# VALIDATE SEMANTICS & PERMISSIONS
 				if not (Perms(id_perms[form_row['id']]) & perms.DELETE == perms.DELETE):
 					messages.append('Insufficient permissions to delete record %s' % form_row['name'])
+				else:
+					deleted.append(form_row['id'])
 				continue
 			
 			# STATE: changed record
@@ -1518,7 +1541,7 @@ class MainWebService(XMLRPCController):
 							changed_row[column] = form_row[column] 
 							did_change = True
 					
-					validate_syntax(changed_row)
+					is_valid = validate_syntax(changed_row)
 					
 					if did_change:
 						# Since we delete and then re-add, we must have all attributes of the old record
@@ -1537,6 +1560,9 @@ class MainWebService(XMLRPCController):
 						edited.append(backend_row)
 						
 						# VALIDATE SEMANTICS & PERMISSIONS
+						if is_valid and backend_row['tid'] == 1:
+							validate_arecord(form_row['ip_content'])
+							
 						if not (Perms(id_perms[form_row['id']]) & perms.MODIFY == perms.MODIFY):
 							messages.append('Insufficient permissions to modify record %s' % form_row['name'])
 					

@@ -2341,22 +2341,38 @@ class DBInterface( DBBaseInterface ):
 		@param rid: the ID of the row in dns_records
 		"""
 		
+		# TODO: now that we have find_permissions_for_dns_records, re-write this function
+		# to not accept a mac address (and find all the places that are calling this)
+		
+		records = self.get_dns_records(id=rid)
+		
+		if not records:
+			raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
+		
+		record = records[0]
+		
 		# If MAC is not specified, require DEITY
 		if not mac:
-			records = self.get_dns_records(id=rid)
-			
-			if not records:
-				raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
-			
 			id_perms = self.find_permissions_for_dns_records(records)[0]
 			
 			if Perms(id_perms[rid]) & perms.DELETE != perms.DELETE:
-				raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, records[0]['name']))
+				raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, record['name']))
 		else:
 			# Require DELETE permissions if MAC is specified
 			self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
 		
+		# Delete the record
 		query = obj.dns_records.delete(obj.dns_records.c.id==rid)
+		
+		# If it was an A Record, delete the associated PTR (without permissions checking)
+		if record['tid'] == 1:
+			ptr = self.get_dns_records(name=IPy.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
+			
+			if ptr:
+				query = obj.dns_records.delete((obj.dns_records.c.id==ptr[0]['id']) | (obj.dns_records.c.id==rid))
+			else:
+				# TODO: log the fact that there was no PTR record
+				pass
 
 		return self._execute_set(query)
 	
@@ -2459,7 +2475,13 @@ class DBInterface( DBBaseInterface ):
 					dns_records = self.get_dns_records( mac=mac )
 					
 					for rr in dns_records:
-						self.del_dns_record(rid=rr['id'], mac=mac)
+						try:
+							self.del_dns_record(rid=rr['id'], mac=mac)
+						except error.NotFound:
+							# FIXME: this may not be the best way, but catch the case where a PTR
+							# has already been deleted by del_dns_record, but we still have it in this list
+							pass
+							
 					
 				# Delete the host
 				query = obj.hosts.delete(obj.hosts.c.mac==mac)
