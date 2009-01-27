@@ -499,6 +499,7 @@ class MainWebService(XMLRPCController):
 	#------------------------	 HOSTS	  ----------------------------
 	# Host management
 	
+	# FIXME: should this be exposed? I don't think so...
 	@cherrypy.expose
 	def validate_host_info(self, *args):
 		"""
@@ -521,7 +522,11 @@ class MainWebService(XMLRPCController):
 			# If given an owners CSV string, make it a list
 			kw['owners'] = kw['owners_list'].split(',')
 			del kw['owners_list']
-			
+		
+		# If we're editing and no owners were specified, add in [] to satisify checks below
+		if kw['editing'] and not kw.has_key('owners'):
+			kw['owners'] = []
+		
 		if (not kw.has_key('mac')
 		or not kw.has_key('hostname')
 		or not kw.has_key('domain')
@@ -556,9 +561,8 @@ class MainWebService(XMLRPCController):
 			messages.append('The specified hostname is invalid. Please use only letters, numbers, and dashes.')
 		if not kw['is_dynamic'] and kw.has_key('network') and kw['network'] and not validation.is_cidr(kw['network']):
 			messages.append('The specified network is invalid. Please give a valid network in CIDR notation.')
-		if kw.has_key('owners') and not kw['owners']:
+		if not kw['editing'] and (kw.has_key('owners') and not kw['owners']):
 			messages.append('At least one owner must be specified.')
-			
 		if kw['editing'] and not validation.is_mac(kw['old_mac']):
 			messages.append('The specified old MAC address is invalid.')
 
