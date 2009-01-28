@@ -346,7 +346,10 @@ class IPMCmdInterface( cmd.Cmd ):
 			print "Owners:"
 			for owner in owners:
 				result = self.iface.get_user_info( username=owner['username'] )
-				print "\t%(username)s\t%(name)s\t%(email)s" % result
+				if result:
+					print "\t%(username)s\t%(name)s\t%(email)s" % result
+				else:
+					print "\tERROR: %s has ownership over host, but lookup (source: %s) failed!" % (owner['username'], owner['source'])
 				
 		else:
 			print "No owners found."
@@ -447,10 +450,20 @@ class IPMCmdInterface( cmd.Cmd ):
 		return additional_owners
 
 	def do_del_dns_record( self, arg ):
-		id = int( arg )
-		self.onecmd( 'show_dns id %s' % id )
-		if self.get_bool_from_user( 'delete this record', default=False ):
-			self.iface.del_dns_record( rid=id )
+		ids = map(int, arg.strip().split())
+		failed = []
+		for id in ids:
+			self.onecmd( 'show_dns id %s' % id )
+		if self.get_bool_from_user( 'delete record(s)', default=False ):
+			for id in ids:
+				try:
+					self.iface.del_dns_record( rid=id )
+				except:
+					failed.append(id)
+			if failed: print "Failed to delete the following records: "
+			for i in failed:
+				self.onecmd( 'show_dns id %s' % id )
+
 	
 	def do_del_network( self, arg ):
 		net = arg.strip()
