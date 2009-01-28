@@ -2405,6 +2405,21 @@ class DBInterface( DBBaseInterface ):
 		@param gid: the group database id"""
 		pass
 	
+	def del_dhcp_dns_record(self, name=None, ip=None):
+		"""
+		Delete a DHCP DNS record based on its name or IP address
+		"""
+		
+		if name and ip:
+			raise error.RequiredArgument("Specify exactly one of name or IP address")
+		
+		if ip:
+			query = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.ip_content==ip )
+		if name:
+			query = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.name==name )
+		
+		return self._execute_set(query)
+
 	def del_guest_ticket( self, ticket ):
 		"""
 		Delete a guest ticket
@@ -2471,6 +2486,8 @@ class DBInterface( DBBaseInterface ):
 					for addr in release_addresses:
 						self.release_static_address(address=addr['address'])
 					
+					self.del_dhcp_dns_record( name = host[0]['hostname'] )
+
 					# Delete the DNS records associated with the old static host
 					dns_records = self.get_dns_records( mac=mac )
 					
@@ -3457,21 +3474,6 @@ class DBDHCPInterface(DBInterface):
 		
 		return self._execute_set(query)
 	
-	def del_dhcp_dns_record(self, name=None, ip=None):
-		"""
-		Delete a DHCP DNS record based on its name or IP address
-		"""
-		
-		if name and ip:
-			raise error.RequiredArgument("Specify exactly one of name or IP address")
-		
-		if ip:
-			query = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.ip_content==ip )
-		if name:
-			query = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.name==name )
-		
-		return self._execute_set(query)
-
 def bytes_to_int( bytes ):
 	bytes = str(bytes)
 	val = 0
