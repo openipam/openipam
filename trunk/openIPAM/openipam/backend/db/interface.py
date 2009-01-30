@@ -740,9 +740,9 @@ class DBBaseInterface(object):
 		if gid:
 			query = query.where(obj.groups.c.id == gid)
 		if name:
-			query = query.where(obj.groups.c.name == name)
+			query = query.where(sqlalchemy.sql.func.lower(obj.groups.c.name) == name.lower())
 		if ignore_usergroups:
-			query = query.where(not_(obj.groups.c.name.like('user_%')))
+			query = query.where(not_(sqlalchemy.sql.func.lower(obj.groups.c.name).like('user_%')))
 			
 		return query
 	
@@ -1292,9 +1292,9 @@ class DBBaseInterface(object):
 		
 		if username:
 			if '%' in username:
-				query = query.where(sqlalchemy.sql.func.lower(obj.users.c.username).like( sqlalchemy.sql.func.lower(username)))
+				query = query.where(sqlalchemy.sql.func.lower(obj.users.c.username).like( username.lower()))
 			else:
-				query = query.where(sqlalchemy.sql.func.lower(obj.users.c.username) == sqlalchemy.sql.func.lower(username))
+				query = query.where(sqlalchemy.sql.func.lower(obj.users.c.username) == username.lower())
 		if uid != None:
 			query = query.where(obj.users.c.id == uid)
 		if source != None:
