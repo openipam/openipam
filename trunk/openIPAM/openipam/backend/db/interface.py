@@ -1292,9 +1292,9 @@ class DBBaseInterface(object):
 		
 		if username:
 			if '%' in username:
-				query = query.where(obj.users.c.username.like(username))
+				query = query.where(sqlalchemy.sql.func.lower(obj.users.c.username).like( sqlalchemy.sql.func.lower(username)))
 			else:
-				query = query.where(obj.users.c.username == username)
+				query = query.where(sqlalchemy.sql.func.lower(obj.users.c.username) == sqlalchemy.sql.func.lower(username))
 		if uid != None:
 			query = query.where(obj.users.c.id == uid)
 		if source != None:
@@ -1357,6 +1357,7 @@ class DBInterface( DBBaseInterface ):
 			if not user:
 				raise error.NotFound('Auth user not found. May need to create it in the database or check config settings.')
 			user = user[0]
+			self._username = user['username']
 			uid = user['id']
 			min_perms = user['min_permissions']
 		self._uid = uid

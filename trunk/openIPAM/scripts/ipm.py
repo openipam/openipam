@@ -649,11 +649,14 @@ class IPMCmdInterface( cmd.Cmd ):
 
 	def do_add_static_host( self, arg ):
 		vals = self.get_from_user( [ ('hostname',), ('mac',), ('addr','address or CIDR network',),
-			('owners','additional owners (users or groups)') ] )
+			('owners','explicit owners (users or groups)') ] )
 		hostname = vals['hostname']
 		mac = vals['mac']
 		owners = vals['owners'].split()
-		additional_owners = self.get_groups_from_names( owners )
+		additional_owners = [ i['name'] for i in self.get_groups_from_names( owners ) ]
+		add_host_to_my_group=True
+		if additional_owners:
+			add_host_to_my_group=False
 
 		ip = net = None
 		if len( vals['addr'].split('/') ) == 1:
@@ -663,7 +666,7 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		expiration = datetime.datetime.today().replace( hour=0, minute=0, second=0, microsecond=0 ) + datetime.timedelta( 365 )
 
-		self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration )
+		self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration, add_host_to_my_group=add_host_to_my_group )
 
 	def do_add_user( self, arg ):
 		vals = self.get_from_user( [ ('username',), ('source',), ('min_perms',), ] )
