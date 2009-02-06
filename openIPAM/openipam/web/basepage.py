@@ -19,6 +19,7 @@ DEFAULT_DNS_RECORDS_LIMIT = 400
 perms = frontend.perms
 
 class BasePage(object):
+	_cp_config = {'tools.cgitb.on': True}
 	def __init__(self):
 		"""Class constructor to create global objects"""
 		

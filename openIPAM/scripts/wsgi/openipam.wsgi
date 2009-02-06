@@ -6,6 +6,57 @@ import threading
 import cherrypy
 from openipam.web.resource import webroot
 
+tb_fmt = """<html>
+<head>
+	<title>ERROR</title>
+
+	<script type="text/javascript">
+	<!--
+	function toggleBox(szDivID, iState) // 1 visible, 0 hidden
+	{
+	   var obj = document.layers ? document.layers[szDivID] :
+	   document.getElementById ?  document.getElementById(szDivID).style :
+	   document.all[szDivID].style;
+	   obj.display = document.layers ? (iState ? "block" : "none") :
+	   (iState ? "block" : "none");
+	}
+	// -->
+	</script>
+
+	<style type="text/css">
+	<!--
+	.hidden  {display:none;}
+	-->
+	</style>
+
+</head>
+<body>
+<div class="error">\n%s\n</div>
+<input type="button" onClick="toggleBox('traceback',1);" value="Show traceback">
+<div id='traceback' class="hidden">\n%s\n</div>
+</body>
+"""
+
+def get_exc_str(exc):
+	# FIXME: escape any characters special to html
+	if hasattr(exc,'faultString'):
+		return exc.faultString
+	return repr(exc).replace('<','&gt;').replace('>','&lt;')
+
+def err():
+	"""Replace the default error response with an HTML traceback from cgitb."""
+	import cgitb, sys
+	tb_str = cgitb.html(sys.exc_info())
+	tb = tb_str[tb_str.find('\n')+1:]
+	exc = sys.exc_info()[1]
+	exc_str = get_exc_str(exc)
+	def set_tb():
+		cherrypy.response.body = tb_fmt % (exc_str, tb)
+		#cherrypy.response.body = tb
+		cherrypy.response.headers['Content-Length'] = None
+	cherrypy.request.hooks.attach('after_error_response', set_tb)
+cherrypy.tools.cgitb = cherrypy.Tool('before_error_response', err)
+
 cherrypy.config.update({'environment': 'embedded'})
 
 # Yes, True. For some reason this fixes the Apache error
