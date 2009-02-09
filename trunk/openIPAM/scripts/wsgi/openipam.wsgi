@@ -41,7 +41,7 @@ def get_exc_str(exc):
 	# FIXME: escape any characters special to html
 	if hasattr(exc,'faultString'):
 		return exc.faultString
-	return repr(exc).replace('<','&gt;').replace('>','&lt;')
+	return str(exc).replace('<','&gt;').replace('>','&lt;')
 
 def err():
 	"""Replace the default error response with an HTML traceback from cgitb."""
