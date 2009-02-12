@@ -405,6 +405,17 @@ class MainWebService(XMLRPCController):
 		db.del_group( **args[0] )
 		
 	@cherrypy.expose
+	def del_lease(self, *args):
+		"""
+		Delete a lease
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		db.del_lease( **args[0] )
+		
+	@cherrypy.expose
 	def add_user_to_group(self, *args):
 		"""
 		Add a user to a group
