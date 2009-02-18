@@ -761,7 +761,7 @@ class IPMCmdInterface( cmd.Cmd ):
 				print 'WARNING: Address has a lease:'
 				self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 				if self.get_bool_from_user( 'Delete this lease', default=False ):
-					self.del_lease( address=net )
+					self.iface.del_lease( address=net )
 				else:
 					raise Exception('Aborting because of lease on address.')
 			ip = self.iface.assign_static_address( mac=mac, hostname=hostname, address=net )
