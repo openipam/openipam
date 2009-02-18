@@ -2,10 +2,24 @@
 
 import psycopg2
 import tempfile
+import os
+import syslog
+import fcntl
 
 # Set these as appropriate
-ipamdb=None
-dnsdb=None
+ipamdb="dbname='prod_openipam' host='ipam-db.yourdomain.com' user='dns_read'"
+dnsdb="dbname='pdns_cached' host='localhost' user='pdns'"
+
+sqlfile_name = '/var/run/dns_sync.sql'
+lockfile_name = '/var/run/dns_sync.lock'
+
+lockfile = open(lockfile_name,'w')
+
+try:
+	fcntl.flock(lockfile,fcntl.LOCK_EX|fcntl.LOCK_NB)
+except IOError,e:
+	syslog.syslog(syslog.LOG_ERR, 'dns_update: not checking rules since it appears another instance is running')
+	exit(1)
 
 ipam = psycopg2.connect(ipamdb)
 dns = psycopg2.connect(dnsdb)
@@ -14,13 +28,16 @@ ipamcurs = ipam.cursor()
 dnscurs = dns.cursor()
 
 def check_update():
-	dnscurs.execute('''SELECT t_name,last_change,last_id
-			FROM last_update''')
-
 	last = {}
 	cur = {}
-	for i in dnscurs.fetchall():
-		last[i[0]] = (i[1],i[2])
+	try:
+		dnscurs.execute('''SELECT t_name,last_change,last_id
+				FROM last_update''')
+
+		for i in dnscurs.fetchall():
+			last[i[0]] = (i[1],i[2])
+	except:
+		pass
 
 	# This is probably NULL
 	ipamcurs.execute('''SELECT max(change_date) FROM pdns_zone_xfer''')
@@ -60,7 +77,9 @@ def check_update():
 	return (changed, cur)
 
 changed, cur = check_update()
-print changed,cur
+#print changed,cur
+if not changed:
+	syslog.syslog('dns_update: no change detected, not updating')
 
 def copy_data(d):
 	if d is None:
@@ -69,15 +88,15 @@ def copy_data(d):
 	return new.replace('\t','\\t')
 
 if changed and __name__ == '__main__':
-	print "Need update"
+	#print "Need update"
+	sqlfile = open(sqlfile_name,'w')
+	syslog.syslog('dns_update: starting update')
 	cond = 'view_id=1 or view_id IS NULL'
 
 	domain_fields = ['id','name','master','last_check','type','notified_serial','account']
 	record_fields = ['domain_id','name','type','content','ttl','prio','change_date']
 
 	clear_old = '''TRUNCATE TABLE domains, records, last_update;'''
-
-	sqlfile = open('dns_data.sql','w')
 
 	#dnscurs.execute(clear_old)
 	sqlfile.write('BEGIN;\n')
@@ -130,13 +149,13 @@ GRANT SELECT ON records TO pdns;
 ''')
 	sqlfile.write('\n')
 
-	print 'getting domains'
+	#print 'getting domains'
 	#domains = tempfile.TemporaryFile()
 	#ipamcurs.copy_to(domains,'domains',columns=domain_fields)
 	sqlfile.write('\nCOPY domains_new(%s) FROM STDIN;\n'%','.join(domain_fields))
 	ipamcurs.copy_to(sqlfile,'domains',columns=domain_fields)
 	sqlfile.write('\\.\n\n')
-	print 'copying domains'
+	#print 'copying domains'
 	#domains.seek(0)
 	#dnscurs.copy_from(domains,'domains',columns=domain_fields)
 	#domains.close()
@@ -144,12 +163,12 @@ GRANT SELECT ON records TO pdns;
 	#domains = ipamcurs.fetchall()
 	#dnscurs.executemany('''INSERT INTO domains(%s) VALUES (%s);''' % (','.join(domain_fields),','.join(['%s' for i in range(len(domain_fields))])), domains)
 
-	print 'getting records'
+	#print 'getting records'
 	#records = tempfile.TemporaryFile()
 	ipamcurs.execute('''SELECT %s FROM records WHERE %s'''% (','.join(record_fields),cond))
 	record_list = ipamcurs.fetchall()
 	sqlfile.write('COPY records_new(%s) FROM STDIN;\n'%','.join(record_fields))
-	print 'formatting records'
+	#print 'formatting records'
 	for i in range(len(record_list)):
 		#records.write('\t'.join(map(copy_data,record_list[i])))
 		sqlfile.write('\t'.join(map(copy_data,record_list[i])))
@@ -157,12 +176,12 @@ GRANT SELECT ON records TO pdns;
 		#	records.write('\n')
 		sqlfile.write('\n')
 	sqlfile.write('\\.\n\n')
-	print 'copying records'
+	#print 'copying records'
 	#records.seek(0)
 	#dnscurs.copy_from(records,'records',columns=record_fields)
 	#dnscurs.executemany('''INSERT INTO records(%s) VALUES (%s);''' %(','.join(record_fields),','.join(['%s' for i in range(len(record_fields))])), record_list)
 
-	print 'updating status'
+	#print 'updating status'
 	new_checked = []
 	for i in cur.keys():
 		new_checked.append( (i,cur[i][0],cur[i][1],) )
@@ -185,6 +204,14 @@ GRANT SELECT ON records TO pdns;
 --CREATE INDEX domain_id ON records(domain_id);
 ''')
 	sqlfile.write('''COMMIT;\n\n-- END OF FILE''')
+	sqlfile.close()
 	dns.commit()
 	ipam.commit()
+
+	r = os.system('/usr/bin/psql -f %s -h localhost -U pdns -d pdns_cached > /dev/null 2>&1' % sqlfile_name)
+	if r==0:
+		syslog.syslog('dns_update: update successful')
+	else:
+		syslog.syslog( syslog.LOG_ERR, 'dns_update: update FAILED')
+
 
