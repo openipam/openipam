@@ -292,6 +292,13 @@ class Hosts(BasePage):
 			values['hosts'] = self.get_hosts( username=q.replace("user:", "").strip(), page=page )
 		elif validation.is_fqdn(q):
 			values['hosts'] = self.get_hosts( hostname='%%%s%%' % q, page=page )
+			
+			# Include hosts that have CNAMEs pointed to them by this name
+			cnames = self.webservice.get_dns_records({ 'tid' : 5, 'name' : '%%%s%%' % q })
+			cname_names = [row['text_content'] for row in cnames]
+			if cname_names:
+				# FIXME: paging may screw up here, untested
+				values['hosts'] += self.get_hosts(hostname=cname_names, page=page)
 		elif validation.is_cidr(q):
 			values['hosts'] = self.get_hosts( network=q, page=page )
 		else:
