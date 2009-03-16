@@ -13,8 +13,10 @@ import readline
 import atexit
 import datetime
 import IPy
+import re
 
 from openipam.web.resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
+from openipam.utilities.validation import mac as mac_regex
 
 histfile = os.path.join( os.environ['HOME'], '.openipam_history' )
 
@@ -271,6 +273,14 @@ class IPMCmdInterface( cmd.Cmd ):
 		if leases:
 			print 'Lease:'
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),('abandoned','abandoned'),], prefix='\t' )
+
+	def do_show_lease( self, arg ):
+		arg=arg.strip()
+		leases = self.iface.get_leases( address=arg )
+
+		if leases:
+			print 'Lease:'
+			self.show_dicts( leases, [('address','address'),('mac','mac'),('starts','starts'),('ends','ends'),('abandoned','abandoned'),], prefix='\t' )
 
 	def complete_show_addresses( self, *args, **kwargs ):
 		return self.mkdict_completion( self.addresses_fields, *args, **kwargs )
@@ -563,6 +573,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			file = arg.strip()
 		else:
 			fields.append( ('file','file containing CSV data',) )
+			
 		fields.append( ('owners','additional owners (users or groups)') )
 		vals = self.get_from_user( fields, defaults={'owners':None,} )
 		if not file:
@@ -646,6 +657,48 @@ class IPMCmdInterface( cmd.Cmd ):
 		if failed:
 			print "\nThe following MAC addresses failed to insert:\n\t"
 			print '\n\t'.join(failed)
+			
+	def do_assign_hosts_to_network( self, arg ):
+		mac = network = None
+		failed = []
+		file = None
+		
+		arg = arg.strip()
+		
+		fields = [ ('network','CIDR network',), ]
+		
+		if arg:
+			print 'importing data from %s' % arg.strip()
+			file = arg
+		else:
+			fields.insert(0, ('file','file containing MAC addresses',) )
+
+		vals = self.get_from_user( fields, defaults={} )
+		if not file:
+			file=vals['file']
+			
+		file = open(file, 'r')
+		content = file.read()
+		file.close()
+			
+		for mac in re.findall(mac_regex, content):
+			try:
+				self.iface.change_registration(old_mac=mac, network=vals['network'], is_dynamic=False, do_validation=False)
+				print "Moved MAC %s to %s" % (mac, vals['network'])
+			except Exception, e:
+				print e
+				failed.append(mac)
+				
+		if failed:
+			print "\nThe following MAC addresses failed to be moved:\n\t"
+			print '\n\t'.join(failed)
+	
+	def do_del_lease( self, arg ):
+		arg = arg.strip()
+		self.onecmd( 'show_lease %s' % arg )
+
+		if self.get_bool_from_user( 'delete this lease', default=False ):
+			self.iface.del_lease( address=arg )
 
 	def do_add_static_host( self, arg ):
 		vals = self.get_from_user( [ ('hostname',), ('mac',), ('addr','address or CIDR network',),

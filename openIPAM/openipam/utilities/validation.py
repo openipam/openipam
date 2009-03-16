@@ -3,6 +3,8 @@
 import re
 
 # useful regexes
+#  * MAC address
+mac = "[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F]"
 #  * dotted-quad IP
 ip = "((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))(?![\\d])"
 #  * CIDR mask (0-32)
@@ -14,10 +16,8 @@ hostname = "([0-9A-Za-z]+|[0-9A-Za-z][\-0-9A-Za-z]*[0-9A-Za-z])"
 
 def is_mac(string):
 	'''Returns true if argument is ethernet address, false otherwise'''
-	mac = "[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F]"
 	re_mac = re.compile("^" + mac + "$")
 	return re_mac.search(string)
-
 
 def is_ip(string):
 	'''Returns true if argument is an IP address, false otherwise'''
