@@ -777,6 +777,9 @@ class MainWebService(XMLRPCController):
 		if args[0]['do_validation']:
 			args = self.validate_host_info(*args)
 			del args[0]['do_validation']
+		else:
+			del args[0]['do_validation']
+			del args[0]['editing']
 		
 		db.change_registration(**args[0])
 	
