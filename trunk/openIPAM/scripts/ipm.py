@@ -505,6 +505,28 @@ class IPMCmdInterface( cmd.Cmd ):
 		if name[-7:] != 'usu.edu':
 			print 'Remember to add an SOA for this domain if none exists.'
 
+	def do_add_external_domain( self, arg ):
+		type='MASTER'
+		fields = [ ('name',), ('description',), ('address',),]
+
+		vals = self.get_from_user( fields )
+		
+		name = vals['name'].strip()
+		desc = None
+		if vals['description']:
+			desc = vals['description'].strip()
+		master = None
+		if vals.has_key('master') and vals['master']:
+			master = vals['master'].strip()
+		if vals.has_key('address'):
+			address = vals['address']
+
+		self.iface.add_domain( name=name, type=type, description=desc, master=master )
+		self.iface.add_dns_record( name=name, tid=6, text_content='root1.usu.edu hostmaster@usu.edu 0 10800 3600 604800 3600', vid=None )
+		self.iface.add_dns_record( name=name, tid=1, ip_content=address, add_ptr=False, vid=None )
+		self.iface.add_dns_record( name='www.'+name, tid=5, text_content=name, vid=None )
+
+
 		
 	def do_add_dns_record( self, arg ):
 		type = arg.strip()
@@ -521,6 +543,8 @@ class IPMCmdInterface( cmd.Cmd ):
 				defaults['priority'] = '10'
 		if type == 'A':
 			add_ptr = self.get_bool_from_user( 'Add PTR', default=True )
+		else:
+			add_ptr = False
 
 		fields.extend( [ ('content','value',), ] ) # ('ttl','ttl (seconds)'),] )
 		fields.append( ('vid','View number',) )
@@ -541,7 +565,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		else:
 			vid=None
 
-		if type == 'A':
+		if type in ['A','AAAA',]:
 			self.iface.add_dns_record( name=name, tid=tid, ip_content=content, add_ptr=add_ptr, vid=vid ) #, ttl=ttl )
 		else:
 			self.iface.add_dns_record( name=name, tid=tid, priority=priority, text_content=content, vid=vid ) #, ttl=ttl )
