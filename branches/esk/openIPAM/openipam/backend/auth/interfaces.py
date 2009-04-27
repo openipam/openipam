@@ -287,7 +287,7 @@ class LDAPInterface(BaseAuthInterface):
 			if not our_user:
 				raise error.InsertFailed("New user from LDAP could not be inserted into the database")
 		elif len(our_user) > 1:
-			raise error.NotUnique()
+			raise error.NotUnique(str(our_user))
 		
 		our_user = our_user[0]
 		
