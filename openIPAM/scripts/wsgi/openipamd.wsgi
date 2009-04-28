@@ -23,15 +23,15 @@ cherrypy.config.update( {
 		'tools.gzip.on' : True,
 		'tools.xmlrpc.allow_none' : True,
 		'log.access_file' : backend.log_access, 
-		'log.error_file' : backend.log_error
+		'log.error_file' : backend.log_error,
 		# XMLRPC stuff
 		'tools.xmlrpc.on' : True,
-		'request.dispatch' : cherrypy.dispatch.XMLRPCDispatcher()
+		'request.dispatch' : cherrypy.dispatch.XMLRPCDispatcher(),
 	} )
 
 if cherrypy.engine.state == 0:
     cherrypy.engine.start(blocking=False)
     atexit.register(cherrypy.engine.stop)
 
-application = cherrypy.tree.mount(MainWebService(), None)
+application = cherrypy.Application(MainWebService(), None)
 
