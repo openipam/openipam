@@ -12,7 +12,7 @@ import cmd
 import readline
 import atexit
 import datetime
-import IPy
+import openipam.iptypes
 import re
 
 from openipam.web.resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
@@ -63,16 +63,16 @@ def condense( addr_list ):
 	end=None
 	ranges = []
 	for addr in addr_list:
-		addr=IPy.IP(addr).int()
+		addr=openipam.iptypes.IP(addr).int()
 		if not begin:
 			begin = end = addr
 			continue
 		if end == addr-1:
 			end = addr
 		else:
-			ranges.append( (IPy.IP(begin), IPy.IP(end),) )
+			ranges.append( (openipam.iptypes.IP(begin), openipam.iptypes.IP(end),) )
 			begin = end = addr
-	ranges.append( (IPy.IP(begin), IPy.IP(end),) )
+	ranges.append( (openipam.iptypes.IP(begin), openipam.iptypes.IP(end),) )
 	return ranges
 
 def range_to_net( range_list ):
@@ -96,7 +96,7 @@ def range_to_net( range_list ):
 				if bad_mask or bad_base:
 					# the mask is too big
 					next = (s | ( bits >> 1)) + 1
-					net = IPy.IP( '%s/%s' % ( str(IPy.IP(s)), mask + 1 ) )
+					net = openipam.iptypes.IP( '%s/%s' % ( str(openipam.iptypes.IP(s)), mask + 1 ) )
 					s = next
 					nets.append(net)
 					break
@@ -328,6 +328,11 @@ class IPMCmdInterface( cmd.Cmd ):
 		if leases:
 			print "Leased addresses:"
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
+		groups = []
+		for g in self.iface.get_hosts_to_groups(mac=arg):
+			groups.append(self.iface.get_group(id=g[0]['id']) )
+		print groups
+		#self.show_dicts( groups, 
 	
 	def do_show_full_mac( self, arg ):
 		arg = arg.strip()
@@ -827,6 +832,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			print 'Searching for address %s' % net
 			addrs = self.iface.get_addresses( address=net )
 			if not addrs:
+				# FIXME: this is good for IPv6 addresses
 				raise Exception('Address %s not found.  Has the network been added?')
 
 			print 'Address to be updated:'

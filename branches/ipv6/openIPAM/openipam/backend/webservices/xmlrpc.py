@@ -41,7 +41,7 @@ from openipam.utilities.perms import Perms
 
 from openipam.config import auth_sources
 
-import IPy
+import openipam.iptypes
 
 perms = interface.perms
 
@@ -420,6 +420,19 @@ class MainWebService(XMLRPCController):
 	#-----------------------	GROUPS	  ----------------------------
 	# Group management; adding and editing groups for users, hosts, networks, and domains. Includes management
 	# of members for each of these group types.
+	
+	@cherrypy.expose
+	def get_hosts_to_groups(self, *args):
+		"""Add a group
+		@param filter: a dictionary on which to filter"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		if not args:
+			args = ({},)
+		
+		return self.__sanitize(db.get_hosts_to_groups( **args[0] ))
 	
 	@cherrypy.expose
 	def get_groups(self, *args):
@@ -1856,7 +1869,7 @@ class MainWebService(XMLRPCController):
 			result = db.add_shared_network( name=args[0]['name'], description=args[0]['description'])
 			shared = result.last_inserted_ids()[0]
 			for net in args[0]['networks']:
-				net = IPy.IP( net.strip() )
+				net = openipam.iptypes.IP( net.strip() )
 				gw = net[ backend.default_gateway_address_index ]
 				db.add_network( network=str(net), gateway=str(gw), name=args[0]['name'], shared_network=shared, description=args[0]['description'] )
 			db._commit()

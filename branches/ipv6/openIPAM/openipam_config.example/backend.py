@@ -1,4 +1,4 @@
-import IPy
+import openipam.iptypes
 
 # SSL
 ssl_enabled = False
@@ -65,7 +65,7 @@ db_service_group_id = 3
 
 # WRITEME
 pool_map = [
-	(1, IPy.IP('192.168.0.0/16')),
-	(2, IPy.IP('172.16.0.0/16')),
+	(1, openipam.iptypes.IP('192.168.0.0/16')),
+	(2, openipam.iptypes.IP('172.16.0.0/16')),
 ]
 

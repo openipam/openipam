@@ -1,4 +1,4 @@
-import IPy
+import openipam.iptypes
 
 # SSL
 ssl_enabled = False

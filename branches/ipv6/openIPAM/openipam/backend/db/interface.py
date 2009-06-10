@@ -26,7 +26,7 @@ import datetime
 
 import sqlalchemy
 import obj
-import IPy
+import openipam.iptypes
 import re
 import thread
 
@@ -543,7 +543,7 @@ class DBBaseInterface(object):
 			
 			ptr_names = []
 			for rr in a_records_result:
-				ptr_names.append(IPy.IP(rr['ip_content']).reverseName()[:-1])
+				ptr_names.append(openipam.iptypes.IP(rr['ip_content']).reverseName()[:-1])
 				
 			ptr_records =  select( columns ).where(obj.dns_records.c.name.in_(ptr_names))
 			if whereclause:
@@ -1365,6 +1365,35 @@ class DBInterface( DBBaseInterface ):
 		self._uid = uid
 		self._min_perms = Perms(min_perms)
 	
+	def _assign_ip6_address(self, mac, network, dhcp_server_id=0, use_lowest=False, is_server=False):
+		# FIXME: how do we get this?
+		network = openipam.iptypes.IP(network)
+		# FIXME: the logic for choosing an address to try should go in a config file somewhere
+		address_prefix = network | ( dhcp_server_id << 48 )
+		if not is_server:
+			address_prefix |= 1 << 63
+		address_prefix = address_prefix.make_net(48)
+		if use_lowest:
+			a = obj.addresses.alias('a')
+			q = select(columns = [(obj.addresses.c.address + 1).label('next'),], from_obj=obj.addresses).where(obj.addresses.c.address.op('<<')(str(network)))
+			sub_q =  sqlalchemy.sql.exists(whereclause=and_(a.c.address == obj.addresses.c.address + 1, (a.c.address + 1).op('<<')(str(network))))
+			q = q.where(~sub_q)
+			q = q.limit(1).order_by('next')
+			results = self._execute(q)
+			if not results:
+				raise Exception('Did not find an ip6 address?! network: %s mac: %s'%(network,mac))
+			address = results[0][0]
+		else:
+			macaddr = int('0x' + re.sub(mac,'[^0-9A-Fa-f]+',''))
+			lastbits = (macaddr & 0xffffff) ^ ( macaddr >> 24 ) | ( random.getrandbits(24) << 24 )
+			address = address_prefix | lastbits
+			# FIXME: check to see if it is used
+		# assign address
+		network = self._execute(select(columns=[obj.networks.c.network,],from_obj=obj.networks).where(obj.networks.c.network.op('>>')(str(address))))[0][0]
+		self.add_address(mac=mac, network=network, address=str(address))
+
+		return address
+
 	def _execute_set(self, query, **kw):
 		"""
 		Execute the given query. If in a transaction, I'll use that transactional
@@ -1442,8 +1471,8 @@ class DBInterface( DBBaseInterface ):
 
 		self.require_perms( perms.DEITY )
 
-		query = obj.addresses.insert( values={'address':address,
-									'network':network,
+		query = obj.addresses.insert( values={'address':str(address),
+									'network':str(network),
 									'mac':mac,
 									'pool':pool,
 									'reserved': reserved } )
@@ -1630,30 +1659,37 @@ class DBInterface( DBBaseInterface ):
 				if not result:
 					raise error.InsufficientPermissions("Insufficient permissions to add a DNS record of type %s" % tid)
 			
+			if tid == 1 or tid == 28:
+				ip = openipam.iptypes.IP(ip_content)
+				if tid == 1 and ip.version() != 4:
+					raise Exception('A record must have ip4 address: name: %s tid: %s address: %s' % (name,tid,ip_content))
+				if tid == 28 and ip.version() != 6:
+					raise Exception('AAAA record must have ip6 address: name: %s tid: %s address: %s' % (name,tid,ip_content))
+				# PTR record
+				if add_ptr:
+					
+					ptrname = ip.reverseName()[:-1]
+					
+					domains = self.get_domains( contains=ptrname )
+					
+					if not domains:
+						raise error.NotFound("Could not find appropriate domain to add PTR record for %s (ptrname: %s, address: %s)" % (name,ptrname,ip_content))
+					
+					ptr_values = {
+						'name': ptrname,
+						'tid' : 12,
+						'did' : domains[0]['id'],
+						'text_content': name,
+						'ttl' : backend.default_ttl,
+						'vid' : vid,
+						'changed' : sqlalchemy.sql.func.now(),
+						'changed_by' : self._uid
+					}
+					result = self._execute_set( obj.dns_records.insert( values=ptr_values ) )
+	
+
 			result = self._execute_set( obj.dns_records.insert( values=values ) )
 			
-			# PTR record
-			if tid == 1 and add_ptr:
-				
-				ptrname = IPy.IP(ip_content).reverseName()[:-1]
-				
-				domains = self.get_domains( contains=ptrname )
-				
-				if not domains:
-					raise error.NotFound("Could not find appropriate domain to add in-addr.arpa PTR record for A-record name %s" % name)
-				
-				values = {
-					'name': ptrname,
-					'tid' : 12,
-					'did' : domains[0]['id'],
-					'text_content': name,
-					'ttl' : backend.default_ttl,
-					'vid' : vid,
-					'changed' : sqlalchemy.sql.func.now(),
-					'changed_by' : self._uid
-				}
-				result = self._execute_set( obj.dns_records.insert( values=values ) )
-	
 			# Commit the transaction
 			self._commit()
 		except:
@@ -1874,13 +1910,21 @@ class DBInterface( DBBaseInterface ):
 		address and assign it.
 		
 		@param mac: required MAC address
-		@param network: required CIDR network
+		@param network: required when address is not specified - CIDR network
 		@param address: an optional argument, which address to assign
 		@return: the IP address that was assigned to this MAC
 
 		"""
 		if not network and not address:
 			raise error.RequiredArgument('You must specify either a network or an address.')
+
+		if address:
+			address = openipam.iptypes.IP(address)
+		if network:
+			network = openipam.iptypes.IP(network)
+		if (address and network) and address.version() != network.version():
+			raise Exception('address family mismatch: %s, %s' % (address, network))
+		ipv4 = (address and address.version() == 4) or (network and network.version() == 4)
 		
 		self._begin_transaction()
 		try:
@@ -1895,58 +1939,78 @@ class DBInterface( DBBaseInterface ):
 			query = select([obj.addresses.c.address], and_(and_(obj.addresses.c.mac == None, obj.addresses.c.pool == None), obj.addresses.c.reserved == False))
 
 			if network:
-				query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+				# FIXME: if ipv6, we don't really want to reuse these
+				if ipv4:
+					query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+				else:
+					query = query.where(False)
 
 			if address:
-				query = query.where(obj.addresses.c.address == address)
+				if ipv4:
+					query = query.where(obj.addresses.c.address == address)
+				else:
+					query = query.where(False)
 
 			
 			addresses = self._execute(query)
 			
+			created = False
+
 			if not addresses:
 				# If no totally free addresses, steal one from a pool
-				
-				# Get all addresses and the leases if they exist
-				from_object = obj.addresses.outerjoin(obj.leases, obj.addresses.c.address == obj.leases.c.address)
-				
-				# Filter all addresses to where MAC is none (address hasn't been assigned)
-				# and don't return broadcast, network, gateway and other reserved IP addresses
-				query = select([obj.addresses.c.address], from_obj=from_object).where( and_(obj.addresses.c.mac == None, obj.addresses.c.reserved == False) )
+				# FIXME: if we are using ipv6, autogenerate a new IP here.
+				if ipv4:
+					
+					# Get all addresses and the leases if they exist
+					from_object = obj.addresses.outerjoin(obj.leases, obj.addresses.c.address == obj.leases.c.address)
+					
+					# Filter all addresses to where MAC is none (address hasn't been assigned)
+					# and don't return broadcast, network, gateway and other reserved IP addresses
+					query = select([obj.addresses.c.address], from_obj=from_object).where( and_(obj.addresses.c.mac == None, obj.addresses.c.reserved == False) )
 
-				# Only rob certain pools, since some have special meanings
-				# FIXME: Add a configuration option here instead of [1,3]
-				query = query.where( obj.addresses.c.pool.in_( [1,3,] ) )
-				
-				if network:
-					query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
-				
-				# Only show expired leases
-				query = query.where(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None))
-				
-				if address:
-					query = query.where(obj.addresses.c.address == address)
-				
-				addresses = self._execute(query)
-				
-				if address and not addresses:
-					raise error.NotFound("Could not assign IP address %s to MAC address %s.  It may be in use or not contained by a network." % (address, mac))
-				
-				if not addresses:
-					raise error.NoFreeAddresses()
+					# Only rob certain pools, since some have special meanings
+					# FIXME: Add a configuration option here instead of [1,3]
+					query = query.where( obj.addresses.c.pool.in_( [1,3,] ) )
+					
+					if network:
+						query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+					
+					# Only show expired leases
+					query = query.where(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None))
+					
+					if address:
+						query = query.where(obj.addresses.c.address == address)
+					
+					addresses = self._execute(query)
+					
+					if address and not addresses:
+						raise error.NotFound("Could not assign IP address %s to MAC address %s.  It may be in use or not contained by a network." % (address, mac))
+					
+					if not addresses:
+						raise error.NoFreeAddresses()
+				else:
+					# FIXME: how do we determine 'is_server'?  should we always use_lowest for a static address?
+					address = self._assign_ip6_address(network=network, mac=mac, use_lowest=True, is_server=True, dhcp_server_id = 0)
+					created = True
+
 				
 			# If here, we have a list of usable addresses, pick one
-			address = addresses[0]['address']
+			if not created:
+				address = addresses[0]['address']
+
+				query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : None})
+				self._execute_set( query )
+
+				# If claimed, delete any previous leases
+				query = obj.leases.delete(obj.leases.c.address == address)
+				self._execute_set( query )
 			
 			# Add the A record for this static (also adds PTR)
 			if hostname:
-				self.add_dns_record(name=hostname, tid=1, ip_content=address)
-			
-			query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : None})
-			self._execute_set( query )
-			
-			# If claimed, delete any previous leases
-			query = obj.leases.delete(obj.leases.c.address == address)
-			self._execute_set( query )
+				if ipv4:
+					self.add_dns_record(name=hostname, tid=1, ip_content=address)
+				else:
+					self.add_dns_record(name=hostname, tid=28, ip_content=address)
 			
 			self._commit()
 		except:
@@ -1989,7 +2053,7 @@ class DBInterface( DBBaseInterface ):
 				pool = backend.func_get_pool_id( address=address )
 			
 			# Delete all the PTR records for this address
-			ptrrecord = IPy.IP(address).reverseName()[:-1]
+			ptrrecord = openipam.iptypes.IP(address).reverseName()[:-1]
 			ptrrecord = self.get_dns_records(name=ptrrecord)
 			
 			if ptrrecord:
@@ -2095,7 +2159,12 @@ class DBInterface( DBBaseInterface ):
 		self.require_perms(perms.DEITY)
 
 		# Add all addresses from this network into the addresses table
-		net = IPy.IP(network)
+		net = openipam.iptypes.IP(network)
+		ip4 = net.version() == 4
+		if not ip4 and net.prefixlen() != 64:
+			raise Exception('Are you really trying to allocate a network that isn\'t a /64?')
+		if pool and ip4:
+			raise Exception('Pools are only used for IPv4 addresses.')
 			
 		
 		# Check if this network overlaps with another network
@@ -2120,18 +2189,23 @@ class DBInterface( DBBaseInterface ):
 			result = self._execute_set( query )
 			
 			invalid = [ net[0], net[backend.default_gateway_address_index], net.broadcast(), ] # mark gateways as reserved, although we should assign the mac of the router
-			
-			for address in net:
-				if (address not in invalid) or (net.prefixlen() >= 31):
-					# If address is not invalid or in a /31 or /32, add the address as unreserved
-					# otherwise we would end up with no available addresses
-					if pool == False:
-						addr_pool = backend.func_get_pool_id( address )
+
+			if ip4:
+				for address in net:
+					if (address not in invalid) or (net.prefixlen() >= 31):
+						# If address is not invalid or in a /31 or /32, add the address as unreserved
+						# otherwise we would end up with no available addresses
+						if pool == False:
+							addr_pool = backend.func_get_pool_id( address )
+						else:
+							addr_pool = pool
+						self.add_address( address = str( address ), network=network, pool = addr_pool )
 					else:
-						addr_pool = pool
-					self.add_address( address = str( address ), network=network, pool = addr_pool )
-				else:
-					self.add_address( address = str( address ), network=network, pool = None, reserved=True )
+						self.add_address( address = str( address ), network=network, pool = None, reserved=True )
+			else:
+				# FIXME: IPv6: reserve our router/network addresses here
+				for address in invalid:
+					self.add_address(address=address, network=network, reserved=True)
 			
 			self._commit()
 		except:
@@ -2369,7 +2443,7 @@ class DBInterface( DBBaseInterface ):
 		
 		# If it was an A Record, delete the associated PTR (without permissions checking)
 		if record['tid'] == 1:
-			ptr = self.get_dns_records(name=IPy.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
+			ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
 			
 			if ptr:
 				query = obj.dns_records.delete((obj.dns_records.c.id==ptr[0]['id']) | (obj.dns_records.c.id==rid))
@@ -2826,7 +2900,7 @@ class DBInterface( DBBaseInterface ):
 					# ----------------------------------------
 					
 					if not network:
-						network = self.get_networks(address=address)
+						network = self.get_networks(address=str(address))
 						if not network:
 							raise error.NotFound("Couldn't find appropriate network for specified address %s" % address)
 						network = network[0]['network']
@@ -2838,7 +2912,7 @@ class DBInterface( DBBaseInterface ):
 					mac = mac if mac else old_mac
 					hostname = hostname if hostname else old_host['hostname']
 					
-					self.assign_static_address(mac=mac, hostname=hostname, network=network, address=address)
+					self.assign_static_address(mac=mac, hostname=hostname, network=network, address=str(address))
 					
 					# Done changing IP address
 				else:
@@ -2931,12 +3005,12 @@ class DBInterface( DBBaseInterface ):
 				
 				if address:
 					# Updating the PTR name
-					values['name'] = IPy.IP(address).reverseName()[:-1]
+					values['name'] = openipam.iptypes.IP(address).reverseName()[:-1]
 				
 				if old_name and name:
 					values['text_content'] = name
 				
-				ptrname = IPy.IP(old_address).reverseName()[:-1]
+				ptrname = openipam.iptypes.IP(old_address).reverseName()[:-1]
 				
 				query = obj.dns_records.update(obj.dns_records.c.name == ptrname, values=values )
 		
@@ -3498,8 +3572,8 @@ def make_lease_dict( address, lease_time, hostname ):
 		ret = {}
 		ret['address'] = address['address']
 		ret['router'] = address['gateway']
-		ret['netmask'] = str(IPy.IP(address['network']).netmask()) # FIXME
-		ret['broadcast'] = str(IPy.IP(address['network']).broadcast()) # FIXME
+		ret['netmask'] = str(openipam.iptypes.IP(address['network']).netmask()) # FIXME
+		ret['broadcast'] = str(openipam.iptypes.IP(address['network']).broadcast()) # FIXME
 		ret['lease_time'] = lease_time
 		ret['hostname'] = hostname
 		return ret

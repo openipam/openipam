@@ -459,7 +459,7 @@ COPY dns_types ( id, name, description ) FROM stdin;
 -- Give normal users access to A, CNAME, MX, TXT, and SRV records
 UPDATE dns_types
 SET min_permissions = '00000100'
-WHERE id IN (1, 5, 12, 16, 33);
+WHERE id IN (1, 5, 12, 16, 33, 28);
 -- Give DEITY users access to NS, PTR, and SOA records
 UPDATE dns_types
 SET min_permissions = '11111111'
@@ -488,7 +488,8 @@ CREATE TABLE dns_records (
 	-- mac				macaddr REFERENCES hosts(mac) ON DELETE RESTRICT ON UPDATE CASCADE,
 	changed			timestamp DEFAULT NOW(),
 	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-	CHECK ( ( (tid = 1 OR tid = 28) AND (ip_content IS NOT NULL AND text_content IS NULL) ) OR ( (tid != 1 AND tid != 28) AND (ip_content IS NULL AND text_content IS NOT NULL) ) ),
+	CHECK (((tid = 1 AND family(ip_content) = 4 OR tid = 28 AND family(ip_content) = 6)
+	       	AND ip_content IS NOT NULL AND text_content IS NULL) OR (tid <> 1 AND tid <> 28 AND ip_content IS NULL AND text_content IS NOT NULL)),
 	UNIQUE (name, vid, tid, text_content, ip_content) -- We don't really need duplicate records...
 );
 
