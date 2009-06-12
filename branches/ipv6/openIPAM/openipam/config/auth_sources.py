@@ -37,6 +37,16 @@ def get_info( username ):
 	return None
 
 def authenticate( username, password ):
+	auth_interface, userfoo = _verify( username )	
+	# This will raise an exception if the password is wrong
+	user = auth_interface.authenticate(username, password.encode('utf8'))
+	return user
+
+def verify( username ):
+	auth_interface, user = _verify(username)
+	return user
+
+def _verify( username ):
 	user = auth.dbi.get_users(username=username)
 	
 	if not user and not auth.ldap_auto_create:
@@ -52,7 +62,7 @@ def authenticate( username, password ):
 	for src in auth_sources:
 		iface = interfaces[src]
 		try:
-			iface.verify(username)
+			user = iface.verify(username)
 		
 			# If here, then the user exists in this auth source
 			# Save the right auth interface for use below
@@ -65,8 +75,18 @@ def authenticate( username, password ):
 	if not auth_interface:
 		# FIXME: NotUser might be a better exception here
 		raise error.NotImplemented("No other authentication types implemented")
-		
-	# This will raise an exception if the password is wrong
-	user = auth_interface.authenticate(username, password.encode('utf8'))
-	return user
+
+	return auth_interface, user
+
+def create_user( **kw ):
+	source = kw['source']
+	del kw['source']
+	source = getattr(auth.sources,source)
+	interface = interfaces[source]
+	return interface.create_user(**kw)
+
+def update_password( username, password, old_password=None ):
+	interface, user = _verify(username)
+	return interface.update_password(username=username, password=password, old_password=old_password)
+
 

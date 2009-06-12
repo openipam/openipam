@@ -87,7 +87,7 @@ class DBBaseInterface(object):
 
 	def require_perms( self, permission, error_str=None ):
 		if not error_str:
-			error_str = "Insufficient Permissions"
+			error_str = "Insufficient Permissions (have: %s, need: %s)" % (self._min_perms,permission)
 		if permission & self._min_perms != permission:
 			raise error.InsufficientPermissions( error_str )
 
@@ -420,10 +420,12 @@ class DBBaseInterface(object):
 		"""attribute_value"""
 		pass
 	
-	def _get_auth_sources( self ):
+	def _get_auth_sources( self, name=None ):
 		"""auth_source"""
 		self.require_perms( perms.DEITY )
 		query = select([obj.auth_sources,])
+		if name:
+			query = query.where(obj.auth_sources.c.name == name)
 		return query
 	
 	def _get_dhcp_options( self, gid=None, id=None ):
@@ -1404,17 +1406,20 @@ class DBInterface( DBBaseInterface ):
 		@param **kw: additional arguments to pass to the execute function
 		"""
 		
-		if hasattr(self, '_conn'):
-			# We are currently in a transaction, so just execute the given query
-			# The caller must commit manually after all queries have been executed
-			result = self._conn.execute(query, **kw)
-		else:
-			# We are not in a transaction, so create a non-transactional, auto-committing
-			# connection and execute the query. After, close the connection.
-			
-			conn = obj.engine.connect()
-			result = conn.execute(query, **kw)
-			conn.close()
+		try:
+			if hasattr(self, '_conn'):
+				# We are currently in a transaction, so just execute the given query
+				# The caller must commit manually after all queries have been executed
+				result = self._conn.execute(query, **kw)
+			else:
+				# We are not in a transaction, so create a non-transactional, auto-committing
+				# connection and execute the query. After, close the connection.
+				
+				conn = obj.engine.connect()
+				result = conn.execute(query, **kw)
+				conn.close()
+		except Exception, e:
+			raise
 		
 		return result
 
@@ -2142,7 +2147,7 @@ class DBInterface( DBBaseInterface ):
 		
 	def add_internal_auth( self ):
 		"""internal_auth"""
-		pass
+		raise Exception('This functionality is provided by DBAuthInterface.create_internal_user(...)')
 		
 	def add_network( self, network, name=None, gateway=None, description=None, dhcp_group=None, pool=False, shared_network=None ):
 		"""Add a network
@@ -2282,79 +2287,6 @@ class DBInterface( DBBaseInterface ):
 		"""supermaster"""
 		pass
 	
-	def add_internal_auth (self, id, password, name=None, email=None, hashed=True ):
-		"""
-		Add a user to the database
-		
-		@param id: the user database ID that references the users table
-		@param password: the user's password ... by default expected to be hashed, see next option
-		@param name: the user's actual name, optional
-		@param hashed: defaults to True, if False the password will be hashed before inserting into the database
-		@param email: the user's email address, optional
-		
-		"""
-		
-		# Check permissions
-		self.require_perms(perms.DEITY)
-		
-		#if not hashed:
-		#	password = hash_password(password)
-		
-		query = obj.internal_auth.insert( values={'id' : id,
-								'hash' : password,
-								'name' : name,
-								'email' : email } )
-		
-		return self._execute_set( query )
-		
-	
-	def add_user( self, username, source=None, min_perms=None, **kw ):
-		"""
-		Add a user to the database
-		
-		@param username: the username, either internal or their LDAP username
-		@param source: require to say where this is coming from, see backend.auth.sources
-		@param min_perms: the minimum permissions for this user over everything
-		"""
-		
-		# Check permissions
-		if not self._is_user_in_group(gid=backend.db_service_group_id):
-		   self.require_perms(perms.DEITY)
-		
-		# Make the caller set the source of where this is coming from, don't assume
-		if source is None:
-			raise error.RequiredArgument("source")
-
-		if not min_perms:
-			min_perms = backend.db_default_min_permissions
-		
-		self._begin_transaction()
-		try:
-			# Do this INSERT no matter what authentication source
-			query = self._execute_set(obj.users.insert( values={'username' : username,
-									'source' : source,
-									'min_permissions' : min_perms } ))
-			uid = query.last_inserted_ids()[0]
-			
-			# If the user is internal, not LDAP, add the rest of the info to auth_source
-			# FIXME: This was never implemented
-			#if source is auth_sources.INTERNAL:
-			#	self.add_internal_auth(uid, **kw )
-				
-			# When creating a new user, make a group for that user prepended with user_
-			group_query = self.add_group('user_%s' % username, "Default group for this user")
-			
-			gid = group_query.last_inserted_ids()[0]
-			
-			self.add_user_to_group(uid=uid, gid=gid, permissions=str(perms.OWNER))
-			self.add_user_to_group(uid=uid, gid=backend.db_default_group_id, permissions=str(perms.ADD))
-			
-			self._commit()
-		except:
-			self._rollback()
-			raise
-		
-		return query
 	
 	def add_user_to_group( self, uid, gid, permissions, host_permissions=None ):
 		'''Add a user to a group
@@ -3088,13 +3020,96 @@ class DBInterface( DBBaseInterface ):
 class DBAuthInterface( DBInterface ):
 	def __init__(self):
 		DBInterface.__init__( self, username=backend.auth_user )
-	def __getattr__(self, name ):
+	#def __getattr__(self, name ):
+	#	"""
+	#	FIXME: no it doesn't
+	#	This only lets the DBAuthInterface call a small subset of DBInterface functions. 
+	#	"""
+	#	if name in ('get_users', 'get_auth_sources', 'get_internal_auth','_execute_set'):
+	#		return DBInterface.__getattr__(self, name)
+	#	raise AttributeError(name)
+	def change_internal_password(self, id, hash):
+		query = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.id == id)
+		self._execute_set(query)
+	def add_user( self, username, source, min_perms=None ):
 		"""
-		This only lets the DBAuthInterface call a small subset of DBInterface functions. 
+		Add a user to the database
+		
+		@param username: the username, either internal or their LDAP username
+		@param source: require to say where this is coming from, see backend.auth.sources
+		@param min_perms: the minimum permissions for this user over everything
 		"""
-		if name in ('add_user', 'get_users', 'get_auth_sources', 'get_internal_auth'):
-			return DBInterface.__getattr__(self, name)
-		raise AttributeError(name)
+		
+		# Check permissions -- probably futile since this will be run by the 'auth user'
+		if not self._is_user_in_group(gid=backend.db_service_group_id):
+		   self.require_perms(perms.DEITY)
+		
+		# Make the caller set the source of where this is coming from, don't assume
+		if source is None:
+			raise error.RequiredArgument("source")
+
+		if not min_perms:
+			min_perms = backend.db_default_min_permissions
+		
+		self._begin_transaction()
+		try:
+			# Do this INSERT no matter what authentication source
+			vals = {'username' : username, 'source' : source, 'min_permissions' : min_perms, }
+			q = obj.users.insert( values = vals )
+			query = self._execute_set(q)
+
+			uid = query.last_inserted_ids()[0]
+			
+			# When creating a new user, make a group for that user prepended with user_
+			group_query = self.add_group('user_%s' % username, "Default group for this user")
+			
+			gid = group_query.last_inserted_ids()[0]
+			
+			self.add_user_to_group(uid=uid, gid=gid, permissions=str(perms.OWNER))
+			self.add_user_to_group(uid=uid, gid=backend.db_default_group_id, permissions=str(perms.ADD))
+			
+			self._commit()
+		except:
+			self._rollback()
+			raise
+		
+		return (uid,gid)
+	def create_internal_user (self, username, hash, name=None, email=None ):
+		"""
+		Add a user to the database
+		
+		@param username: the username desired
+		@param hash: the value to put in for the hash
+		@param name: the user's actual name, optional
+		@param email: the user's email address, optional
+		
+		"""
+		
+		# Check permissions
+		self.require_perms(perms.DEITY)
+		
+		self._begin_transaction()
+		try:
+			s_id = self.get_auth_sources(name='INTERNAL')[0]['id']
+			uid, gid = self.add_user( username=username, source=s_id )
+			query = obj.internal_auth.insert( values={'id' : uid,
+									'hash' : hash,
+									'name' : name,
+									'email' : email } )
+			self._commit()
+		except:
+			self._rollback()
+			raise
+
+		self._execute_set( query )
+		return uid,gid
+	
+	def change_internal_password (self, id, hash ):
+		# Check permissions
+		self.require_perms(perms.DEITY)
+		
+		q = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.c.id == id)
+		self._execute_set(q)
 	
 def ago( sec ):
 	return sqlalchemy.sql.func.now() - text("interval '%s sec'" % sec)

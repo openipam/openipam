@@ -21,6 +21,10 @@ class BaseAuthInterface:
 		@return: a user object 
 		'''
 		raise error.NotImplemented('Interface did not implement check_pass')
+	def create_user( self, username, password, name, email ):
+		raise error.NotImplemented('Interface did not implement create_user')
+	def update_password( self, username, password, old_password=None ):
+		raise error.NotImplemented('Interface did not implement create_user')
 
 class User( object ):
 	"""
@@ -37,8 +41,6 @@ class User( object ):
 		self.auth_source =  source
 		self.min_permissions = min_perms
 		self.email = email
-
-
 		
 class InternalAuthInterface(BaseAuthInterface):
 	"""
@@ -110,6 +112,18 @@ class InternalAuthInterface(BaseAuthInterface):
 		
 		# Authentication successful
 		return self.__verify(username, password)
+
+	def create_user( self, username, password, name, email ):
+		# FIXME: Make sure permissions are handled properly anywhere this gets called!
+		return auth.dbi.create_internal_user( username=username, name=name, email=email, hash=hash_password(password) )
+	
+	def update_password( self, username, password, old_password=None ):
+		# FIXME: Make sure permissions are handled properly anywhere this gets called!
+		# (ask for old password, etc)
+		if old_password is not None:
+			authenticate(username, old_password)
+		user = self.verify(username)
+		return auth.dbi.change_internal_password( id=user.uid, hash=hash_password(password) )
 		
 class LockingWrapper(object):
 	def __init__( self, obj ):

@@ -34,6 +34,9 @@ class XMLRPCInterface(object):
 				allow_none=True)
 		#self.ipam.login( self.__user, self.__pass )
 
+	def _username(self):
+		return self.__user
+
 	def __getattr__( self, name ):
 		# need a lock to be thread-safe
 		self.__called_fcn = name
@@ -147,6 +150,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			os.dup2( old_stdout, sys.stdout.fileno() )
 			output.close()
 			raise
+
 
 	def mkdict( self, line ):
 		args = line.split()
@@ -409,6 +413,18 @@ class IPMCmdInterface( cmd.Cmd ):
 	def remove_last( self ):
 		readline.remove_history_item(readline.get_current_history_length() - 1)
 
+	def get_password_from_user( self, msg, ):
+		pass1 = None
+		pass2 = 'meh'
+		while pass1 != pass2:
+			if pass1 != None:
+				print 'Passwords do not match.'
+				if not self.get_bool_from_user( 'Try again?', True, ):
+					raise Exception('No valid password supplied.')
+			pass1 = getpass.getpass(msg + ': ')
+			pass2 = getpass.getpass('repeat to verify: ')
+		return pass1
+
 	def get_from_user( self, input_fields, defaults = None ):
 		if defaults:
 			input = defaults.copy()
@@ -531,7 +547,19 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.add_dns_record( name=name, tid=1, ip_content=address, add_ptr=False, vid=None )
 		self.iface.add_dns_record( name='www.'+name, tid=5, text_content=name, vid=None )
 
+	def do_create_user( self, arg ):
+		fields=[('source',),('username',),('name',),('email',),]
+		defaults = {'source':'INTERNAL',}
+		vals = self.get_from_user( fields, defaults )
+		vals['password'] = self.get_password_from_user('initial password for %s' % vals['username'])
+		self.iface.create_user(**vals)
 
+	def do_passwd( self, arg ):
+		username = arg.strip()
+		if not arg:
+			username=self.iface._username()
+		password = self.get_password_from_user('New password for %s' % username)
+		self.iface.update_password(username=username, password=password)
 		
 	def do_add_dns_record( self, arg ):
 		type = arg.strip()

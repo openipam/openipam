@@ -215,6 +215,19 @@ class MainWebService(XMLRPCController):
 		raise error.FatalException()
 	
 	@cherrypy.expose
+	def create_user(self, kw):
+		db = self.__check_session()
+		db.require_perms(perms.DEITY)
+		return auth_sources.create_user(**kw)
+	
+	@cherrypy.expose
+	def update_password(self, kw):
+		db = self.__check_session()
+		if cherrypy.session['user']['username'] != kw['username']:
+			db.require_perms(perms.DEITY)
+		return auth_sources.update_password(**kw)
+	
+	@cherrypy.expose
 	def get_user_info(self, info):
 		if perms.ADMIN & cherrypy.session['user']['min_permissions'] != perms.ADMIN:
 			raise Exception('Insufficient permissions to look up user information.')
