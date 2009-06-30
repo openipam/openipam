@@ -78,15 +78,21 @@ def _verify( username ):
 
 	return auth_interface, user
 
+def valid_password(password):
+	if len(password) < 8:
+		raise error.InvalidArgument('Passwords must be at least 8 chars')
+
 def create_user( **kw ):
 	source = kw['source']
 	del kw['source']
+	valid_password(kw['password'])
 	source = getattr(auth.sources,source)
 	interface = interfaces[source]
 	return interface.create_user(**kw)
 
 def update_password( username, password, old_password=None ):
 	interface, user = _verify(username)
+	valid_password(password)
 	return interface.update_password(username=username, password=password, old_password=old_password)
 
 

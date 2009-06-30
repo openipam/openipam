@@ -1474,6 +1474,11 @@ class DBInterface( DBBaseInterface ):
 		@param reserved: a boolean of if this address is reserved (broadcast, network, and others)
 		"""
 
+		addr = iptypes.IP(address)
+		if addr.family == 6 and not backend.allow_ipv6:
+			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+		del addr
+
 		self.require_perms( perms.DEITY )
 
 		query = obj.addresses.insert( values={'address':str(address),
@@ -1488,6 +1493,11 @@ class DBInterface( DBBaseInterface ):
 		Update a row in the addresses table
 		"""
 		
+		addr = iptypes.IP(address)
+		if addr.family == 6 and not backend.allow_ipv6:
+			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+		del addr
+
 		if mac and pool:
 			raise error.RequiredArgument("Specify exactly one of MAC or pool")
 		
@@ -2162,6 +2172,11 @@ class DBInterface( DBBaseInterface ):
 
 		# Check permissions
 		self.require_perms(perms.DEITY)
+
+		addr = iptypes.IP(network)
+		if addr.family == 6 and not backend.allow_ipv6:
+			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+		del addr
 
 		# Add all addresses from this network into the addresses table
 		net = openipam.iptypes.IP(network)

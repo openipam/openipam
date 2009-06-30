@@ -1,5 +1,8 @@
 import openipam.iptypes
 
+# IPv6 support
+allow_ipv6 = False
+
 # SSL
 ssl_enabled = False
 ssl_cert = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
