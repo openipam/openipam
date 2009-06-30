@@ -1,9 +1,0 @@
-# Mmm... ipam fun
-
-ULIMIT_NOFILE='32768'
-
-OPENIPAM_USER='esk'
-OPENIPAM_GROUP='nogroup'
-
-OPENIPAM_PATH='/home/esk/src/ipm/trunk/openIPAM'
-
