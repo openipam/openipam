@@ -153,7 +153,11 @@ class MainWebService(XMLRPCController):
 		@return: a list of dictionaries, each representing a returned row
 		"""
 		
-		return [dict(row) for row in query]
+		try:
+			return [dict(row) for row in query]
+		except:
+			print query
+			raise
 
 	#-----------------------------------------------------------------
 	#					   EXPOSED FUNCTIONS

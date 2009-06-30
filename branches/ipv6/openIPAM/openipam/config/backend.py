@@ -64,6 +64,8 @@ db_service_group_id = 3
 # WRITEME
 pool_map = []
 
+assignable_pools = [] # pools to be treated as free addresses
+
 # When adding a user to a group, what will host_permissions default to?
 default_host_permissions	= '00001111'
 

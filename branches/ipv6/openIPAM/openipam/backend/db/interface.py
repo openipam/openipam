@@ -275,6 +275,23 @@ class DBBaseInterface(object):
 			# If empty, raise exception
 			if not group_hosts and not net_hosts:
 				raise error.InsufficientPermissions(error_msg)
+
+	def _require_perms_on_net(self, permission, network=None, address=None, error_msg=None):
+		if not self.has_min_perms(permission):
+			if (not network and not address) or (network and address):
+				raise error.InvalidArgument('Requires exactly one of network, address: network = %s, address = %s' % (network,address))
+			if network:
+				andwhere = obj.networks_to_groups.c.nid == network
+			else:
+				andwhere = obj.networks_to_groups.c.nid.op('>>')(address)
+			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = permission, do_subquery=False, andwhere=andwhere )
+			net_perms = self._execute(net_perms)
+		
+			if not net_perms:
+				if not error_msg:
+					error_msg = "need %s or greater on network %s or network containing %s" % (perms,network,address)
+				raise error.InsufficientPermissions(error_msg)
+
 			
 	def find_owners_of_host(self, mac, get_users=False):
 		"""
@@ -399,9 +416,6 @@ class DBBaseInterface(object):
 		if not address and not mac and not pool:
 			self.require_perms(perms.OWNER)
 		
-		if (address and mac) or (address and pool):
-			raise error.RequiredArgument("Address was specified in addition to mac or pool")
-		
 		query = select( [obj.addresses] )
 		
 		if address:
@@ -473,7 +487,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_records( self, tid=None, id=None, name=None, content=None, mac=None, changed=None, address=None ):
+	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None ):
 		"""
 		Get DNS Records
 		
@@ -508,6 +522,8 @@ class DBBaseInterface(object):
 			whereclause.append( obj.dns_records.c.ip_content == address )
 		if tid:
 			whereclause.append( obj.dns_records.c.tid == tid )
+		elif typename:
+			whereclause.append( obj.dns_records.c.tid == self.get_dns_types(typename=typename)[0]['id'] )
 		if name:
 			name = name.lower()
 			if '%' in name:
@@ -587,7 +603,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_types( self, only_useable=False ):
+	def _get_dns_types( self, typename=None, only_useable=False ):
 		"""
 		Returns all DNS resource record types
 		"""
@@ -596,6 +612,8 @@ class DBBaseInterface(object):
 		
 		if only_useable:
 			query = query.where( and_(not_(obj.dns_types.c.min_permissions == '00000000'), obj.dns_types.c.min_permissions.op('&')(str(self._min_perms)) == obj.dns_types.c.min_permissions))
+		if typename:
+			query = query.where( obj.dns_types.c.name == typename.upper() )
 
 		return query
 
@@ -929,12 +947,15 @@ class DBBaseInterface(object):
 		fromobj = (bridge_table.join( primary_table, and_(foreign_key==primary_key, primary_key.in_(objects_list) ) )
 			.outerjoin(obj.users_to_groups, and_(obj.users_to_groups.c.gid==bridge_table.c.gid, obj.users_to_groups.c.uid == self._uid)))
 		
-		columns = [primary_key, obj.users_to_groups.c.permissions, obj.users_to_groups.c.host_permissions]
+		columns = [primary_key, sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.permissions).op('|')(str(self._min_perms)),str(self._min_perms)).label('permissions'),
+				sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.host_permissions).op('|')(str(self._min_perms)),str(self._min_perms)).label('host_permissions')]
 		
 		if alternate_perms_key:
 			columns += [alternate_perms_key]
 		
-		query = select(columns, from_obj=fromobj)
+		query = select(columns, from_obj=fromobj).group_by(primary_key)
+		if alternate_perms_key:
+			query = query.group_by(alternate_perms_key)
 		
 		results = self._execute(query)
 		
@@ -944,19 +965,23 @@ class DBBaseInterface(object):
 		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key_name
 		
 		# Initialize the permissions dictionary with my min_perms for every element
-		for row in results:
-			permissions[row[perms_key_name]] = str(self._min_perms)
+		# DELETEME: the DB is doing this now
+		#for row in results:
+		#	permissions[row[perms_key_name]] = str(self._min_perms)
 		
 		# This section inherently takes care of having permissions to an object via multiple groups
 		# ie. A host can be in multiple groups and the final permissions you have over that host
 		# is a bitwise OR of ALL of those permission sets (and your min_permissions)
 		for row in results:
 			# Because we LEFT JOINed, row['permissions'] will be NULL if we don't have group access over this object 
-			if row['permissions']:
-				permissions[row[perms_key_name]] = str((Perms(permissions[row[perms_key_name]]) | row['permissions']) | row['host_permissions'])
+			# FIXME: is it reasonable to | in host_permissions here?  (ie. is this only used for hosts?)
+			if permissions.has_key(row[perms_key_name]):
+				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'] | permissions[row[perms_key_name]])
 			else:
-				permissions[row[perms_key_name]] = str(self._min_perms)
+				print row
+				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'])
 			
+		# FIXME: why are we making a list of length 1?
 		return [permissions]
 	
 	def find_permissions_for_hosts(self, hosts, alternate_perms_key=None):
@@ -1010,8 +1035,8 @@ class DBBaseInterface(object):
 		dns_types = self.get_dns_types( only_useable=True )
 		dns_type_perms = {}
 		# Have [ { 'id' : 0, 'name' : 'blah' }, ... ]
-		for type in dns_types:
-			dns_type_perms[type['id']] = type
+		for typename in dns_types:
+			dns_type_perms[typename['id']] = typename
 			# Now have { 0 : { ... dns dict ... }, 12 : { ... dns dict ... } ... }
 		
 		# Time to make the final permission set...
@@ -1053,9 +1078,11 @@ class DBBaseInterface(object):
 		
 		# Get the domains who have those names, then get the permissions for those domains
 		domains = self.get_domains( contains=names )
-		domain_perms = self.find_permissions_for_domains( domains )
+
+		# FIXME: Holy inefficiency, batman!  These are never used!
+		#domain_perms = self.find_permissions_for_domains( domains )
 		
-		domain_perms = domain_perms[0] if domain_perms else {}
+		#domain_perms = domain_perms[0] if domain_perms else {}
 		
 		permissions = {}
 		
@@ -1406,20 +1433,17 @@ class DBInterface( DBBaseInterface ):
 		@param **kw: additional arguments to pass to the execute function
 		"""
 		
-		try:
-			if hasattr(self, '_conn'):
-				# We are currently in a transaction, so just execute the given query
-				# The caller must commit manually after all queries have been executed
-				result = self._conn.execute(query, **kw)
-			else:
-				# We are not in a transaction, so create a non-transactional, auto-committing
-				# connection and execute the query. After, close the connection.
-				
-				conn = obj.engine.connect()
-				result = conn.execute(query, **kw)
-				conn.close()
-		except Exception, e:
-			raise
+		if hasattr(self, '_conn'):
+			# We are currently in a transaction, so just execute the given query
+			# The caller must commit manually after all queries have been executed
+			result = self._conn.execute(query, **kw)
+		else:
+			# We are not in a transaction, so create a non-transactional, auto-committing
+			# connection and execute the query. After, close the connection.
+			
+			conn = obj.engine.connect()
+			result = conn.execute(query, **kw)
+			conn.close()
 		
 		return result
 
@@ -1474,7 +1498,7 @@ class DBInterface( DBBaseInterface ):
 		@param reserved: a boolean of if this address is reserved (broadcast, network, and others)
 		"""
 
-		addr = iptypes.IP(address)
+		addr = openipam.iptypes.IP(address)
 		if addr.family == 6 and not backend.allow_ipv6:
 			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
 		del addr
@@ -1493,7 +1517,7 @@ class DBInterface( DBBaseInterface ):
 		Update a row in the addresses table
 		"""
 		
-		addr = iptypes.IP(address)
+		addr = openipam.iptypes.IP(address)
 		if addr.family == 6 and not backend.allow_ipv6:
 			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
 		del addr
@@ -1501,20 +1525,39 @@ class DBInterface( DBBaseInterface ):
 		if mac and pool:
 			raise error.RequiredArgument("Specify exactly one of MAC or pool")
 		
+		c_address = self.get_addresses(address=address)
+
+		if len(c_address) != 1:
+			raise error.NotFound('Address %s does not exist (%s)' % (address, c_address))
+		c_address = c_address[0]
+
 		if not self.has_min_perms( perms.DEITY ):
+			if c_address['reserved']:
+				raise error.InsufficientPermissions('You must be a superuser to alter reserved addresses (%s)' % address)
 			
-			# FIXME: since this function is only called in the convert script and in
-			# the service desk hacks, I'm making it required to be DEITY...
-			# When fixed, the permissions need be thought through more thoroughly, especially
-			# in relation to having permissions over a host directly instead of over the containing networks
+			# check to see if we are allowed to rob this pool
+			if c_address['pool'] is not None:
+				raise error.InsufficientPermissions('Only a superuser can alter addresses in this pool: %s' % c_address)
+
+			if pool is not None:
+				if pool != backend.func_get_pool_id( address=address ):
+					raise error.InsufficientPermissions('Only a superuser can assign addresses to pools not returned by backend.func_get_pool_id(): %s' % c_address)
 			
-			raise error.NotImplemented("Updating an address as a non-admin is not implemented yet.") 
+			if c_address['mac'] == None:
+				# check for ADD permissions over the network
+				self._require_perms_on_net(permission=perms.ADD, address=address)
+			else:
+				try:
+					# check for ADMIN permissions over this network
+					self._require_perms_on_net(permission=perms.OWNER, address=address)
+				except error.InsufficientPermissions, e:
+					# or ADMIN permissions over this host
+					self._require_perms_on_host(permission=perms.OWNER, mac=c_address['mac'])
 		
-#			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = perms.MODIFY, do_subquery=False, andwhere=obj.networks_to_groups.c.nid.op('>>')(address) )
-#			net_perms = self._execute(net_perms)
-#		
-#			if not net_perms:
-#				raise error.InsufficientPermissions("Insufficient permissions to update the %s address." % address)
+		if mac is not None:
+			# delete any previous leases
+			query = obj.leases.delete(obj.leases.c.address == address)
+			self._execute_set( query )
 		
 		# FIXME: take care of "reserved" ... right now just doesn't change whatever it is set to and has DB constraints
 		query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : pool })
@@ -1718,7 +1761,7 @@ class DBInterface( DBBaseInterface ):
 		pass
 		
 		
-	def add_domain( self, name, description=None, master=None, type=None ):
+	def add_domain( self, name, description=None, master=None, typename=None ):
 		"""Add a domain
 		@param name: the fully qualified domain name
 		@param master: ???
@@ -1944,8 +1987,12 @@ class DBInterface( DBBaseInterface ):
 		self._begin_transaction()
 		try:
 			if not self.has_min_perms(perms.ADD):
+				if address:
+					andwhere = obj.networks_to_groups.c.nid.op('<<=')(str(address))
+				else:
+					andwhere = obj.networks_to_groups.c.nid == str(network)
 				net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = perms.ADD, do_subquery=False,
-						andwhere=or_( obj.networks_to_groups.c.nid == network, obj.networks_to_groups.c.nid.op('<<=')(address) ) )
+						andwhere=andwhere )
 				net_perms = self._execute(net_perms)
 			
 				if not net_perms:
@@ -1956,13 +2003,13 @@ class DBInterface( DBBaseInterface ):
 			if network:
 				# FIXME: if ipv6, we don't really want to reuse these
 				if ipv4:
-					query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+					query = query.where(obj.addresses.c.address.op('<<')(str(network))).order_by(obj.addresses.c.address)
 				else:
 					query = query.where(False)
 
 			if address:
 				if ipv4:
-					query = query.where(obj.addresses.c.address == address)
+					query = query.where(obj.addresses.c.address == str(address))
 				else:
 					query = query.where(False)
 
@@ -1984,8 +2031,7 @@ class DBInterface( DBBaseInterface ):
 					query = select([obj.addresses.c.address], from_obj=from_object).where( and_(obj.addresses.c.mac == None, obj.addresses.c.reserved == False) )
 
 					# Only rob certain pools, since some have special meanings
-					# FIXME: Add a configuration option here instead of [1,3]
-					query = query.where( obj.addresses.c.pool.in_( [1,3,] ) )
+					query = query.where( obj.addresses.c.pool.in_( backend.assignable_pools ) )
 					
 					if network:
 						query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
@@ -2013,9 +2059,8 @@ class DBInterface( DBBaseInterface ):
 			if not created:
 				address = addresses[0]['address']
 
-				query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : None})
-				self._execute_set( query )
-
+				self.update_address(address=address, mac=mac)
+			
 				# If claimed, delete any previous leases
 				query = obj.leases.delete(obj.leases.c.address == address)
 				self._execute_set( query )
@@ -2026,7 +2071,7 @@ class DBInterface( DBBaseInterface ):
 					self.add_dns_record(name=hostname, tid=1, ip_content=address)
 				else:
 					self.add_dns_record(name=hostname, tid=28, ip_content=address)
-			
+
 			self._commit()
 		except:
 			self._rollback()
@@ -2082,9 +2127,7 @@ class DBInterface( DBBaseInterface ):
 				for rr in a_records:
 					self.del_dns_record(rid=rr['id'], mac=mac)
 
-			query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : None, 'pool' : pool  } )
-	
-			result = self._execute_set( query )
+			result = self.update_address( address=address, pool=pool )
 			
 			self._commit()
 		except:
@@ -2173,7 +2216,7 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 
-		addr = iptypes.IP(network)
+		addr = openipam.iptypes.IP(network)
 		if addr.family == 6 and not backend.allow_ipv6:
 			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
 		del addr
@@ -2753,6 +2796,7 @@ class DBInterface( DBBaseInterface ):
 			
 		return results 
 	
+	# FIXME: trash this function and replace it with smaller ones.
 	def change_registration( self, old_mac, mac=None, hostname=None, description=None, expires=None, expiration_format=None, is_dynamic=True, network=None, address=None, owners=None ):
 		"""
 		The continuation of register_host ... this is a smart function that will update
@@ -2792,20 +2836,23 @@ class DBInterface( DBBaseInterface ):
 			
 			# Ahh...hello states
 			if is_dynamic and not was_dynamic:
+				# FIXME: maybe this should be an unsupported action...  Deleting the host is not an expected behavior
+				raise error.NotImplemented('You should delete and re-create the host instead')
+
 				# STATIC REGISTRATION ---> DYNAMIC REGISTRATION
 					
 				# Delete the host in its entirety
-				self.del_host(mac=old_mac)
+				#self.del_host(mac=old_mac)
 
 				# Old host is gone, recreate as dynamic...
 				
 				# If anything wasn't specified, use the old host's data
-				mac = mac if mac else old_mac
-				hostname = hostname if hostname else old_host['hostname']
-				description = description if description else old_host['description']
-				expires = expires if expires else old_host['expires']
+				#mac = mac if mac else old_mac
+				#hostname = hostname if hostname else old_host['hostname']
+				#description = description if description else old_host['description']
+				#expires = expires if expires else old_host['expires']
 				
-				self.register_host(mac=mac, hostname=hostname, description=description, expires=expires, is_dynamic=True, owners=owners, add_host_to_my_group=False )
+				#self.register_host(mac=mac, hostname=hostname, description=description, expires=expires, is_dynamic=True, owners=owners, add_host_to_my_group=False )
 				
 			elif is_dynamic and was_dynamic:
 				# STAYING DYNAMIC REGISTRATION
@@ -2814,6 +2861,8 @@ class DBInterface( DBBaseInterface ):
 				self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
 				
 			elif not is_dynamic and was_dynamic:
+				# FIXME: Deleting the host is not an expected behavior.
+
 				# DYNAMIC REGISTRATION ---> STATIC REGISTRATION
 				
 				# Delete the host in its entirety
@@ -2838,28 +2887,29 @@ class DBInterface( DBBaseInterface ):
 					host_addresses = self.get_addresses(mac=old_mac)
 					
 					if not host_addresses:
-						raise error.NotFound("Couldn't find address(es) to release for this host to make it a dynamic")
+						raise error.NotFound("Couldn't find address(es) to release for this host")
 					
 					if len(host_addresses) > 1:
-						raise error.NotImplemented("Cannot change IP address on a host with multiple IPs ... yet")
+						raise error.NotImplemented("Cannot change IP address on a host with multiple IPs via this function: %s" % host_addresses)
 					
-					self.release_static_address(address=host_addresses[0]['address'])
-					# ----------------------------------------
+					#self.assign_static_address(mac=mac, hostname=hostname, network=network, address=address)
+					self.change_address(mac=old_mac, old_address=host_addresses[0]['address'], address=address, network=network)
+					# If the previous worked, we have permission to mess with that address.  It shouldn't be a problem
+					#  to directly modify DNS at this point.
 					
-					if not network:
-						network = self.get_networks(address=str(address))
-						if not network:
-							raise error.NotFound("Couldn't find appropriate network for specified address %s" % address)
-						network = network[0]['network']
-					
-					# Update the host row information
-					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
+					# We don't care about the network, really... let assign_static_address worry about that
+					#if not network:
+					#	network = self.get_networks(address=address)
+					#	if not network:
+					#		raise error.NotFound("Couldn't find appropriate network for specified address %s" % address)
+					#	network = network[0]['network']
 					
 					# If anything wasn't specified, use the old host's data
 					mac = mac if mac else old_mac
 					hostname = hostname if hostname else old_host['hostname']
 					
-					self.assign_static_address(mac=mac, hostname=hostname, network=network, address=str(address))
+					# Update the host row information
+					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
 					
 					# Done changing IP address
 				else:
@@ -2869,6 +2919,7 @@ class DBInterface( DBBaseInterface ):
 					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
 					
 				if hostname:
+					# FIXME: does this fix any PTRs that might exist?
 					# Updating the hostname, make sure to update the associated DNS records
 					a_records = self.get_dns_records(mac=(mac if mac else old_mac), tid=1, name=old_host['hostname'])
 					
@@ -2905,6 +2956,44 @@ class DBInterface( DBBaseInterface ):
 		@param description: the group's description'''
 		pass
 	
+	def change_address( self, mac, old_address, address=None, network=None ):
+		if (address and network) or (not address and not network):
+			raise error.InvalidArgument('Please specify exactly one of address(%s) and network(%s)' % (address,network))
+		if not self._min_perms == perms.DEITY:
+			# FIXME
+			# First, make sure old_address belongs to this MAC
+			oldaddr = self.get_addresses(mac=mac, address=old_address)
+			if len(oldaddr) != 1:
+				raise error.NotFound("old_address (%s) and mac (%s) are not associated" % (old_address,mac,))
+			# update_addresses should make sure that address is available
+			#newaddr = self.get_addresses(mac=None, address=new_address)
+			#if len(newaddr) != 1:
+			#	raise error.NotFound("new address (%s) is in use or does not exist in the database" % (new_address))
+			# update_addresses should make sure we are allowed access to new_address, so we won't worry about it here
+		self._begin_transaction()
+		try:
+			new_address = self.assign_static_address(address=address,network=network,mac=mac)
+
+			# UPDATE dns_records SET ip_content=new_address WHERE ip_content=old_address;
+			values = { 'ip_content':new_address, }
+			query=obj.dns_records.update(obj.dns_records.c.ip_content == old_address, values=values)
+			self._execute_set(query)
+			
+			# FIXME: Find the old PTR, add an equivalent one
+			old_ptr = self.get_dns_records( name = openipam.iptypes.IP(old_address).reverseName()[:-1], typename='PTR')
+			if len(old_ptr) != 1:
+				raise Exception('Something is wrong with your PTR: %s' % old_ptr)
+			old_ptr = old_ptr[0]
+			# Delete the old PTR and dump the old address so we don't have a conflict
+			self.release_static_address(address=str(old_address))
+
+			self.add_dns_record( name=openipam.iptypes.IP(new_address).reverseName()[:-1], tid=old_ptr['tid'], text_content=old_ptr['text_content'] )
+			
+			self._commit()
+		except:
+			self._rollback()
+			raise
+
 	def update_dns_record( self, mac=None, old_address=None, address=None, old_name=None, name=None ):
 		"""
 		Update a DNS record on a host
@@ -2943,7 +3032,11 @@ class DBInterface( DBBaseInterface ):
 				if name:
 					values['name'] = name
 				
+				query = obj.dns_records.update( values=values )
 				query = obj.dns_records.update(and_(obj.dns_records.c.ip_content == old_address, obj.dns_records.c.name==old_name), values=values )
+
+				if address:
+					query = query.where(obj.dns_records.c.ip_content == old_address)
 		
 				self._execute_set(query)
 				

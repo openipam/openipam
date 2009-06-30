@@ -58,6 +58,9 @@ class IP(IPy.IP):
 		v._prefixlen = prefixlen
 		return v
 
+	def family(self):
+		return self.version()
+
 
 
 
