@@ -1,4 +1,7 @@
-import IPy
+import openipam.iptypes
+
+# IPv6 support
+allow_ipv6 = False
 
 # SSL
 ssl_enabled = False

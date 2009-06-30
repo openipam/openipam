@@ -12,7 +12,7 @@ import cmd
 import readline
 import atexit
 import datetime
-import IPy
+import openipam.iptypes
 import re
 
 from openipam.web.resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
@@ -33,6 +33,9 @@ class XMLRPCInterface(object):
 				transport=CookieAuthXMLRPCSafeTransport(ssl=ssl),
 				allow_none=True)
 		#self.ipam.login( self.__user, self.__pass )
+
+	def _username(self):
+		return self.__user
 
 	def __getattr__( self, name ):
 		# need a lock to be thread-safe
@@ -63,16 +66,16 @@ def condense( addr_list ):
 	end=None
 	ranges = []
 	for addr in addr_list:
-		addr=IPy.IP(addr).int()
+		addr=openipam.iptypes.IP(addr).int()
 		if not begin:
 			begin = end = addr
 			continue
 		if end == addr-1:
 			end = addr
 		else:
-			ranges.append( (IPy.IP(begin), IPy.IP(end),) )
+			ranges.append( (openipam.iptypes.IP(begin), openipam.iptypes.IP(end),) )
 			begin = end = addr
-	ranges.append( (IPy.IP(begin), IPy.IP(end),) )
+	ranges.append( (openipam.iptypes.IP(begin), openipam.iptypes.IP(end),) )
 	return ranges
 
 def range_to_net( range_list ):
@@ -96,7 +99,7 @@ def range_to_net( range_list ):
 				if bad_mask or bad_base:
 					# the mask is too big
 					next = (s | ( bits >> 1)) + 1
-					net = IPy.IP( '%s/%s' % ( str(IPy.IP(s)), mask + 1 ) )
+					net = openipam.iptypes.IP( '%s/%s' % ( str(openipam.iptypes.IP(s)), mask + 1 ) )
 					s = next
 					nets.append(net)
 					break
@@ -147,6 +150,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			os.dup2( old_stdout, sys.stdout.fileno() )
 			output.close()
 			raise
+
 
 	def mkdict( self, line ):
 		args = line.split()
@@ -328,6 +332,11 @@ class IPMCmdInterface( cmd.Cmd ):
 		if leases:
 			print "Leased addresses:"
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
+		groups = []
+		for g in self.iface.get_hosts_to_groups(mac=arg):
+			groups.append(self.iface.get_group(id=g[0]['id']) )
+		print groups
+		#self.show_dicts( groups, 
 	
 	def do_show_full_mac( self, arg ):
 		arg = arg.strip()
@@ -403,6 +412,18 @@ class IPMCmdInterface( cmd.Cmd ):
 
 	def remove_last( self ):
 		readline.remove_history_item(readline.get_current_history_length() - 1)
+
+	def get_password_from_user( self, msg, ):
+		pass1 = None
+		pass2 = 'meh'
+		while pass1 != pass2:
+			if pass1 != None:
+				print 'Passwords do not match.'
+				if not self.get_bool_from_user( 'Try again?', True, ):
+					raise Exception('No valid password supplied.')
+			pass1 = getpass.getpass(msg + ': ')
+			pass2 = getpass.getpass('repeat to verify: ')
+		return pass1
 
 	def get_from_user( self, input_fields, defaults = None ):
 		if defaults:
@@ -526,7 +547,19 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.add_dns_record( name=name, tid=1, ip_content=address, add_ptr=False, vid=None )
 		self.iface.add_dns_record( name='www.'+name, tid=5, text_content=name, vid=None )
 
+	def do_create_user( self, arg ):
+		fields=[('source',),('username',),('name',),('email',),]
+		defaults = {'source':'INTERNAL',}
+		vals = self.get_from_user( fields, defaults )
+		vals['password'] = self.get_password_from_user('initial password for %s' % vals['username'])
+		self.iface.create_user(**vals)
 
+	def do_passwd( self, arg ):
+		username = arg.strip()
+		if not arg:
+			username=self.iface._username()
+		password = self.get_password_from_user('New password for %s' % username)
+		self.iface.update_password(username=username, password=password)
 		
 	def do_add_dns_record( self, arg ):
 		type = arg.strip()
@@ -827,6 +860,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			print 'Searching for address %s' % net
 			addrs = self.iface.get_addresses( address=net )
 			if not addrs:
+				# FIXME: this is good for IPv6 addresses
 				raise Exception('Address %s not found.  Has the network been added?')
 
 			print 'Address to be updated:'

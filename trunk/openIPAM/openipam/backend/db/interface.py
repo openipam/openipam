@@ -26,7 +26,7 @@ import datetime
 
 import sqlalchemy
 import obj
-import IPy
+import openipam.iptypes
 import re
 import thread
 
@@ -87,7 +87,7 @@ class DBBaseInterface(object):
 
 	def require_perms( self, permission, error_str=None ):
 		if not error_str:
-			error_str = "Insufficient Permissions"
+			error_str = "Insufficient Permissions (have: %s, need: %s)" % (self._min_perms,permission)
 		if permission & self._min_perms != permission:
 			raise error.InsufficientPermissions( error_str )
 
@@ -434,10 +434,12 @@ class DBBaseInterface(object):
 		"""attribute_value"""
 		pass
 	
-	def _get_auth_sources( self ):
+	def _get_auth_sources( self, name=None ):
 		"""auth_source"""
 		self.require_perms( perms.DEITY )
 		query = select([obj.auth_sources,])
+		if name:
+			query = query.where(obj.auth_sources.c.name == name)
 		return query
 	
 	def _get_dhcp_options( self, gid=None, id=None ):
@@ -559,7 +561,7 @@ class DBBaseInterface(object):
 			
 			ptr_names = []
 			for rr in a_records_result:
-				ptr_names.append(IPy.IP(rr['ip_content']).reverseName()[:-1])
+				ptr_names.append(openipam.iptypes.IP(rr['ip_content']).reverseName()[:-1])
 				
 			ptr_records =  select( columns ).where(obj.dns_records.c.name.in_(ptr_names))
 			if whereclause:
@@ -945,12 +947,15 @@ class DBBaseInterface(object):
 		fromobj = (bridge_table.join( primary_table, and_(foreign_key==primary_key, primary_key.in_(objects_list) ) )
 			.outerjoin(obj.users_to_groups, and_(obj.users_to_groups.c.gid==bridge_table.c.gid, obj.users_to_groups.c.uid == self._uid)))
 		
-		columns = [primary_key, obj.users_to_groups.c.permissions, obj.users_to_groups.c.host_permissions]
+		columns = [primary_key, sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.permissions).op('|')(str(self._min_perms)),str(self._min_perms)).label('permissions'),
+				sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.host_permissions).op('|')(str(self._min_perms)),str(self._min_perms)).label('host_permissions')]
 		
 		if alternate_perms_key:
 			columns += [alternate_perms_key]
 		
-		query = select(columns, from_obj=fromobj)
+		query = select(columns, from_obj=fromobj).group_by(primary_key)
+		if alternate_perms_key:
+			query = query.group_by(alternate_perms_key)
 		
 		results = self._execute(query)
 		
@@ -960,19 +965,23 @@ class DBBaseInterface(object):
 		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key_name
 		
 		# Initialize the permissions dictionary with my min_perms for every element
-		for row in results:
-			permissions[row[perms_key_name]] = str(self._min_perms)
+		# DELETEME: the DB is doing this now
+		#for row in results:
+		#	permissions[row[perms_key_name]] = str(self._min_perms)
 		
 		# This section inherently takes care of having permissions to an object via multiple groups
 		# ie. A host can be in multiple groups and the final permissions you have over that host
 		# is a bitwise OR of ALL of those permission sets (and your min_permissions)
 		for row in results:
 			# Because we LEFT JOINed, row['permissions'] will be NULL if we don't have group access over this object 
-			if row['permissions']:
-				permissions[row[perms_key_name]] = str((Perms(permissions[row[perms_key_name]]) | row['permissions']) | row['host_permissions'])
+			# FIXME: is it reasonable to | in host_permissions here?  (ie. is this only used for hosts?)
+			if permissions.has_key(row[perms_key_name]):
+				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'] | permissions[row[perms_key_name]])
 			else:
-				permissions[row[perms_key_name]] = str(self._min_perms)
+				print row
+				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'])
 			
+		# FIXME: why are we making a list of length 1?
 		return [permissions]
 	
 	def find_permissions_for_hosts(self, hosts, alternate_perms_key=None):
@@ -1027,7 +1036,7 @@ class DBBaseInterface(object):
 		dns_type_perms = {}
 		# Have [ { 'id' : 0, 'name' : 'blah' }, ... ]
 		for typename in dns_types:
-			dns_type_perms[typename['id']] = type
+			dns_type_perms[typename['id']] = typename
 			# Now have { 0 : { ... dns dict ... }, 12 : { ... dns dict ... } ... }
 		
 		# Time to make the final permission set...
@@ -1046,7 +1055,7 @@ class DBBaseInterface(object):
 			if fqdn_perms.has_key(rr['name']):
 				permissions[rr['id']] = str(Perms(permissions[rr['id']]) | fqdn_perms[rr['name']])
 				
-			# If they cannot use the DNS typename of this record, even if they have host
+			# If they cannot use the DNS type of this record, even if they have host
 			# or domain perms over it, then they cannot modify it 
 			if not dns_type_perms.has_key(rr['tid']):
 				permissions[rr['id']] = str(backend.db_default_min_permissions)
@@ -1069,9 +1078,11 @@ class DBBaseInterface(object):
 		
 		# Get the domains who have those names, then get the permissions for those domains
 		domains = self.get_domains( contains=names )
-		domain_perms = self.find_permissions_for_domains( domains )
+
+		# FIXME: Holy inefficiency, batman!  These are never used!
+		#domain_perms = self.find_permissions_for_domains( domains )
 		
-		domain_perms = domain_perms[0] if domain_perms else {}
+		#domain_perms = domain_perms[0] if domain_perms else {}
 		
 		permissions = {}
 		
@@ -1383,6 +1394,35 @@ class DBInterface( DBBaseInterface ):
 		self._uid = uid
 		self._min_perms = Perms(min_perms)
 	
+	def _assign_ip6_address(self, mac, network, dhcp_server_id=0, use_lowest=False, is_server=False):
+		# FIXME: how do we get this?
+		network = openipam.iptypes.IP(network)
+		# FIXME: the logic for choosing an address to try should go in a config file somewhere
+		address_prefix = network | ( dhcp_server_id << 48 )
+		if not is_server:
+			address_prefix |= 1 << 63
+		address_prefix = address_prefix.make_net(48)
+		if use_lowest:
+			a = obj.addresses.alias('a')
+			q = select(columns = [(obj.addresses.c.address + 1).label('next'),], from_obj=obj.addresses).where(obj.addresses.c.address.op('<<')(str(network)))
+			sub_q =  sqlalchemy.sql.exists(whereclause=and_(a.c.address == obj.addresses.c.address + 1, (a.c.address + 1).op('<<')(str(network))))
+			q = q.where(~sub_q)
+			q = q.limit(1).order_by('next')
+			results = self._execute(q)
+			if not results:
+				raise Exception('Did not find an ip6 address?! network: %s mac: %s'%(network,mac))
+			address = results[0][0]
+		else:
+			macaddr = int('0x' + re.sub(mac,'[^0-9A-Fa-f]+',''))
+			lastbits = (macaddr & 0xffffff) ^ ( macaddr >> 24 ) | ( random.getrandbits(24) << 24 )
+			address = address_prefix | lastbits
+			# FIXME: check to see if it is used
+		# assign address
+		network = self._execute(select(columns=[obj.networks.c.network,],from_obj=obj.networks).where(obj.networks.c.network.op('>>')(str(address))))[0][0]
+		self.add_address(mac=mac, network=network, address=str(address))
+
+		return address
+
 	def _execute_set(self, query, **kw):
 		"""
 		Execute the given query. If in a transaction, I'll use that transactional
@@ -1458,10 +1498,15 @@ class DBInterface( DBBaseInterface ):
 		@param reserved: a boolean of if this address is reserved (broadcast, network, and others)
 		"""
 
+		addr = openipam.iptypes.IP(address)
+		if addr.family == 6 and not backend.allow_ipv6:
+			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+		del addr
+
 		self.require_perms( perms.DEITY )
 
-		query = obj.addresses.insert( values={'address':address,
-									'network':network,
+		query = obj.addresses.insert( values={'address':str(address),
+									'network':str(network),
 									'mac':mac,
 									'pool':pool,
 									'reserved': reserved } )
@@ -1472,6 +1517,11 @@ class DBInterface( DBBaseInterface ):
 		Update a row in the addresses table
 		"""
 		
+		addr = openipam.iptypes.IP(address)
+		if addr.family == 6 and not backend.allow_ipv6:
+			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+		del addr
+
 		if mac and pool:
 			raise error.RequiredArgument("Specify exactly one of MAC or pool")
 		
@@ -1508,9 +1558,10 @@ class DBInterface( DBBaseInterface ):
 			# delete any previous leases
 			query = obj.leases.delete(obj.leases.c.address == address)
 			self._execute_set( query )
-			
+		
 		# FIXME: take care of "reserved" ... right now just doesn't change whatever it is set to and has DB constraints
 		query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : pool })
+		
 		return self._execute_set(query)
 
 	def add_pool( self, name, description = None, allow_unknown=False, allow_known=True, lease_time=None, dhcp_group=None ): 
@@ -1666,30 +1717,37 @@ class DBInterface( DBBaseInterface ):
 				if not result:
 					raise error.InsufficientPermissions("Insufficient permissions to add a DNS record of type %s" % tid)
 			
+			if tid == 1 or tid == 28:
+				ip = openipam.iptypes.IP(ip_content)
+				if tid == 1 and ip.version() != 4:
+					raise Exception('A record must have ip4 address: name: %s tid: %s address: %s' % (name,tid,ip_content))
+				if tid == 28 and ip.version() != 6:
+					raise Exception('AAAA record must have ip6 address: name: %s tid: %s address: %s' % (name,tid,ip_content))
+				# PTR record
+				if add_ptr:
+					
+					ptrname = ip.reverseName()[:-1]
+					
+					domains = self.get_domains( contains=ptrname )
+					
+					if not domains:
+						raise error.NotFound("Could not find appropriate domain to add PTR record for %s (ptrname: %s, address: %s)" % (name,ptrname,ip_content))
+					
+					ptr_values = {
+						'name': ptrname,
+						'tid' : 12,
+						'did' : domains[0]['id'],
+						'text_content': name,
+						'ttl' : backend.default_ttl,
+						'vid' : vid,
+						'changed' : sqlalchemy.sql.func.now(),
+						'changed_by' : self._uid
+					}
+					result = self._execute_set( obj.dns_records.insert( values=ptr_values ) )
+	
+
 			result = self._execute_set( obj.dns_records.insert( values=values ) )
 			
-			# PTR record
-			if tid == 1 and add_ptr:
-				
-				ptrname = IPy.IP(ip_content).reverseName()[:-1]
-				
-				domains = self.get_domains( contains=ptrname )
-				
-				if not domains:
-					raise error.NotFound("Could not find appropriate domain to add in-addr.arpa PTR record for A-record name %s" % name)
-				
-				values = {
-					'name': ptrname,
-					'tid' : 12,
-					'did' : domains[0]['id'],
-					'text_content': name,
-					'ttl' : backend.default_ttl,
-					'vid' : vid,
-					'changed' : sqlalchemy.sql.func.now(),
-					'changed_by' : self._uid
-				}
-				result = self._execute_set( obj.dns_records.insert( values=values ) )
-	
 			# Commit the transaction
 			self._commit()
 		except:
@@ -1910,19 +1968,31 @@ class DBInterface( DBBaseInterface ):
 		address and assign it.
 		
 		@param mac: required MAC address
-		@param network: required CIDR network
+		@param network: required when address is not specified - CIDR network
 		@param address: an optional argument, which address to assign
 		@return: the IP address that was assigned to this MAC
 
 		"""
 		if not network and not address:
 			raise error.RequiredArgument('You must specify either a network or an address.')
+
+		if address:
+			address = openipam.iptypes.IP(address)
+		if network:
+			network = openipam.iptypes.IP(network)
+		if (address and network) and address.version() != network.version():
+			raise Exception('address family mismatch: %s, %s' % (address, network))
+		ipv4 = (address and address.version() == 4) or (network and network.version() == 4)
 		
 		self._begin_transaction()
 		try:
 			if not self.has_min_perms(perms.ADD):
+				if address:
+					andwhere = obj.networks_to_groups.c.nid.op('<<=')(str(address))
+				else:
+					andwhere = obj.networks_to_groups.c.nid == str(network)
 				net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = perms.ADD, do_subquery=False,
-						andwhere=or_( obj.networks_to_groups.c.nid == network, obj.networks_to_groups.c.nid.op('<<=')(address) ) )
+						andwhere=andwhere )
 				net_perms = self._execute(net_perms)
 			
 				if not net_perms:
@@ -1931,53 +2001,76 @@ class DBInterface( DBBaseInterface ):
 			query = select([obj.addresses.c.address], and_(and_(obj.addresses.c.mac == None, obj.addresses.c.pool == None), obj.addresses.c.reserved == False))
 
 			if network:
-				query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+				# FIXME: if ipv6, we don't really want to reuse these
+				if ipv4:
+					query = query.where(obj.addresses.c.address.op('<<')(str(network))).order_by(obj.addresses.c.address)
+				else:
+					query = query.where(False)
 
 			if address:
-				query = query.where(obj.addresses.c.address == address)
+				if ipv4:
+					query = query.where(obj.addresses.c.address == str(address))
+				else:
+					query = query.where(False)
 
 			
 			addresses = self._execute(query)
 			
+			created = False
+
 			if not addresses:
 				# If no totally free addresses, steal one from a pool
-				
-				# Get all addresses and the leases if they exist
-				from_object = obj.addresses.outerjoin(obj.leases, obj.addresses.c.address == obj.leases.c.address)
-				
-				# Filter all addresses to where MAC is none (address hasn't been assigned)
-				# and don't return broadcast, network, gateway and other reserved IP addresses
-				query = select([obj.addresses.c.address], from_obj=from_object).where( and_(obj.addresses.c.mac == None, obj.addresses.c.reserved == False) )
+				# FIXME: if we are using ipv6, autogenerate a new IP here.
+				if ipv4:
+					
+					# Get all addresses and the leases if they exist
+					from_object = obj.addresses.outerjoin(obj.leases, obj.addresses.c.address == obj.leases.c.address)
+					
+					# Filter all addresses to where MAC is none (address hasn't been assigned)
+					# and don't return broadcast, network, gateway and other reserved IP addresses
+					query = select([obj.addresses.c.address], from_obj=from_object).where( and_(obj.addresses.c.mac == None, obj.addresses.c.reserved == False) )
 
-				# Only rob certain pools, since some have special meanings
-				query = query.where( obj.addresses.c.pool.in_( backend.assignable_pools ) )
-				
-				if network:
-					query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
-				
-				# Only show expired leases
-				query = query.where(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None))
-				
-				if address:
-					query = query.where(obj.addresses.c.address == address)
-				
-				addresses = self._execute(query)
-				
-				if address and not addresses:
-					raise error.NotFound("Could not assign IP address %s to MAC address %s.  It may be in use or not contained by a network." % (address, mac))
-				
-				if not addresses:
-					raise error.NoFreeAddresses()
+					# Only rob certain pools, since some have special meanings
+					query = query.where( obj.addresses.c.pool.in_( backend.assignable_pools ) )
+					
+					if network:
+						query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+					
+					# Only show expired leases
+					query = query.where(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None))
+					
+					if address:
+						query = query.where(obj.addresses.c.address == address)
+					
+					addresses = self._execute(query)
+					
+					if address and not addresses:
+						raise error.NotFound("Could not assign IP address %s to MAC address %s.  It may be in use or not contained by a network." % (address, mac))
+					
+					if not addresses:
+						raise error.NoFreeAddresses()
+				else:
+					# FIXME: how do we determine 'is_server'?  should we always use_lowest for a static address?
+					address = self._assign_ip6_address(network=network, mac=mac, use_lowest=True, is_server=True, dhcp_server_id = 0)
+					created = True
+
 				
 			# If here, we have a list of usable addresses, pick one
-			address = addresses[0]['address']
+			if not created:
+				address = addresses[0]['address']
+
+				self.update_address(address=address, mac=mac)
+			
+				# If claimed, delete any previous leases
+				query = obj.leases.delete(obj.leases.c.address == address)
+				self._execute_set( query )
 			
 			# Add the A record for this static (also adds PTR)
 			if hostname:
-				self.add_dns_record(name=hostname, tid=1, ip_content=address)
-			
-			print 'calling update_address: a=%s, m=%s' % (address,mac)
-			self.update_address(address=address, mac=mac)
+				if ipv4:
+					self.add_dns_record(name=hostname, tid=1, ip_content=address)
+				else:
+					self.add_dns_record(name=hostname, tid=28, ip_content=address)
 
 			self._commit()
 		except:
@@ -1993,7 +2086,7 @@ class DBInterface( DBBaseInterface ):
 		
 		@param address: the IP address to release
 		"""
-
+		
 		# Check permissions
 		addresses = self.get_addresses(address=address)
 		
@@ -2020,7 +2113,7 @@ class DBInterface( DBBaseInterface ):
 				pool = backend.func_get_pool_id( address=address )
 			
 			# Delete all the PTR records for this address
-			ptrrecord = IPy.IP(address).reverseName()[:-1]
+			ptrrecord = openipam.iptypes.IP(address).reverseName()[:-1]
 			ptrrecord = self.get_dns_records(name=ptrrecord)
 			
 			if ptrrecord:
@@ -2107,7 +2200,7 @@ class DBInterface( DBBaseInterface ):
 		
 	def add_internal_auth( self ):
 		"""internal_auth"""
-		pass
+		raise Exception('This functionality is provided by DBAuthInterface.create_internal_user(...)')
 		
 	def add_network( self, network, name=None, gateway=None, description=None, dhcp_group=None, pool=False, shared_network=None ):
 		"""Add a network
@@ -2123,8 +2216,18 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 
+		addr = openipam.iptypes.IP(network)
+		if addr.family == 6 and not backend.allow_ipv6:
+			raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+		del addr
+
 		# Add all addresses from this network into the addresses table
-		net = IPy.IP(network)
+		net = openipam.iptypes.IP(network)
+		ip4 = net.version() == 4
+		if not ip4 and net.prefixlen() != 64:
+			raise Exception('Are you really trying to allocate a network that isn\'t a /64?')
+		if pool and ip4:
+			raise Exception('Pools are only used for IPv4 addresses.')
 			
 		
 		# Check if this network overlaps with another network
@@ -2149,18 +2252,23 @@ class DBInterface( DBBaseInterface ):
 			result = self._execute_set( query )
 			
 			invalid = [ net[0], net[backend.default_gateway_address_index], net.broadcast(), ] # mark gateways as reserved, although we should assign the mac of the router
-			
-			for address in net:
-				if (address not in invalid) or (net.prefixlen() >= 31):
-					# If address is not invalid or in a /31 or /32, add the address as unreserved
-					# otherwise we would end up with no available addresses
-					if pool == False:
-						addr_pool = backend.func_get_pool_id( address )
+
+			if ip4:
+				for address in net:
+					if (address not in invalid) or (net.prefixlen() >= 31):
+						# If address is not invalid or in a /31 or /32, add the address as unreserved
+						# otherwise we would end up with no available addresses
+						if pool == False:
+							addr_pool = backend.func_get_pool_id( address )
+						else:
+							addr_pool = pool
+						self.add_address( address = str( address ), network=network, pool = addr_pool )
 					else:
-						addr_pool = pool
-					self.add_address( address = str( address ), network=network, pool = addr_pool )
-				else:
-					self.add_address( address = str( address ), network=network, pool = None, reserved=True )
+						self.add_address( address = str( address ), network=network, pool = None, reserved=True )
+			else:
+				# FIXME: IPv6: reserve our router/network addresses here
+				for address in invalid:
+					self.add_address(address=address, network=network, reserved=True)
 			
 			self._commit()
 		except:
@@ -2237,79 +2345,6 @@ class DBInterface( DBBaseInterface ):
 		"""supermaster"""
 		pass
 	
-	def add_internal_auth (self, id, password, name=None, email=None, hashed=True ):
-		"""
-		Add a user to the database
-		
-		@param id: the user database ID that references the users table
-		@param password: the user's password ... by default expected to be hashed, see next option
-		@param name: the user's actual name, optional
-		@param hashed: defaults to True, if False the password will be hashed before inserting into the database
-		@param email: the user's email address, optional
-		
-		"""
-		
-		# Check permissions
-		self.require_perms(perms.DEITY)
-		
-		#if not hashed:
-		#	password = hash_password(password)
-		
-		query = obj.internal_auth.insert( values={'id' : id,
-								'hash' : password,
-								'name' : name,
-								'email' : email } )
-		
-		return self._execute_set( query )
-		
-	
-	def add_user( self, username, source=None, min_perms=None, **kw ):
-		"""
-		Add a user to the database
-		
-		@param username: the username, either internal or their LDAP username
-		@param source: require to say where this is coming from, see backend.auth.sources
-		@param min_perms: the minimum permissions for this user over everything
-		"""
-		
-		# Check permissions
-		if not self._is_user_in_group(gid=backend.db_service_group_id):
-		   self.require_perms(perms.DEITY)
-		
-		# Make the caller set the source of where this is coming from, don't assume
-		if source is None:
-			raise error.RequiredArgument("source")
-
-		if not min_perms:
-			min_perms = backend.db_default_min_permissions
-		
-		self._begin_transaction()
-		try:
-			# Do this INSERT no matter what authentication source
-			query = self._execute_set(obj.users.insert( values={'username' : username,
-									'source' : source,
-									'min_permissions' : min_perms } ))
-			uid = query.last_inserted_ids()[0]
-			
-			# If the user is internal, not LDAP, add the rest of the info to auth_source
-			# FIXME: This was never implemented
-			#if source is auth_sources.INTERNAL:
-			#	self.add_internal_auth(uid, **kw )
-				
-			# When creating a new user, make a group for that user prepended with user_
-			group_query = self.add_group('user_%s' % username, "Default group for this user")
-			
-			gid = group_query.last_inserted_ids()[0]
-			
-			self.add_user_to_group(uid=uid, gid=gid, permissions=str(perms.OWNER))
-			self.add_user_to_group(uid=uid, gid=backend.db_default_group_id, permissions=str(perms.ADD))
-			
-			self._commit()
-		except:
-			self._rollback()
-			raise
-		
-		return query
 	
 	def add_user_to_group( self, uid, gid, permissions, host_permissions=None ):
 		'''Add a user to a group
@@ -2398,7 +2433,7 @@ class DBInterface( DBBaseInterface ):
 		
 		# If it was an A Record, delete the associated PTR (without permissions checking)
 		if record['tid'] == 1:
-			ptr = self.get_dns_records(name=IPy.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
+			ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
 			
 			if ptr:
 				query = obj.dns_records.delete((obj.dns_records.c.id==ptr[0]['id']) | (obj.dns_records.c.id==rid))
@@ -2862,11 +2897,6 @@ class DBInterface( DBBaseInterface ):
 					# If the previous worked, we have permission to mess with that address.  It shouldn't be a problem
 					#  to directly modify DNS at this point.
 					
-					
-					# Be sure to fix DNS records before this point...
-					#self.release_static_address(address=host_addresses[0]['address'])
-					# ----------------------------------------
-					
 					# We don't care about the network, really... let assign_static_address worry about that
 					#if not network:
 					#	network = self.get_networks(address=address)
@@ -2950,14 +2980,14 @@ class DBInterface( DBBaseInterface ):
 			self._execute_set(query)
 			
 			# FIXME: Find the old PTR, add an equivalent one
-			old_ptr = self.get_dns_records( name = IPy.IP(old_address).reverseName()[:-1], typename='PTR')
+			old_ptr = self.get_dns_records( name = openipam.iptypes.IP(old_address).reverseName()[:-1], typename='PTR')
 			if len(old_ptr) != 1:
 				raise Exception('Something is wrong with your PTR: %s' % old_ptr)
 			old_ptr = old_ptr[0]
 			# Delete the old PTR and dump the old address so we don't have a conflict
 			self.release_static_address(address=str(old_address))
 
-			self.add_dns_record( name=IPy.IP(new_address).reverseName()[:-1], tid=old_ptr['tid'], text_content=old_ptr['text_content'] )
+			self.add_dns_record( name=openipam.iptypes.IP(new_address).reverseName()[:-1], tid=old_ptr['tid'], text_content=old_ptr['text_content'] )
 			
 			self._commit()
 		except:
@@ -3015,12 +3045,12 @@ class DBInterface( DBBaseInterface ):
 				
 				if address:
 					# Updating the PTR name
-					values['name'] = IPy.IP(address).reverseName()[:-1]
+					values['name'] = openipam.iptypes.IP(address).reverseName()[:-1]
 				
 				if old_name and name:
 					values['text_content'] = name
 				
-				ptrname = IPy.IP(old_address).reverseName()[:-1]
+				ptrname = openipam.iptypes.IP(old_address).reverseName()[:-1]
 				
 				query = obj.dns_records.update(obj.dns_records.c.name == ptrname, values=values )
 		
@@ -3098,13 +3128,96 @@ class DBInterface( DBBaseInterface ):
 class DBAuthInterface( DBInterface ):
 	def __init__(self):
 		DBInterface.__init__( self, username=backend.auth_user )
-	def __getattr__(self, name ):
+	#def __getattr__(self, name ):
+	#	"""
+	#	FIXME: no it doesn't
+	#	This only lets the DBAuthInterface call a small subset of DBInterface functions. 
+	#	"""
+	#	if name in ('get_users', 'get_auth_sources', 'get_internal_auth','_execute_set'):
+	#		return DBInterface.__getattr__(self, name)
+	#	raise AttributeError(name)
+	def change_internal_password(self, id, hash):
+		query = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.id == id)
+		self._execute_set(query)
+	def add_user( self, username, source, min_perms=None ):
 		"""
-		This only lets the DBAuthInterface call a small subset of DBInterface functions. 
+		Add a user to the database
+		
+		@param username: the username, either internal or their LDAP username
+		@param source: require to say where this is coming from, see backend.auth.sources
+		@param min_perms: the minimum permissions for this user over everything
 		"""
-		if name in ('add_user', 'get_users', 'get_auth_sources', 'get_internal_auth'):
-			return DBInterface.__getattr__(self, name)
-		raise AttributeError(name)
+		
+		# Check permissions -- probably futile since this will be run by the 'auth user'
+		if not self._is_user_in_group(gid=backend.db_service_group_id):
+		   self.require_perms(perms.DEITY)
+		
+		# Make the caller set the source of where this is coming from, don't assume
+		if source is None:
+			raise error.RequiredArgument("source")
+
+		if not min_perms:
+			min_perms = backend.db_default_min_permissions
+		
+		self._begin_transaction()
+		try:
+			# Do this INSERT no matter what authentication source
+			vals = {'username' : username, 'source' : source, 'min_permissions' : min_perms, }
+			q = obj.users.insert( values = vals )
+			query = self._execute_set(q)
+
+			uid = query.last_inserted_ids()[0]
+			
+			# When creating a new user, make a group for that user prepended with user_
+			group_query = self.add_group('user_%s' % username, "Default group for this user")
+			
+			gid = group_query.last_inserted_ids()[0]
+			
+			self.add_user_to_group(uid=uid, gid=gid, permissions=str(perms.OWNER))
+			self.add_user_to_group(uid=uid, gid=backend.db_default_group_id, permissions=str(perms.ADD))
+			
+			self._commit()
+		except:
+			self._rollback()
+			raise
+		
+		return (uid,gid)
+	def create_internal_user (self, username, hash, name=None, email=None ):
+		"""
+		Add a user to the database
+		
+		@param username: the username desired
+		@param hash: the value to put in for the hash
+		@param name: the user's actual name, optional
+		@param email: the user's email address, optional
+		
+		"""
+		
+		# Check permissions
+		self.require_perms(perms.DEITY)
+		
+		self._begin_transaction()
+		try:
+			s_id = self.get_auth_sources(name='INTERNAL')[0]['id']
+			uid, gid = self.add_user( username=username, source=s_id )
+			query = obj.internal_auth.insert( values={'id' : uid,
+									'hash' : hash,
+									'name' : name,
+									'email' : email } )
+			self._commit()
+		except:
+			self._rollback()
+			raise
+
+		self._execute_set( query )
+		return uid,gid
+	
+	def change_internal_password (self, id, hash ):
+		# Check permissions
+		self.require_perms(perms.DEITY)
+		
+		q = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.c.id == id)
+		self._execute_set(q)
 	
 def ago( sec ):
 	return sqlalchemy.sql.func.now() - text("interval '%s sec'" % sec)
@@ -3582,8 +3695,8 @@ def make_lease_dict( address, lease_time, hostname ):
 		ret = {}
 		ret['address'] = address['address']
 		ret['router'] = address['gateway']
-		ret['netmask'] = str(IPy.IP(address['network']).netmask()) # FIXME
-		ret['broadcast'] = str(IPy.IP(address['network']).broadcast()) # FIXME
+		ret['netmask'] = str(openipam.iptypes.IP(address['network']).netmask()) # FIXME
+		ret['broadcast'] = str(openipam.iptypes.IP(address['network']).broadcast()) # FIXME
 		ret['lease_time'] = lease_time
 		ret['hostname'] = hostname
 		return ret
