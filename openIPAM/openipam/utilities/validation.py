@@ -1,14 +1,11 @@
-# Functions for validation
+# Functions for validation that shouldn't even exist.
 
+import openipam.iptypes
 import re
 
 # useful regexes
 #  * MAC address
 mac = "[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F][:\-.]?[0-9a-fA-F][0-9a-fA-F]"
-#  * dotted-quad IP
-ip = "((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))(?![\\d])"
-#  * CIDR mask (0-32)
-cidrmask = "([1-2]?[0-9]|3[0-2])"
 #  * FQDN
 fqdn = "([0-9A-Za-z]+\.[0-9A-Za-z]+|[0-9A-Za-z]+[\-0-9A-Za-z\.]*[0-9A-Za-z])"
 #  * hostname
@@ -21,14 +18,24 @@ def is_mac(string):
 
 def is_ip(string):
 	'''Returns true if argument is an IP address, false otherwise'''
-	re_ip = re.compile("^"+ip+"$")
-	return re_ip.search(string)
+	try:
+		openipam.iptypes.IP(string)
+	except:
+		return False
+	return True
 
 
 def is_cidr(string):
 	'''Returns true if argument is valid classless inter-domain routing syntax, false otherwise'''
-	re_cidr = re.compile("^"+ip+"/"+cidrmask+"$")
-	return re_cidr.search(string)
+	try:
+		x = openipam.iptypes.IP(string)
+		if x.version() == 4 and x.prefixlen() >= 32:
+			return False
+		if x.version() == 6 and x.prefixlen() >= 128:
+			return False
+	except:
+		return False
+	return True
 
 
 def is_fqdn(string):
