@@ -334,9 +334,10 @@ class IPMCmdInterface( cmd.Cmd ):
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 		groups = []
 		for g in self.iface.get_hosts_to_groups(mac=arg):
-			groups.append(self.iface.get_group(id=g[0]['id']) )
-		print groups
-		#self.show_dicts( groups, 
+			groups.extend(self.iface.get_groups(gid=g['gid']) )
+		if groups:
+			print "Related groups:"
+			self.show_dicts( groups, [('name','Group'),('description','Description'),('id','GID'),], prefix='\t')
 	
 	def do_show_full_mac( self, arg ):
 		arg = arg.strip()
