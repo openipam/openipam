@@ -645,7 +645,7 @@ class MainWebService(XMLRPCController):
 			
 		if kw['editing'] and not kw.has_key('old_mac'):
 			raise error.RequiredArgument("When editing, old_mac is a required argument.")
-		if not kw['is_dynamic'] and not kw['editing'] and (not kw.has_key('network') or (kw.has_key('network') and not kw['network'])):
+		if not kw['is_dynamic'] and not kw['editing'] and ( (not kw.has_key('address') or not kw['address']) or (not kw.has_key('network') or not kw['network']) ):
 			messages.append("This is a static IP registration and the network was not specified.")
 			
 		# Make sure that anything that is dropdown-like (except networks) is using IDs as values
