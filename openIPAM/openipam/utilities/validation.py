@@ -19,6 +19,8 @@ def is_mac(string):
 def is_ip(string):
 	'''Returns true if argument is an IP address, false otherwise'''
 	try:
+		if is_mac(string):
+			return False
 		openipam.iptypes.IP(string)
 	except:
 		return False

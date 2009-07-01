@@ -2034,13 +2034,13 @@ class DBInterface( DBBaseInterface ):
 					query = query.where( obj.addresses.c.pool.in_( backend.assignable_pools ) )
 					
 					if network:
-						query = query.where(obj.addresses.c.address.op('<<')(network)).order_by(obj.addresses.c.address)
+						query = query.where(obj.addresses.c.address.op('<<')(str(network))).order_by(obj.addresses.c.address)
 					
 					# Only show expired leases
 					query = query.where(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None))
 					
 					if address:
-						query = query.where(obj.addresses.c.address == address)
+						query = query.where(obj.addresses.c.address == str(address))
 					
 					addresses = self._execute(query)
 					
