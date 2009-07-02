@@ -34,7 +34,7 @@
 
 #if 'hosts' in $template_keys:
 	#if $hosts:
-		<form name="multiaction" method="post" action="/hosts/multiaction/">
+		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/">
 		<table class="infoTable">
 			<thead>
 				<tr>
@@ -99,7 +99,7 @@
 		<select name="multiaction">
 			<option value="">Choose an action...</option>
 			##<option value="owners">Assign owners to selected hosts</option>
-			##<option value="delete">Delete selected hosts</option>
+			<option value="delete">Delete selected hosts</option>
 			<option value="renew">Renew selected hosts</option>
 		</select>
 		<input type="hidden" name="multiurl" value="$url" />
