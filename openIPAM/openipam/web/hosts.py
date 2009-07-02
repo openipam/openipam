@@ -329,6 +329,9 @@ class Hosts(BasePage):
 
 		ref = cherrypy.request.headers['Referer']
 		
+		if not multihosts:
+			raise error.InvalidArgument('No hosts selected!')
+
 		if type(multihosts) != types.ListType:
 			multihosts = [multihosts]
 

@@ -2541,6 +2541,9 @@ class DBInterface( DBBaseInterface ):
 		@param mac: MAC address of host
 		@param del_extraneous: remove all associated DNS records and release associated addresses
 		"""
+
+		if not mac:
+			raise error.InvalidArgument('Invalid MAC address: %s' % mac)
 		
 		self._begin_transaction()
 		try:
@@ -2772,6 +2775,9 @@ class DBInterface( DBBaseInterface ):
 		# Always very important
 		if hostname:
 			hostname = hostname.lower()
+
+		if not old_mac:
+			raise error.InvalidArgument('Invalid MAC address for old_mac: %s' % old_mac)
 		
 		# Require MODIFY permissions if not DEITY
 		if not self.has_min_perms(perms.DEITY):
@@ -3141,6 +3147,23 @@ class DBInterface( DBBaseInterface ):
 		try:
 			for mac in hosts:
 				self.update_host( old_mac=mac, expires=new_expires )
+			self._commit()
+		except:
+			self._rollback
+			raise
+
+	def delete_hosts(self, hosts=None):
+		# Renew the given hosts until 1 year from now.
+		if not hosts:
+			raise error.InvalidArgument('No hosts specified.')
+
+		# I hope you know what you are doing here...
+		self._begin_transaction()
+		try:
+			for mac in hosts:
+				if not mac:
+					raise error.InvalidArgument('Invalid MAC address: %s in host list %s' % (mac,hosts) )
+				self.del_host( mac=mac )
 			self._commit()
 		except:
 			self._rollback

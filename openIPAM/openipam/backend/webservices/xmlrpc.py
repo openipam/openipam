@@ -835,6 +835,12 @@ class MainWebService(XMLRPCController):
 		db.renew_hosts(**args[0])
 
 	@cherrypy.expose
+	def delete_hosts(self, *args):
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		db.delete_hosts(**args[0])
+
+	@cherrypy.expose
 	def is_dynamic_host(self, *args):
 		"""
 		Return if this host is dynamic or not
