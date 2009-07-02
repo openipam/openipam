@@ -44,7 +44,7 @@ class Hosts(BasePage):
 	def get_leftnav(self, action="", show_options=True):
 		return '%s%s' % (self.leftnav_actions(action), (self.leftnav_options() if show_options else ''))
 	
-	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, network=None, username=None):
+	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, network=None, username=None, expiring=False):
 		"""
 		@param page: the current page the user is viewing
 		@param show_all_hosts: default false, will only show hosts that the current user has OWNER over
@@ -63,7 +63,8 @@ class Hosts(BasePage):
 			'mac' : mac,
 			'username' : username,
 			'hostname' : hostname,
-			'network' : network
+			'network' : network,
+			'expiring' : expiring
 			}
 		
 		try:
@@ -184,6 +185,8 @@ class Hosts(BasePage):
 		values['page'] = int(page)
 		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
 
+		values['url'] = cherrypy.url()
+
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'% frontend.static_dir, values=values)
 	
 	@cherrypy.expose
@@ -262,7 +265,7 @@ class Hosts(BasePage):
 		return self.__template.wrap(leftcontent=self.get_leftnav(show_options=False), filename='%s/templates/mod_host.tmpl'%frontend.static_dir, values=values)
 	
 	@cherrypy.expose
-	def search(self, q=None, page=0, **kw):
+	def search(self, q=None, expiring=False, page=0, success=False, **kw):
 		'''
 		The search page where the search form POSTs
 		'''
@@ -274,7 +277,13 @@ class Hosts(BasePage):
 		values = {}
 		
 		if not q:
-			raise cherrypy.InternalRedirect('/hosts')
+			if not expiring:
+				raise cherrypy.InternalRedirect('/hosts')
+			else:
+				q = "user:%s" % cherrypy.session['username']
+
+		if success:
+			values['global_success'] = 'Hosts Updated Successfully'
 		
 		# Strip the query string and make sure it's a string
 		q = str(q).strip()
@@ -284,28 +293,63 @@ class Hosts(BasePage):
 		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
 		
 		if validation.is_ip(q):
-			values['hosts'] = self.get_hosts( ip=q, page=page )
+			values['hosts'] = self.get_hosts( ip=q, page=page, expiring=expiring )
 		elif validation.is_mac(q):
-			values['hosts'] = self.get_hosts( mac=q, page=page )
+			values['hosts'] = self.get_hosts( mac=q, page=page, expiring=expiring )
 		elif "user:" in q:
 			# Special search for user:some_username
-			values['hosts'] = self.get_hosts( username=q.replace("user:", "").strip(), page=page )
+			values['hosts'] = self.get_hosts( username=q.replace("user:", "").strip(), page=page, expiring=expiring )
 		elif validation.is_fqdn(q):
-			values['hosts'] = self.get_hosts( hostname='%%%s%%' % q, page=page )
+			values['hosts'] = self.get_hosts( hostname='%%%s%%' % q, page=page, expiring=expiring )
 			
 			# Include hosts that have CNAMEs pointed to them by this name
 			cnames = self.webservice.get_dns_records({ 'tid' : 5, 'name' : '%%%s%%' % q })
 			cname_names = [row['text_content'] for row in cnames]
 			if cname_names:
 				# FIXME: paging may screw up here, untested
-				values['hosts'] += self.get_hosts(hostname=cname_names, page=page)
+				values['hosts'] += self.get_hosts(hostname=cname_names, page=page, expiring=expiring)
 		elif validation.is_cidr(q):
-			values['hosts'] = self.get_hosts( network=q, page=page )
+			values['hosts'] = self.get_hosts( network=q, page=page, expiring=expiring )
 		else:
 			values['message'] = 'Un-recognized search term. Please use a complete IP address, MAC address, hostname, or CIDR network mask.' 
 		
+		values['url'] = cherrypy.url()
+
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'%frontend.static_dir, values=values)
 	
+	
+	@cherrypy.expose
+	def multiaction(self, multiaction=None, multihosts=None, multiurl=None, **kw):
+		"""
+		Perform an action on a list of hosts.
+		"""
+		
+		# Confirm user authentication
+		self.check_session()
+
+		ref = cherrypy.request.headers['Referer']
+		
+		if type(multihosts) != types.ListType:
+			multihosts = [multihosts]
+
+		if multiaction == 'delete':
+			self.webservice.delete_hosts( {'hosts':multihosts} );
+		elif multiaction == 'renew':
+			self.webservice.renew_hosts( {'hosts':multihosts} );
+		# need to get the owners...
+		#elif multiaction == 'owners':
+		#	self.webservice._hosts( hosts=multihosts )
+		else:
+			raise cherrypy.HTTPRedirect(ref)
+
+		# FIXME: We should have the calling page include its URL in the form
+		# Gahh....evill....re-write me....
+		
+		sep = "&" if "?" in ref else "?"
+		success = "%ssuccess=True" % sep if "success" not in ref else ""
+		ref = "%s%s" % (ref, success)
+
+		raise cherrypy.HTTPRedirect(ref)
 	
 	
 	

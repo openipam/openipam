@@ -768,7 +768,7 @@ class DBBaseInterface(object):
 			
 		return query
 	
-	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, columns=None, additional_perms=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
+	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, columns=None, additional_perms=None, expiring=False, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
 		"""
 		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
@@ -779,6 +779,7 @@ class DBBaseInterface(object):
 		@param gid: return only the hosts in this group ID
 		@param columns: list of columns to select. defaults to [obj.hosts]
 		@param additional_perms: return hosts that meet these additional permission requirements
+		@param expiring: show hosts that are expiring within this many days
 		@param show_expired: default true, will show all hosts that have expired before now. If false, will only show non-expired hosts.
 		@param show_active: default true, will show all hosts that are active now. If false, will not show non-expired hosts.
 		@param only_dynamics: only return dynamic addresses 
@@ -846,6 +847,8 @@ class DBBaseInterface(object):
 			whereclause.append(obj.hosts.c.expires >= sqlalchemy.sql.func.now())
 		if not show_active:
 			whereclause.append(obj.hosts.c.expires < sqlalchemy.sql.func.now())
+		if expiring:
+			whereclause.append(obj.hosts.c.expires < sqlalchemy.sql.func.now() + text("interval '%d days'" % int(expiring) ) )
 
 		# Finalize the WHERE clause
 		if whereclause:
@@ -978,7 +981,6 @@ class DBBaseInterface(object):
 			if permissions.has_key(row[perms_key_name]):
 				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'] | permissions[row[perms_key_name]])
 			else:
-				print row
 				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'])
 			
 		# FIXME: why are we making a list of length 1?
@@ -1536,7 +1538,7 @@ class DBInterface( DBBaseInterface ):
 				raise error.InsufficientPermissions('You must be a superuser to alter reserved addresses (%s)' % address)
 			
 			# check to see if we are allowed to rob this pool
-			if c_address['pool'] is not None:
+			if c_address['pool'] is not None and c_address['pool'] not in backend.assignable_pools:
 				raise error.InsufficientPermissions('Only a superuser can alter addresses in this pool: %s' % c_address)
 
 			if pool is not None:
@@ -1863,6 +1865,7 @@ class DBInterface( DBBaseInterface ):
 		
 		return self._execute_set(query)
 		
+	# FIXME: this function should require and id from expiration_types instead of an expiration date
 	def add_host( self, mac, hostname, description=None, dhcp_group=None, expires=None ):
 		"""Add a host
 		@param mac: the new host's MAC address
@@ -2137,6 +2140,7 @@ class DBInterface( DBBaseInterface ):
 		return result
 		
 		
+	# FIXME: this function should require and id from expiration_types instead of an expiration date
 	def register_host(self, mac, hostname, description=None, dhcp_group=None, expires=None, expiration_format=None, is_dynamic=True, add_ptr=True, owners=None, pool=None, network=None, add_host_to_my_group=True, address=None):
 		"""
 		Registers a host. This is a smart function, it calls many DB functions to do
@@ -2751,10 +2755,11 @@ class DBInterface( DBBaseInterface ):
 		notification_types = self.get_notifications()
 		
 		for notify_type in notification_types:
-			# Don't add notifications to hosts if the notification will happen after the host's expiration
+			# Don't add notifications to hosts if the notification should have happened already
 			if datetime.datetime.fromtimestamp(time.time()) + notify_type['notification'] < expires:
 				self.add_notification_to_host(notify_type['id'], mac)
 	
+	# FIXME: this function should require and id from expiration_types instead of an expiration date
 	def update_host( self, old_mac, mac=None, hostname=None, description=None, expires=None, expiration_format=None ):
 		"""
 		Update a host record ... just a host record.
@@ -2796,6 +2801,7 @@ class DBInterface( DBBaseInterface ):
 			
 		return results 
 	
+	# FIXME: this function should require and id from expiration_types instead of an expiration date
 	# FIXME: trash this function and replace it with smaller ones.
 	def change_registration( self, old_mac, mac=None, hostname=None, description=None, expires=None, expiration_format=None, is_dynamic=True, network=None, address=None, owners=None ):
 		"""
@@ -3124,6 +3130,23 @@ class DBInterface( DBBaseInterface ):
 			raise
 
 		return result
+
+	def renew_hosts(self, hosts=None):
+		# Renew the given hosts until 1 year from now.
+		if not hosts:
+			raise error.InvalidArgument('No hosts specified.')
+		# 1 year
+		new_expires = datetime.datetime.now() + datetime.timedelta(365)
+		self._begin_transaction()
+		try:
+			for mac in hosts:
+				self.update_host( old_mac=mac, expires=new_expires )
+			self._commit()
+		except:
+			self._rollback
+			raise
+
+
 
 class DBAuthInterface( DBInterface ):
 	def __init__(self):

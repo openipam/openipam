@@ -310,5 +310,13 @@ $(function() {
 	}
 	
 	$('#searchBox').focus();
+
+	$("#selectAll").click(function() {
+		if ($(this).attr("checked")) {
+			$("input[name='multihosts']").attr("checked", true);
+		} else {
+			$("input[name='multihosts']").attr("checked", false);
+		}
+	});
 	
 });

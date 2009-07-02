@@ -17,6 +17,7 @@
 </div>
 
 <h1>Hosts</h1>
+<a href="/hosts/search/?expiring=60" />Show my hosts expiring within 60 days</a><br /><br />
 
 #if 'message' in $template_keys:
 	<div id="localMessage" class="message">
@@ -27,12 +28,13 @@
 #if 'show_search_here' in $template_keys:
 	<img style="float: right; margin-right: 350px; margin-top: 6px" src="/images/interface/search_here.png" />
 	<div class="goodMessage">
-			What hosts would you like to see?
+		What hosts would you like to see?
 	</div>
 #end if
 
 #if 'hosts' in $template_keys:
 	#if $hosts:
+		<form name="multiaction" method="post" action="/hosts/multiaction/">
 		<table class="infoTable">
 			<thead>
 				<tr>
@@ -40,7 +42,9 @@
 					<th style="width: 30%">Hostname</th>
 					<th>Ethernet Address</th>
 					<th>Expires</th>
-					<th>&nbsp;</th>
+					<th style="text-align: right">
+						<input type="checkbox" name="selectAll" id="selectAll" />
+					</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -57,7 +61,8 @@
 					#if $host.has_permissions:
 						<a href="/dns/search/?q=$host.hostname">Manage DNS</a> | 
 						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
-						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> 
+						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> |
+						<input type="checkbox" name="multihosts" value="$host.clean_mac"/>
 					#end if
 					</td>
 				</tr>
@@ -90,7 +95,16 @@
 			
 			#echo ''.join(temp_text)
 		</div>
-		
+
+		<select name="multiaction">
+			<option value="">Choose an action...</option>
+			##<option value="owners">Assign owners to selected hosts</option>
+			##<option value="delete">Delete selected hosts</option>
+			<option value="renew">Renew selected hosts</option>
+		</select>
+		<input type="hidden" name="multiurl" value="$url" />
+		<input type="submit" id="submitMultiAction" value="Go" />
+	</form>
 	#else:
 		<p class="noResults">
 			No hosts found.<br />
