@@ -3149,7 +3149,7 @@ class DBInterface( DBBaseInterface ):
 				self.update_host( old_mac=mac, expires=new_expires )
 			self._commit()
 		except:
-			self._rollback
+			self._rollback()
 			raise
 
 	def delete_hosts(self, hosts=None):
