@@ -200,7 +200,7 @@ class MainWebService(XMLRPCController):
 			return user.__dict__
 		except error.NoEmail:
 			# FIXME: it looks like the except below could be made to catch this one, so maybe we should get rid of this
-			cherrypy.log('Failed Login: User does not have Email address: %s' % str(user.__dict__), context='', severity=logging.DEBUG, traceback=False) 
+			cherrypy.log('Failed Login: User does not have Email address: %s' % username, context='', severity=logging.DEBUG, traceback=False) 
 			raise
 		except Exception, e:
 			# Failed login!
