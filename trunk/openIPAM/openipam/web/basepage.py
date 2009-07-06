@@ -96,7 +96,7 @@ class BasePage(object):
 		return self.__template.wrap(maincontent)
 
 	@cherrypy.expose
-	def login(self, username=None, password=None, expired=None, failed=None, logged_out=None, ne=None, **kw):
+	def login(self, username=None, password=None, expired=None, failed=None, logged_out=None, ne=None, email=None, **kw):
 		'''The login page'''
 		
 		self.check_session(logging_in=True)
@@ -113,12 +113,14 @@ class BasePage(object):
 				content += '''
 						<p>Invalid credentials.</p>'''
 			if expired is not None:
-				
 				content += '''
 						<p>For your security, your session has expired.</p>'''
 			if ne is not None:
 				content += '''
 						<p>Sorry, you have not yet been authorized to use this system.</p>'''
+			if email is not None:
+				content += '''
+						%s''' % frontend.email_required_html
 			content += '''
 						<p>
 						<p>
@@ -164,8 +166,11 @@ class BasePage(object):
 				# redirect to main page
 				raise cherrypy.HTTPRedirect('/')
 			except Exception, e:
-				if error.parse_webservice_fault(e) == "InvalidCredentials":
+				error_string = error.parse_webservice_fault(e)
+				if error_string == "InvalidCredentials":
 					raise cherrypy.InternalRedirect('/login?failed=true')
+				elif error_string == "NoEmail":
+					raise cherrypy.InternalRedirect('/login?email=required')
 				else:
 					raise
 		

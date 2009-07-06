@@ -276,13 +276,14 @@ class LDAPInterface(BaseAuthInterface):
 		@return: a user object 
 		'''
 		
+		
 		if password != (False,):
 			# Bind as this user, dies if unsuccessful
 			ldap_user = self.__bind_as( username, password )
 		else:
 			ldap_user = self._search_ldap( username )
 		
-		if not ldap_user.has_key('email') or (ldap_user.has_key('email') and ldap_user['email'].strip() == ""):
+		if not ldap_user.has_key('email') or (ldap_user.has_key('email') and not ldap_user['email'].strip()):
 			if auth.ldap_require_email:
 				raise error.NoEmail()
 			else:

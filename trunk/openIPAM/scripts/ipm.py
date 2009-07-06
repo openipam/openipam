@@ -285,7 +285,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		if leases:
 			print 'Lease:'
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('starts','starts'),('ends','ends'),('abandoned','abandoned'),], prefix='\t' )
-
+			
 	def complete_show_addresses( self, *args, **kwargs ):
 		return self.mkdict_completion( self.addresses_fields, *args, **kwargs )
 
@@ -690,18 +690,42 @@ class IPMCmdInterface( cmd.Cmd ):
 		mac = name = desc = address = None
 		fields = []
 		file = None
-		vals = self.get_from_user( [ ('username',), ('group_name',),] )
+		vals = self.get_from_user( [ ('from_file',), ('from_username',), ('to_group',),] )
 		
-		hosts = self.iface.get_hosts(username=vals['username'])
+		hosts = []
 		
+		if vals['from_username']:
+			hosts += self.iface.get_hosts(username=vals['from_username'])
+		
+		file = None
+		if vals['from_file'].strip():
+			file = vals['from_file'] 
+			
+		if file:
+			file = open(file, 'r')
+			content = file.read()
+			file.close()
+			
+			macs = re.findall(mac_regex, content)
+			
+			if macs:
+				for mac in macs:
+					hosts += self.iface.get_hosts(mac=mac)
+			else:
+				for user in re.findall('[Aa][0-9]{8}', content):
+					try:
+						hosts += self.iface.get_hosts(username=user)
+					except:
+						print "Error getting hosts for user %s" % user
+			
 		macs = [row['mac'] for row in hosts]
 		
 		failed = []
 		
-		group = self.iface.get_groups(name=vals['group_name'])
+		group = self.iface.get_groups(name=vals['to_group'])
 		
 		if not group:
-			raise Exception('Group not found: %s' % vals['group_name'])
+			raise Exception('Group not found: %s' % vals['to_group'])
 		
 		gid = group[0]['id']
 		
@@ -716,6 +740,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			print "\nThe following MAC addresses failed to insert:\n\t"
 			print '\n\t'.join(failed)
 			
+	
 	def do_assign_hosts_to_network( self, arg ):
 		mac = network = None
 		failed = []

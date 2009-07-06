@@ -298,7 +298,7 @@ class DBBaseInterface(object):
 		Find groups or users who have OWNER over this host
 		where their permissions over a group that contains that host is OWNER
 		
-		@param get_users: whether to go futher than group names and get usernames
+		@param get_users: whether to go further than group names and get usernames
 		@return: either groups owners or, if get_users=True, usernames
 		"""
 		
