@@ -33,6 +33,7 @@ proxy_client_ip_header = None
 
 # Placed underneath the header on the My Access tab ... good for describing your procedures for obtaining more access
 my_access_text = "<p>If you need additional access, please contact your local network administrator.</p>"
+email_required_html = "<p>Your user does not have an email address set, please contact your local network administrator.</p>"
 
 # LOGGING
 log_dir = "/var/log/openipam/web"
