@@ -21,23 +21,23 @@ def is_ip(string):
 	try:
 		if is_mac(string):
 			return False
-		openipam.iptypes.IP(string)
+		ip = openipam.iptypes.IP(string)
+		if len(ip) == 1:
+			return True
 	except:
-		return False
-	return True
+		pass
+	return False
 
 
 def is_cidr(string):
 	'''Returns true if argument is valid classless inter-domain routing syntax, false otherwise'''
 	try:
 		x = openipam.iptypes.IP(string)
-		if x.version() == 4 and x.prefixlen() >= 32:
-			return False
-		if x.version() == 6 and x.prefixlen() >= 128:
-			return False
+		if x.len() > 1:
+			return True
 	except:
-		return False
-	return True
+		pass
+	return False
 
 
 def is_fqdn(string):
