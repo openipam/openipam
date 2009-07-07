@@ -76,5 +76,10 @@ if cherrypy.engine.state == 0:
     cherrypy.engine.start(blocking=False)
     atexit.register(cherrypy.engine.stop)
 
-application = cherrypy.Application(webroot.get_web_root(), None)
+config = {
+	'/': { 'tools.cgitb.on': True },
+	'/ajax': { 'tools.cgitb.on': False },
+}
+
+application = cherrypy.Application(webroot.get_web_root(), config=config)
 
