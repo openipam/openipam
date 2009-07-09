@@ -606,7 +606,8 @@ INSERT INTO notifications (notification, min_permissions) VALUES ( '14 days', B'
 CREATE TABLE notifications_to_hosts (
 	id				SERIAL PRIMARY KEY,
 	nid				integer NOT NULL REFERENCES notifications(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	mac				macaddr NOT NULL REFERENCES hosts(mac) ON DELETE CASCADE ON UPDATE CASCADE
+	mac				macaddr NOT NULL REFERENCES hosts(mac) ON DELETE CASCADE ON UPDATE CASCADE,
+	UNIQUE (mac,nid)
 );
 
 CREATE TABLE disabled (
