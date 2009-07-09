@@ -504,12 +504,12 @@ class IPMCmdInterface( cmd.Cmd ):
 			self.iface.del_network( network=net )
 	
 	def do_add_domain( self, arg ):
-		type='MASTER'
+		typename='MASTER'
 		if self.get_bool_from_user( 'slave domain', default=False):
-			type='SLAVE'
+			typename='SLAVE'
 		
 		fields = [ ('name',), ('description',),]
-		if type=='SLAVE':
+		if typename=='SLAVE':
 			fields.append( ('master','comma-separated list of masters (no spaces)',) )
 
 		vals = self.get_from_user( fields )
@@ -522,13 +522,13 @@ class IPMCmdInterface( cmd.Cmd ):
 		if vals.has_key('master') and vals['master']:
 			master = vals['master'].strip()
 
-		self.iface.add_domain( name=name, type=type, description=desc, master=master )
+		self.iface.add_domain( name=name, typename=typename, description=desc, master=master )
 
 		if name[-7:] != 'usu.edu':
 			print 'Remember to add an SOA for this domain if none exists.'
 
 	def do_add_external_domain( self, arg ):
-		type='MASTER'
+		typename='MASTER'
 		fields = [ ('name',), ('description',), ('address',),]
 
 		vals = self.get_from_user( fields )
@@ -543,7 +543,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		if vals.has_key('address'):
 			address = vals['address']
 
-		self.iface.add_domain( name=name, type=type, description=desc, master=master )
+		self.iface.add_domain( name=name, typename=typename, description=desc, master=master )
 		self.iface.add_dns_record( name=name, tid=6, text_content='root1.usu.edu hostmaster@usu.edu 0 10800 3600 604800 3600', vid=None )
 		self.iface.add_dns_record( name=name, tid=1, ip_content=address, add_ptr=False, vid=None )
 		self.iface.add_dns_record( name='www.'+name, tid=5, text_content=name, vid=None )
@@ -563,19 +563,19 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.update_password(username=username, password=password)
 		
 	def do_add_dns_record( self, arg ):
-		type = arg.strip()
-		if not self.dns_types.has_key(type):
+		typename = arg.strip()
+		if not self.dns_types.has_key(typename):
 			sys.stdout.write('invalid DNS type\n')
-		tid = self.dns_types[type]
+		tid = self.dns_types[typename]
 		fields = [('name',),]
 		defaults = {'ttl':'86400'}
-		if type in ['SRV','MX',]:
+		if typename in ['SRV','MX',]:
 			fields.append( ('priority',) )
-			if type == 'SRV':
+			if typename == 'SRV':
 				defaults['priority'] = '0'
 			else:
 				defaults['priority'] = '10'
-		if type == 'A':
+		if typename == 'A':
 			add_ptr = self.get_bool_from_user( 'Add PTR', default=True )
 		else:
 			add_ptr = False
@@ -599,7 +599,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		else:
 			vid=None
 
-		if type in ['A','AAAA',]:
+		if typename in ['A','AAAA',]:
 			self.iface.add_dns_record( name=name, tid=tid, ip_content=content, add_ptr=add_ptr, vid=vid ) #, ttl=ttl )
 		else:
 			self.iface.add_dns_record( name=name, tid=tid, priority=priority, text_content=content, vid=vid ) #, ttl=ttl )
@@ -608,9 +608,9 @@ class IPMCmdInterface( cmd.Cmd ):
 		complete_lst = []
 		if len(line[:begidx].split()) == 1:
 			#for type in self.dns_types.keys():
-			for type in ['A','CNAME','HINFO','MX','NS','PTR','SRV',]:
-				if type[:len(text)] == text:
-					complete_lst.append( type )
+			for typename in ['A','CNAME','HINFO','MX','NS','PTR','SRV',]:
+				if typename[:len(text)] == text:
+					complete_lst.append( typename )
 		return complete_lst
 
 	def do_quit( self, arg ):

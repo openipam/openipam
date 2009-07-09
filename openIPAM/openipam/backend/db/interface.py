@@ -350,8 +350,15 @@ class DBBaseInterface(object):
 		from_object = from_object.join(obj.hosts_to_groups, obj.hosts_to_groups.c.mac==obj.notifications_to_hosts.c.mac)
 		from_object = from_object.join(obj.users_to_groups, obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid)
 		from_object = from_object.join(obj.users, obj.users_to_groups.c.uid==obj.users.c.id)
+		from_object = from_object.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
 		
-		query = select([obj.hosts, obj.notifications_to_hosts.c.id, obj.notifications.c.notification, obj.users.c.username], from_obj=from_object)
+		columns = [ obj.hosts.c.mac, obj.hosts.c.hostname, obj.hosts.c.expires, obj.hosts.c.description,
+				obj.notifications_to_hosts.c.id, obj.notifications.c.notification,
+				obj.users.c.username, (obj.addresses.c.address != None).label('is_static'),
+				#(sqlalchemy.sql.func.cast(obj.hosts.c.expires,'DATE') - sqlalchemy.sql.func.cast(sqlalchemy.sql.func.now(),'DATE')).label('days'),
+				text('hosts.expires::DATE - NOW()::date AS days'),
+				]
+		query = select(columns, from_obj=from_object).distinct()
 		
 		# Don't add this to the join above, things get funky
 		query = query.where((obj.hosts.c.expires - obj.notifications.c.notification) <= sqlalchemy.sql.func.now())
@@ -1773,7 +1780,7 @@ class DBInterface( DBBaseInterface ):
 		
 		name = name.lower()
 		
-		query = obj.domains.insert( values={'name':name, 'master':master, 'type':type, 'description':description, 'changed_by' : self._uid })
+		query = obj.domains.insert( values={'name':name, 'master':master, 'type':typename, 'description':description, 'changed_by' : self._uid })
 		
 		return self._execute_set(query)
 		
