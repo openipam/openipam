@@ -353,7 +353,7 @@ class DBBaseInterface(object):
 		from_object = from_object.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
 		
 		columns = [ obj.hosts.c.mac, obj.hosts.c.hostname, obj.hosts.c.expires, obj.hosts.c.description,
-				obj.notifications_to_hosts.c.id, obj.notifications.c.notification,
+				obj.notifications_to_hosts.c.id.label('nid'), obj.notifications.c.notification,
 				obj.users.c.username, (obj.addresses.c.address != None).label('is_static'),
 				#(sqlalchemy.sql.func.cast(obj.hosts.c.expires,'DATE') - sqlalchemy.sql.func.cast(sqlalchemy.sql.func.now(),'DATE')).label('days'),
 				text('hosts.expires::DATE - NOW()::date AS days'),
@@ -1884,6 +1884,9 @@ class DBInterface( DBBaseInterface ):
 
 		hostname = hostname.lower()
 		
+		if self.is_disabled(mac=mac):
+			raise error.InvalidArgument('This host is disabled (mac: %s)' % mac)
+
 		self._begin_transaction()
 		try:
 			# Check permissions
@@ -2552,6 +2555,9 @@ class DBInterface( DBBaseInterface ):
 		if not mac:
 			raise error.InvalidArgument('Invalid MAC address: %s' % mac)
 		
+		if self.is_disabled(mac=mac):
+			raise error.InvalidArgument('This host is disabled (mac: %s)' % mac)
+
 		self._begin_transaction()
 		try:
 			host = self.get_hosts(mac=mac, show_expired=True, show_active=True, columns=[obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired')])
@@ -2778,7 +2784,10 @@ class DBInterface( DBBaseInterface ):
 		"""
 		
 		values = {}
-		
+
+		if self.is_disabled(mac=old_mac):
+			raise error.InvalidArgument('This host is disabled (mac: %s)' % old_mac)
+
 		# Always very important
 		if hostname:
 			hostname = hostname.lower()
