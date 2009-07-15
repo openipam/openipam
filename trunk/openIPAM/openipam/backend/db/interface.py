@@ -2690,11 +2690,14 @@ class DBInterface( DBBaseInterface ):
 			raise error.InsufficientPermissions("Must be DEITY to specify ID of notification on host to remove")
 		
 		# FIXME: do we need to do this if here? or just the require permissions
-		if self.get_hosts_to_groups(mac=mac):
+		if not self.has_min_perms(perms.DEITY) and mac and self.get_hosts_to_groups(mac=mac):
 			self._require_perms_on_host(permission=perms.ADMIN, mac=mac)
 					
 		if id:
-			query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.id==id)
+			if type(id) == types.ListType:
+				query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.id.in_(id) )
+			else:
+				query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.id==id)
 		elif mac:
 			query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.mac==mac)
 		else:
