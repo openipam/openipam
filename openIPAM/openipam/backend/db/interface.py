@@ -2841,6 +2841,13 @@ class DBInterface( DBBaseInterface ):
 		# Require the ADMIN flag to change permissions
 		if owners:
 			required_perms = perms.OWNER
+
+		if address and network:
+			network = openipam.iptypes.IP(network)
+			if address in network:
+				network = None
+			else:
+				raise error.InvalidArgument('The address %s does not belong to the network %s' % (address, str(network)) )
 				
 		self._require_perms_on_host(permission=required_perms, mac=old_mac)
 		
