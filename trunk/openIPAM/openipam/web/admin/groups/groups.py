@@ -316,7 +316,7 @@ class AdminGroups(Admin):
 						'''
 		
 		# Get the DNS resource record types from the database
-		args = {}
+		args = { 'order_by' : 'name' }
 		if not kw.has_key('showug'):
 			args = { 'ignore_usergroups' : True }
 		
