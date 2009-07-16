@@ -2,8 +2,8 @@
 
 ULIMIT_NOFILE='32768'
 
-OPENIPAM_USER='esk'
-OPENIPAM_GROUP='nogroup'
+OPENIPAM_USER='openipam'
+OPENIPAM_GROUP='openipam'
 
-OPENIPAM_PATH='/home/esk/src/ipm/trunk/openIPAM'
+OPENIPAM_PATH='/usr/local/openipam/openIPAM'
 

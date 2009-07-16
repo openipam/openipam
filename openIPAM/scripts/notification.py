@@ -5,13 +5,18 @@ from openipam.backend.auth.interfaces import LDAPInterface
 import scripts.mail
 
 from openipam.config import auth_sources
+from openipam.config import backend
 
 db = interface.DBInterface(username='admin')
 ldap_interface = LDAPInterface()
 
-fromaddr = 'servicedesk@usu.edu'
-replyaddr = 'servicedesk@usu.edu'
-bounceaddr = 'bounce@usu.edu'
+expiration_from = 'openipam@localhost'
+expiration_reply_to = None
+
+
+fromaddr = backend.expiration_from
+replyaddr = backend.expiration_reply_to
+bounceaddr = backend.bounce_addr
 
 # Get list of people who need to be notified.
 notification_list = db.find_expiring_hosts()
@@ -103,8 +108,7 @@ for rowitem in notification_list:
 	# TODO: remove the items from the notification_to_hosts table.
 
 
-#mailer = scripts.mail.Mailer('mail.usu.edu')
-mailer = scripts.mail.Mailer('127.0.0.1')
+mailer = scripts.mail.Mailer(backend.smtp_host)
 
 for item in contactlist:
 	try:
@@ -132,15 +136,12 @@ for item in contactlist:
 		emailtext = dynamic_msg
 		subject = dynamic_subject % contactlist[item]
 	emailtext = emailtext % contactlist[item]
-	print '----------------------------------------------'
-	print """To: %s\nFrom: %s\nReply-to: %s\nSubject: %s\n""" % (contactlist[item]['email'],fromaddr,replyaddr,subject)
-	print emailtext
-	print '----------------------------------------------'
-	print 'Delete: %s' % contactlist[item]['notifications']
+	#print '----------------------------------------------'
+	#print """To: %s\nFrom: %s\nReply-to: %s\nSubject: %s\n""" % (contactlist[item]['email'],fromaddr,replyaddr,subject)
+	#print emailtext
+	#print '----------------------------------------------'
+	#print 'Delete: %s' % contactlist[item]['notifications']
 
-	mailer.send_msg(to=contactlist[item]['email'], sender=fromaddr, subject=subject, body=emailtext, headers={'Reply-to':replyaddr,'Return-Path':bounceaddr})
+	mailer.send_msg(to=contactlist[item]['email'], bounce=bounceaddr, sender=fromaddr, subject=subject, body=emailtext, headers={'Reply-to':replyaddr})
 	db.del_notification_to_host(id=contactlist[item]['notifications'])
-
-	# TODO: Fill in to field key value.
-	#mail("mail.example.com", "noreply@example.com", "%()s" % ldapquery, "Your registered computer will expire soon", emailtext);
 

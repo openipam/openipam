@@ -54,10 +54,10 @@ if not styles_dir: styles_dir = "%s/styles" % static_dir
 if not scripts_dir: scripts_dir = "%s/scripts" % static_dir
 if not images_dir: images_dir = "%s/images" % static_dir
 
-if not log_access: log_access = "%s/openipam_access.log" % log_dir
-if not log_error: log_error = "%s/openipam_error.log" % log_dir
-if not log_stdout: log_stdout = "%s/openipam_stdout.log" % log_dir
-if not log_stderr: log_stderr = "%s/openipam_stderr.log" % log_dir
+if not log_access: log_access = "%s/access" % log_dir
+if not log_error: log_error = "%s/error" % log_dir
+if not log_stdout: log_stdout = "%s/stdout" % log_dir
+if not log_stderr: log_stderr = "%s/stderr" % log_dir
 
 # FIXME: these should come from the backend
 allow_dynamic_ip = True

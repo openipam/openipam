@@ -9,16 +9,6 @@ random.seed()
 
 hostname = getfqdn()
 
-def mail(serverURL=None, sender='', to='', subject='', text=''):
-	message = email.Message.Message()
-	message["To"]      = to
-	message["From"]    = sender
-	message["Subject"] = subject
-	message.set_payload(text)
-	mailServer = smtplib.SMTP(serverURL)
-	mailServer.sendmail(sender, to, message.as_string())
-	mailServer.quit()
-
 base64map = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890+/'
 def base64enc( data ):
 	cur = data
@@ -48,9 +38,11 @@ class Mailer(object):
 		# can we increase efficiency somehow?
 		#self.relay = smtplib.SMTP(server)
 
-	def send_msg( self, to=None, sender=None, subject=None, body=None, headers=None):
+	def send_msg( self, to=None, bounce=None, sender=None, subject=None, body=None, headers=None):
 		if not headers:
 			headers={}
+		if not bounce:
+			bounce = sender
 		message = email.Message.Message()
 		message["To"]      = to
 		message["From"]    = sender
@@ -59,11 +51,11 @@ class Mailer(object):
 			message[k] = headers[k]
 		message.set_payload(body)
 
-		self.single_msg(sender=sender, to=to, message=message)
+		self.single_msg(sender=bounce, to=to, message=message)
 
 	def single_msg( self, sender, to, message):
 		if not message.has_key('Date'):
-			message['Date'] = time.strftime('%a, %d %b %H:%M:%S %z')
+			message['Date'] = time.strftime('%a, %d %b %Y %H:%M:%S %z')
 		if not message.has_key('Message-ID'):
 			message['Message-ID'] = generate_message_id(message)
 		relay = smtplib.SMTP(self.server)

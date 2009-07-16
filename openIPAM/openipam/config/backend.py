@@ -12,6 +12,15 @@ ssl_key = None
 bind_port = 8080         # Port the backend will listen on.
 bind_host = '127.0.0.1'  # Address the backend will bind to. If you use anything but 127.0.0.1, we strongly recommend enabling SSL.
 
+# For some of our cron jobs
+smtp_host = '127.0.0.1'
+digest_dest = 'openipam@localhost'
+digest_from = 'noreply@localhost'
+expiration_from = 'openipam@localhost'
+expiration_reply_to = None
+bounce_addr = None
+
+
 # DATABASE
 db_host = None
 db_port = 5432
