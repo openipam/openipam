@@ -39,6 +39,8 @@ from sqlalchemy.sql import select, and_, or_, not_, join, outerjoin, subquery, t
 
 import openipam.utilities.perms
 
+from openipam.utilities.function_wrapper import fcn_wrapper
+
 my_conn = obj.engine.connect()
 query= select([obj.permissions.c.id,obj.permissions.c.name])
 try:
@@ -77,7 +79,7 @@ class DBBaseInterface(object):
 	happen in the DBInterface class.
 	'''
 	def __init__( self ):
-		self.__function_lock = thread.allocate_lock()
+		pass
 
 	def __del__( self ):
 		self._rollback()
@@ -151,31 +153,20 @@ class DBBaseInterface(object):
 		On missing method
 		"""
 		if name[:4] == 'get_':
-			self.__function_lock.acquire()
-			try:
-				self.function = getattr( self, '_%s' % name )
-				return self._execute_get
-			except:
-				self.__function_lock.release()
-				raise
+			obj = getattr( self, '_%s' % name )
+			return fcn_wrapper(obj=self, fcn=self._execute_get, kwargs={'execute_get_function':obj,}, name=name)
 		raise AttributeError(name)
 		
-	def _execute_get( self, *args, **kw ):
+	def _execute_get( self, execute_get_function, *args, **kw ):
 		"""
 		Called by __getattr__, unconditionally executes self.function (set in __getattr__)
 		with the given arguments and executes the query.
 		
 		@return: result of query
 		"""
-		if not self.__function_lock.locked():
-			raise error.FatalException("Somehow, I don't have my __function_lock.  This is very bad.")
-		try:
-			function = self.function
-			del self.function
-			self.__function_lock.release()
-		except:
-			self.__function_lock.release()
-			raise
+		
+		function = execute_get_function
+
 		page = None
 		if kw.has_key('page'):
 			page = kw['page']

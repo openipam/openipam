@@ -38,6 +38,7 @@ from openipam.backend.auth.interfaces import InternalAuthInterface, LDAPInterfac
 from openipam.backend.db import interface
 from openipam.utilities import misc, error, validation
 from openipam.utilities.perms import Perms
+from openipam.utilities.function_wrapper import fcn_wrapper
 
 from openipam.config import auth_sources
 
@@ -72,41 +73,6 @@ class MainWebService(XMLRPCController):
 			
 	# Now for some voodoo:
 	def __getattribute__(self, name):
-		class fcn_wrapper( object ):
-			def __getattribute__(self, name):
-				#print '?%s' % repr(name)
-				if name in ['__getattribute__','__call__','__init__',] or name[:11] == 'fcn_wrapper' :
-					try:
-						obj = object.__getattribute__(self, name)
-						#print 'fcn_wrapper: getattr(%s) -> %s' % (repr(name), repr(obj),)
-						return obj
-					except Exception, e:
-						#print 'meh'
-						#print e
-						raise
-				try:
-					fcn = object.__getattribute__(self,'fcn_wrapper_fcn')
-				except Exception, e:
-					print e
-					raise
-				#print '--------'
-				obj = getattr(fcn,name)
-				#print repr(obj)
-				#print '--------'
-				return obj
-			def __call__(self, *args, **kw):
-				name = self.fcn_wrapper_name
-				#print '********->%s' % name
-				self.fcn_wrapper_obj.log_call( name, *args, **kw )
-				return self.fcn_wrapper_fcn(*args, **kw)
-			def __init__(self, obj, fcn, name):
-				self.fcn_wrapper_fcn = fcn
-				self.fcn_wrapper_obj = obj
-				self.fcn_wrapper_name = name
-				#print '+%(name)s() fcn: %(fcn)s obj: %(obj)s' % locals()
-				#print self.fcn_wrapper_name
-				#print self.fcn_wrapper_name
-
 		obj = object.__getattribute__(self,name)
 		if hasattr(obj,'__call__') and name[0] != '_' and name not in [ 'default', 'log_call','login',] :
 			#print repr(name)

@@ -126,6 +126,7 @@ class InternalAuthInterface(BaseAuthInterface):
 		return auth.dbi.change_internal_password( id=user.uid, hash=hash_password(password) )
 		
 class LockingWrapper(object):
+	"""Wrapper to try to make ldap object more thread-safe"""
 	def __init__( self, obj ):
 		# Make a lock
 		# store the object
