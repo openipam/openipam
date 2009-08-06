@@ -204,7 +204,7 @@ class MainWebService(XMLRPCController):
 	
 	@cherrypy.expose
 	def get_user_info(self, info):
-		if perms.ADMIN & cherrypy.session['user']['min_permissions'] != perms.ADMIN:
+		if backend.show_user_perms & cherrypy.session['user']['min_permissions'] != backend.show_user_perms:
 			raise Exception('Insufficient permissions to look up user information.')
 		info = auth_sources.get_info( **info )
 		if info:
@@ -363,7 +363,7 @@ class MainWebService(XMLRPCController):
 		ownerlist=[]
 		for group in groups:
 			data = dict(group)
-			if ( perms.ADMIN & cherrypy.session['user']['min_permissions'] == perms.ADMIN
+			if ( backend.show_user_perms & cherrypy.session['user']['min_permissions'] == backend.show_user_perms
 					and group['name'][:5] == 'user_'):
 				user = self.get_user_info({'username': group['name'][5:],})
 				if user:

@@ -1214,7 +1214,7 @@ class DBBaseInterface(object):
 			self.require_perms(perms.READ)
 			query = select( [obj.leases] ).where(obj.leases.c.address == address)
 		elif mac:
-			self.require_perms(perms.OWNER)
+			self.require_perms(perms.READ)
 			query = select( [obj.leases] ).where(obj.leases.c.mac == mac)
 		else:
 			raise error.RequiredArgument( 'Exactly one of mac or address required' )
