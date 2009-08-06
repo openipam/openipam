@@ -120,6 +120,11 @@ class MainWebService(XMLRPCController):
 		"""
 		
 		try:
+			if type(query) == types.TupleType:
+				if len(query) != 2:
+					raise Exception('FIXME: tuple not recognized: %s' % query)
+				return query[0],self.__sanitize(query[1])
+
 			return [dict(row) for row in query]
 		except:
 			print query
@@ -350,6 +355,25 @@ class MainWebService(XMLRPCController):
 		db = self.__check_session()
 		
 		return self.__sanitize(db.find_owners_of_host(**args[0]))
+
+	@cherrypy.expose
+	def find_ownernames_of_host(self, *args):
+		db = self.__check_session()
+		groups = db.find_owners_of_host(**args[0])
+		ownerlist=[]
+		for group in groups:
+			data = dict(group)
+			if ( perms.ADMIN & cherrypy.session['user']['min_permissions'] == perms.ADMIN
+					and group['name'][:5] == 'user_'):
+				user = self.get_user_info({'username': group['name'][5:],})
+				if user:
+					data = dict(user)
+					data['display'] = "%(name)s (%(username)s)" % data
+			if not data.has_key('display'):
+				data['display'] = "%(name)s" % data
+			ownerlist.append(data)
+
+		return self.__sanitize(ownerlist)
 	
 	@cherrypy.expose
 	def add_user(self, *args):
@@ -816,6 +840,11 @@ class MainWebService(XMLRPCController):
 		db = self.__check_session()
 		
 		return bool(db.get_hosts_to_pools( **args[0] ))
+
+	@cherrypy.expose
+	def get_hosts_to_pools(self, *args):
+		db = self.__check_session()
+		return self.__sanitize(db.get_hosts_to_pools( **args[0] ))
 	
 	@cherrypy.expose
 	def edit_host(self, *args):

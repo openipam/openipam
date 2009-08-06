@@ -14,7 +14,7 @@ import xmlrpclib
 from resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
 
 DEFAULT_HOSTS_LIMIT = 100
-DEFAULT_DNS_RECORDS_LIMIT = 400
+DEFAULT_DNS_RECORDS_LIMIT = 50
 
 perms = frontend.perms
 
@@ -153,8 +153,8 @@ class BasePage(object):
 				cherrypy.session['name'] = info['name']
 				cherrypy.session['min_permissions'] = info['min_permissions']
 				cherrypy.session['has_global_owner'] = ((Perms(info['min_permissions']) & perms.OWNER) == perms.OWNER)
-				cherrypy.session['show_expired_hosts'] = False
-				cherrypy.session['show_all_hosts'] = False
+				cherrypy.session['show_expired_hosts'] = True
+				cherrypy.session['show_all_hosts'] = True
 				cherrypy.session['show_all_records'] = False
 				cherrypy.session['show_a_records'] = False
 				cherrypy.session['show_cnames'] = False

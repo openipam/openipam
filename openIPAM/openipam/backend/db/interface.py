@@ -167,6 +167,15 @@ class DBBaseInterface(object):
 		
 		function = execute_get_function
 
+		if kw.has_key('count'):
+			for a in args:
+				print '%s' % repr(a)
+			for k in kw:
+				if type(kw[k]) == types.ListType:
+					print '%s: %s' % (k,len(kw[k]))
+				else:
+					print '%s: %s' % (k, repr(kw[k]))
+
 		page = None
 		if kw.has_key('page'):
 			page = kw['page']
@@ -181,19 +190,56 @@ class DBBaseInterface(object):
 		if kw.has_key('order_by'):
 			order_by = kw['order_by']
 			del kw['order_by']
+
+		columns = None
+		if kw.has_key('columns'):
+			columns = kw['columns']
+			del kw['columns']
+
+		distinct = False
+		if kw.has_key('distinct'):
+			distinct = kw['distinct']
+			del kw['distinct']
+		
+		count = False
+		if kw.has_key('count'):
+			count = kw['count']
+			del kw['count']
 		
 		query = function( *args, **kw )
 
 		# Apply given ORDER BY, OFFSET and LIMIT statements
+		if distinct:
+			query = query.distinct()
+
+		if columns:
+			query = query.with_only_columns(columns)
+		
 		if order_by:
 			query = query.order_by(order_by)
+
+		if count:
+			# FIXME: this is a bit inefficient... but I can't figure out another way that will handle DISTINCT and other complex queries
+			count = select(columns=[sqlalchemy.sql.func.count('*').label('count'),], from_obj=query.alias('countfoo'))
+
+			count = self._execute( count )
+			if count:
+				print count
+				count = count[0]['count']
+			else:
+				count=0
+			print 'count: %s' % count
+			print 'args/len(arg)s'
+
 		if page and limit:
 			query = self.__do_page( query=query, page=page, limit=limit)
 		elif limit:
 			query = query.limit(limit)
-		
-		query = self._execute( query )
-		return query
+
+		data = self._execute( query )
+		if count is not False:
+			return count, data
+		return data
 
 	def _execute(self, query):
 		if hasattr(self, '_conn') and hasattr(self, '_trans_stack'):
@@ -517,79 +563,81 @@ class DBBaseInterface(object):
 			else:
 				raise Exception("Invalid type for id: %s" % type(id))
 		if address:
-			whereclause.append( obj.dns_records.c.ip_content == address )
+			if type(address) == types.ListType:
+				whereclause.append( obj.dns_records.c.ip_content.in_( address ) )
+			else:
+				whereclause.append( obj.dns_records.c.ip_content == address )
 		if tid:
-			whereclause.append( obj.dns_records.c.tid == tid )
+			if type(tid) == types.ListType:
+				whereclause.append( obj.dns_records.c.tid.in_( tid ) )
+			else:
+				whereclause.append( obj.dns_records.c.tid == tid )
 		elif typename:
 			whereclause.append( obj.dns_records.c.tid == self.get_dns_types(typename=typename)[0]['id'] )
 		if name:
-			name = name.lower()
-			if '%' in name:
-				# Use a LIKE condition
-				whereclause.append( obj.dns_records.c.name.like( name ) )
+			if type(name) == types.ListType:
+				whereclause.append( obj.dns_records.c.name.in_( name ) )
 			else:
-				# name = 'exact string'
-				whereclause.append( obj.dns_records.c.name == name )
+				name = name.lower()
+				if '%' in name:
+					# Use a LIKE condition
+					whereclause.append( obj.dns_records.c.name.like( name ) )
+				else:
+					# name = 'exact string'
+					whereclause.append( obj.dns_records.c.name == name )
+				
 				
 		if content:
 			# FIXME: is there a better way to do this?
-			if validation.is_ip(content): 
-				whereclause.append( obj.dns_records.c.ip_content == content  )
-			else:
-				if '%' in content:
-					# Use a LIKE condition
-					whereclause.append( obj.dns_records.c.text_content.like( content ) )
+			if type(content) == types.ListType:
+				if validation.is_ip(content[0]): 
+					raise InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
 				else:
-					# content = 'exact string' OR content like '% exact string'
-					whereclause.append( or_(obj.dns_records.c.text_content == content, obj.dns_records.c.text_content.like( '%% %s' % content )  ) )
+					whereclause.append( obj.dns_records.c.text_content.in_( content ) )
+				
+			else:
+				if validation.is_ip(content): 
+					raise InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
+				else:
+					if '%' in content:
+						# Use a LIKE condition
+						whereclause.append( obj.dns_records.c.text_content.like( content ) )
+					else:
+						# content = 'exact string' OR content like '% exact string'
+						whereclause.append( or_(obj.dns_records.c.text_content == content, obj.dns_records.c.text_content.like( '%% %s' % content )  ) )
 		if changed:
 			whereclause.append( obj.dns_records.c.changed >= changed )
 		
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
+		else:
+			whereclause = True
 
 		if mac:
-			a_records = obj.dns_records.join( obj.addresses, and_(obj.addresses.c.address == obj.dns_records.c.ip_content, obj.addresses.c.mac == mac ) )
-			
-			a_records_select = select( columns, from_obj = a_records)
-			if whereclause:
-				a_records_select = a_records_select.where( whereclause )
-			
-			a_records_result = self._execute(a_records_select)
-			
-			ptr_names = []
-			for rr in a_records_result:
-				ptr_names.append(openipam.iptypes.IP(rr['ip_content']).reverseName()[:-1])
-				
-			ptr_records =  select( columns ).where(obj.dns_records.c.name.in_(ptr_names))
-			if whereclause:
-				ptr_records = ptr_records.where( whereclause )
-			
-			# The universe of all DNS records where the name is the A record's name
-			same_name_records = obj.dns_records.join( a_records_select.alias('a_records'), obj.dns_records.c.name==a_records_select.alias('a_records').c.name)
-			
-			# The universe of all DNS records where the text_content is the A record's name
-			content_is_name_records = obj.dns_records.join( a_records_select.alias('a_records'), obj.dns_records.c.text_content==a_records_select.alias('a_records').c.name)
-			
-			# The universe of all DNS records where the text_content is like '% <the A record's name>'
-			# like_name_records = obj.dns_records.join( a_records_select.alias('a_records'), obj.dns_records.c.name.like('_%%._%%.%s' % a_records_select.alias('a_records').c.name))
+			host = self.get_hosts( mac = mac )[0]
+			addresses = [ i['address'] for i in self.get_addresses( mac = mac ) ]
 
-			# Find all records where the name is the same as any A record we found
-			same_name_select = select( columns, from_obj=same_name_records)
-			if whereclause:
-				same_name_select = same_name_select.where( whereclause )
-				
-			# Find all records where the text_content is the same as any A record we found
-			content_is_name_select = select( columns, from_obj=content_is_name_records)
-			if whereclause:
-				content_is_name_select = content_is_name_select.where( whereclause )
+			union_foo = []
 
-			# Select, and filter to just SRV records
-			# srv_records = select( columns, from_obj=like_name_records).where(obj.dns_records.c.tid == 33)
-			# if whereclause:
-			#	srv_records = srv_records.where( whereclause )
+			if addresses:
+				a_records = self._get_dns_records( address = addresses ).distinct()
+				union_foo.append(a_records.where(whereclause))
 
-			query = union( a_records_select, same_name_select, content_is_name_select, ptr_records ) #, srv_records )
+				ptr_names = [ openipam.iptypes.IP(i).reverseName()[:-1] for i in addresses ]
+				ptrs = self._get_dns_records( name=ptr_names ).distinct()
+				union_foo.append(ptrs.where(whereclause))
+
+				a_record_names = [ i['name'] for i in self._execute(self._get_dns_records(address=addresses).with_only_columns([obj.dns_records.c.name,]) ) ]
+				other_records = self._get_dns_records( content = a_record_names ).distinct()
+				union_foo.append(other_records.where(whereclause))
+
+			if len(union_foo) > 2:
+				query = union( *union_foo )
+			elif union_foo:
+				query = union_foo[0]
+			else:
+				query = select( [obj.dns_records], from_obj = obj.dns_records ).where(False)
+
 		else:
 			from_object = obj.dns_records
 			query = select( [obj.dns_records], from_obj = from_object )
@@ -597,7 +645,7 @@ class DBBaseInterface(object):
 			if whereclause:
 				query = query.where( whereclause )
 			else:
-				self.require_perms( perms.DEITY, "You're trying to retrieve all DNS records ... why?" )
+				raise error.InvalidArgument("You're trying to retrieve all DNS records ... why?")
 
 		return query
 	
@@ -766,7 +814,7 @@ class DBBaseInterface(object):
 			
 		return query
 	
-	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, columns=None, additional_perms=None, expiring=False, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
+	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
 		"""
 		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
@@ -803,7 +851,7 @@ class DBBaseInterface(object):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
 		
 		if not columns:
-			columns = [obj.hosts]
+			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired')]
 
 		if funky_ordering:
 			columns.append(sqlalchemy.sql.func.length(obj.hosts.c.hostname).label('len'))
@@ -821,13 +869,11 @@ class DBBaseInterface(object):
 		
 		# Apply all the filtering that was specified
 		if ip != None:
-			# This allows us to search on IP addresses that are dynamically assigned
-			lease = self.get_leases(address=ip, show_expired=False)
-			if lease:
-				mac = lease[0]['mac']
-				ip = None
-			else: 
-				whereclause.append(obj.addresses.c.address==ip)
+			if type(ip) == types.ListType:
+				whereclause.append(obj.addresses.c.address.in_(ip) or obj.leases.c.address.in_(ip))
+			else:
+				# This allows us to search on IP addresses that are dynamically assigned
+				whereclause.append(or_(obj.addresses.c.address==ip, obj.leases.c.address==ip))
 		if only_statics:
 			whereclause.append(obj.addresses.c.mac == obj.hosts.c.mac)
 		if mac != None:
@@ -848,6 +894,20 @@ class DBBaseInterface(object):
 		if expiring:
 			whereclause.append(obj.hosts.c.expires < sqlalchemy.sql.func.now() + text("interval '%d days'" % int(expiring) ) )
 
+		if namesearch:
+			# Let's get some DNS records, shall we?
+
+			a_tbl = obj.dns_records.alias('a')
+			cname_tbl = obj.dns_records.alias('cname')
+			dns_q = a_tbl.outerjoin(cname_tbl, and_(a_tbl.c.name == cname_tbl.c.text_content, cname_tbl.c.tid == 5))
+
+			if '%' in namesearch:
+				dns_where = or_( obj.hosts.c.hostname.like(namesearch), or_(a_tbl.c.name.like(namesearch),cname_tbl.c.name.like(namesearch)) )
+			else:
+				dns_where = or_( obj.hosts.c.hostname == namesearch, or_(a_tbl.c.name == namesearch, cname_tbl.c.name == namesearch) )
+
+			whereclause.append(dns_where)
+
 		# Finalize the WHERE clause
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
@@ -855,6 +915,7 @@ class DBBaseInterface(object):
 		# Check permissions and generate the query
 		if self.has_min_perms( required_perms ):
 			hosts = obj.hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
+			hosts = hosts.outerjoin(obj.leases, obj.hosts.c.mac==obj.leases.c.mac)
 			
 			if gid:
 				hosts = hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
@@ -866,6 +927,8 @@ class DBBaseInterface(object):
 				hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,
 									and_(obj.users_to_groups.c.uid == uid,
 									obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
+			if namesearch:
+				hosts = hosts.outerjoin(dns_q, obj.addresses.c.address == a_tbl.c.ip_content)
 			
 			# Create the selectable	
 			hosts = select( columns, from_obj=hosts, distinct=True )
@@ -1135,7 +1198,7 @@ class DBBaseInterface(object):
 		else:
 			self.require_perms(perms.DEITY)
 			
-		query = select([obj.hosts_to_pools.c.id])
+		query = select([obj.hosts_to_pools])
 		
 		if mac:
 			query = query.where(obj.hosts_to_pools.c.mac==mac)
@@ -1896,12 +1959,11 @@ class DBInterface( DBBaseInterface ):
 			# If the host exists by mac, but is expired, delete old host
 			host = self.get_hosts(mac=mac, show_expired=True, show_active=False)
 			if host:
-				self.del_host(mac=mac, del_extraneous=False)
+				raise Exception("Host with mac %s already exists.  Please delete it first." % mac)
 			
-			# If the host exists by hostname, but is expired, delete old host
 			host = self.get_hosts(hostname=hostname, show_expired=True, show_active=False)
 			if host:
-				self.del_host(mac=host[0]['mac'], del_extraneous=False)
+				raise Exception("Host with name %s already exists.  Please delete it first." % hostname)
 			
 			query = obj.hosts.insert( values={
 									'mac' : mac,
@@ -1984,8 +2046,12 @@ class DBInterface( DBBaseInterface ):
 			address = openipam.iptypes.IP(address)
 		if network:
 			network = openipam.iptypes.IP(network)
-		if (address and network) and address.version() != network.version():
-			raise Exception('address family mismatch: %s, %s' % (address, network))
+		if (address and network):
+			if address.version() != network.version():
+				raise Exception('address family mismatch: %s, %s' % (address, network))
+			if not (address in network):
+				raise error.InvalidArgument('address %s does not belong to network %s' % (address, network))
+			network = None # this information is useless to us... we have an address.
 		ipv4 = (address and address.version() == 4) or (network and network.version() == 4)
 		
 		self._begin_transaction()
@@ -2071,6 +2137,10 @@ class DBInterface( DBBaseInterface ):
 			
 			# Add the A record for this static (also adds PTR)
 			if hostname:
+				# delete any ptr's
+				# FIXME: this is a sign that something wasn't deleted cleanly... maybe we shouldn't?
+				#self.del_dns_record(name=openipam.iptypes.IP(address).reverseName()[:-1])
+				# FIXME: is it safe to delete other DNS records here?
 				if ipv4:
 					self.add_dns_record(name=hostname, tid=1, ip_content=address)
 				else:
@@ -2166,8 +2236,7 @@ class DBInterface( DBBaseInterface ):
 			
 			# STATIC HOST
 			if not is_dynamic:
-				if not network and not address:
-					raise error.RequiredArgument("To create a static registration, network must be specified")
+				# assign_static_address will check our args
 				address = self.assign_static_address(mac=mac, hostname=hostname, network=network, address=address)
 			
 			# DYNAMIC HOST
@@ -2533,7 +2602,7 @@ class DBInterface( DBBaseInterface ):
 		
 		return self._execute_set(query)
 	
-	def del_host( self, mac, del_extraneous=True ):
+	def del_host( self, mac ):
 		"""
 		Delete a host. Relations of this host to groups will cascade delete.
 		
@@ -2557,26 +2626,25 @@ class DBInterface( DBBaseInterface ):
 				if not host[0]['expired']:
 					self._require_perms_on_host(permission=perms.DELETE, mac=mac)
 				
-				if del_extraneous:
-					# Addresses to release
-					release_addresses = self.get_addresses(mac=mac)
-					
-					for addr in release_addresses:
-						self.release_static_address(address=addr['address'])
-					
-					self.del_dhcp_dns_record( name = host[0]['hostname'] )
+				# Addresses to release
+				release_addresses = self.get_addresses(mac=mac)
+				
+				for addr in release_addresses:
+					self.release_static_address(address=addr['address'])
+				
+				self.del_dhcp_dns_record( name = host[0]['hostname'] )
 
-					# Delete the DNS records associated with the old static host
-					dns_records = self.get_dns_records( mac=mac )
-					
-					for rr in dns_records:
-						try:
-							self.del_dns_record(rid=rr['id'], mac=mac)
-						except error.NotFound:
-							# FIXME: this may not be the best way, but catch the case where a PTR
-							# has already been deleted by del_dns_record, but we still have it in this list
-							pass
-							
+				# Delete the DNS records associated with the old static host
+				dns_records = self.get_dns_records( mac=mac )
+				
+				for rr in dns_records:
+					try:
+						self.del_dns_record(rid=rr['id'], mac=mac)
+					except error.NotFound:
+						# FIXME: this may not be the best way, but catch the case where a PTR
+						# has already been deleted by del_dns_record, but we still have it in this list
+						pass
+						
 					
 				# Delete the host
 				query = obj.hosts.delete(obj.hosts.c.mac==mac)

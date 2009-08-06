@@ -27,9 +27,13 @@ class DNS(BasePage):
 		Returns the html for the leftnav options on the Manage DNS tab
 		'''
 		
-		options = ('Show A records', 'Show CNAMEs')
-		options_links = ('/dns/?show_a_records', '/dns/?show_cnames')
-		selected = (cherrypy.session['show_a_records'], cherrypy.session['show_cnames'])
+		#options = ('Show A records', 'Show CNAMEs')
+		#options_links = ('/dns/?show_a_records', '/dns/?show_cnames')
+		#selected = (cherrypy.session['show_a_records'], cherrypy.session['show_cnames'])
+
+		options = ()
+		options_links = ()
+		selected = ()
 		
 		return OptionsSubmenu(values=options, links=options_links, title="Options", selected=selected)
 	

@@ -71,9 +71,10 @@ class OptionsSubmenu:
 		counter = 0
 		for link in self.__links:
 			if self.__selected[counter]:
-				text.append('<li id="active"><a href="%s">%s</a></li>' % (link, self.__values[counter]))
+				#text.append('<li id="active"><a href="%s">%s</a></li>' % (link, self.__values[counter][1]))
+				text.append('<li><a href="%s">%s</a></li>' % (link, self.__values[counter][1]))
 			else:
-				text.append('<li><a href="%s">%s</a></li>' % (link, self.__values[counter]))
+				text.append('<li><a href="%s">%s</a></li>' % (link, self.__values[counter][0]))
 			counter += 1
 			
 		text.append('</ul>')

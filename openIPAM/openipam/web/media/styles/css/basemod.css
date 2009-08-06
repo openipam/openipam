@@ -386,6 +386,12 @@ table.infoTable tr.info {
     border-bottom: none;
 }
 
+table.infoTable tr.expiredinfo {
+    border: 1px dotted #444444;
+    border-bottom: none;
+    background-color: #e5e5e5
+}
+
 table.infoTable tr.infoNew {
     border: 1px dotted #444444;
     border-bottom: none;
@@ -405,6 +411,10 @@ table.infoTable tr.info td.text-only {
     padding-left: 10px;
 }
 
+table.infoTable tr.expiredinfo td.text-only {
+    padding-left: 10px;
+}
+
 table.infoTable tr.infoExpand td div.hiddenInfo {
 	display: none;
     border: none;
@@ -415,12 +425,24 @@ table.infoTable tr.info td a img.expand {
 	background-image: url(/images/interface/expand.gif);
 }
 
+table.infoTable tr.expiredinfo td a img.expand {
+	background-image: url(/images/interface/expand.gif);
+}
+
 table.infoTable tr.info td a img.contract {
 	background-image: url(/images/interface/contract.gif);
 }
 
+table.infoTable tr.expiredinfo td a img.contract {
+	background-image: url(/images/interface/contract.gif);
+}
+
 table.infoTable tr:hover {
-	background: #f9f9f9;
+	background: #f7fdf7;
+}
+
+table.infoTable tr.expiredinfo:hover {
+	background: #f8e0e0;
 }
 
 table.infoTable td.ttl {
@@ -480,8 +502,15 @@ body.login {
 
 div.pageLinks {
 	float: right;	
+	text-align: right;
 }
-	
+
+div.pageLinksInfo {
+	color: #aaa;
+	font-size: 0.9em;
+	margin-top: 0.3em;
+}
+
 .dialog {
 	display: none;
 }
