@@ -63,11 +63,14 @@ function toggleHostFlyout( mac ){
 			url: "/ajax/ajax_get_leases/",
 			data: { mac : mac },
 			async: false, 
+			/*error: function(XMLHttpRequest, textStatus, errorThrown) {
+				output.push("Failed to retrieve lease data <br />");
+			}, // not working... */
 			success: function(response){
 				if (response.length){
 					for (i in response){
 						lease = response[i];
-						output.push('<strong>Leased address:</strong> ' + lease.address + ' until ' + eval(lease.ends) + '<br /');
+						output.push('<strong>Leased address:</strong> ' + lease.address + ' until ' + eval(lease.ends) + '<br />');
 					}
 				}
 			}

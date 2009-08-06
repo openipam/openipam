@@ -1,4 +1,5 @@
 import openipam.iptypes
+from openipam.utilities.perms import Perms
 
 # IPv6 support
 allow_ipv6 = False
@@ -20,6 +21,8 @@ expiration_from = 'openipam@localhost'
 expiration_reply_to = None
 bounce_addr = None
 
+# What min_perms are required to see usernames + names?
+show_user_perms = Perms('00000100')
 
 # DATABASE
 db_host = None
