@@ -318,7 +318,7 @@ class AdminGroups(Admin):
 		# Get the DNS resource record types from the database
 		args = { 'order_by' : 'name' }
 		if not kw.has_key('showug'):
-			args = { 'ignore_usergroups' : True }
+			args['ignore_usergroups'] = True
 		
 		groups = self.webservice.get_groups( args )
 

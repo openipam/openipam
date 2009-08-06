@@ -49,7 +49,11 @@
 			</thead>
 			<tbody>
 		#for $host in $hosts:
-				<tr class="info" id="hostRow_$host.clean_mac">
+				#if $host.expired:
+					<tr class="expiredinfo" id="hostRow_$host.clean_mac">
+				#else:
+					<tr class="info" id="hostRow_$host.clean_mac">
+				#end if
 					<td>
 						<a class="toggleHostFlyout" name="$host.clean_mac" href="javascript:;">
 						<img id="arrow$host.clean_mac" width="19px" height="19px" src="/images/interface/transparent.png" class="expand" />
@@ -62,6 +66,9 @@
 						<a href="/dns/search/?q=$host.hostname">Manage DNS</a> | 
 						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
 						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> |
+						<input type="checkbox" name="multihosts" value="$host.clean_mac"/>
+					#elif $host.expired:
+						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
 						<input type="checkbox" name="multihosts" value="$host.clean_mac"/>
 					#end if
 					</td>
@@ -84,16 +91,25 @@
 			#set temp_text = []
 			#set search_str = '/?'
 			#if 'search' in $template_keys:
-				#set search_str = '/search/?q=%s&' % $search
+				#set search_str = $search
 			#end if
 			#if $page == 0:
 				#silent	temp_text.append("&#171; Previous page &nbsp;&nbsp;")
 			#else:
 				#silent temp_text.append('<a href="/hosts%spage=%s">&#171; Previous page</a> &nbsp;&nbsp;' % ($search_str, $page - 1))
 			#end if
-			#silent temp_text.append('<a href="/hosts%spage=%s">Next page &raquo;</a>' % ($search_str, $page + 1))
+			#silent temp_text.append(' Page %s of %s &nbsp;&nbsp;' % ($page + 1, $num_pages))
+			#if $page < ($num_pages - 1):
+				#silent temp_text.append('<a href="/hosts%spage=%s">Next page &raquo;</a>' % ($search_str, $page + 1))
+			#else:
+				#silent temp_text.append('Next page &raquo;')
+			#end if
 			
 			#echo ''.join(temp_text)
+			<br />
+			<div class="pageLinksInfo">
+				Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
+			</div>
 		</div>
 
 		<select name="multiaction">

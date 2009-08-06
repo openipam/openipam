@@ -29,16 +29,62 @@ function toggleHostFlyout( mac ){
 		output = [];
 		
 		$.ajax({
-			url: "/ajax/ajax_find_owners_of_host/",
+			url: "/ajax/ajax_find_ownernames_of_host/",
 			data: { mac : mac },
 			async: false, 
 			success: function(response){
 				if (response.length){
 					owners = [];
 					for (i in response){
-						owners.push(response[i].name);
+						owners.push(response[i].display);
 					}
 					output.push('<strong>Owners:</strong> ' + owners.join(', ') + '<br /><br />');
+				}
+			}
+		});
+		
+		$.ajax({
+			url: "/ajax/ajax_get_hosts_to_pools/",
+			data: { mac : mac },
+			async: false, 
+			success: function(response){
+				if (response.length){
+					pools = [];
+					for (i in response){
+						pools.push(response[i].pool_id);
+					}
+					output.push('<strong>Dynamic address</strong> (' + pools.join(', ') + ')<br />');
+
+				}
+			}
+		});
+
+		$.ajax({
+			url: "/ajax/ajax_get_leases/",
+			data: { mac : mac },
+			async: false, 
+			success: function(response){
+				if (response.length){
+					for (i in response){
+						lease = response[i];
+						output.push('<strong>Leased address:</strong> ' + lease.address + ' until ' + eval(lease.ends) + '<br /');
+					}
+				}
+			}
+		});
+		
+		$.ajax({
+			url: "/ajax/ajax_get_addresses/",
+			data: { mac : mac, order_by : 'address' },
+			async: false, 
+			success: function(response){
+				if (response.length){
+					addresses = [];
+					output.push('<strong>Static addresses:</strong><br />');
+					for (i in response){
+						output.push(response[i].address + '<br />');
+					}
+					output.push('<br />');
 				}
 			}
 		});
@@ -48,30 +94,38 @@ function toggleHostFlyout( mac ){
 			data: { mac : mac, order_by : 'tid, ip_content, name' },
 			async: false, 
 			success: function(response) {
-				var hasIP = false;
+				//var hasIP = false;
 				var row = null;
 				
+				if (response.length){
+					output.push( '<strong>DNS Records:</strong><br />' )
+				}
 				for (i in response) {
 					if (response[i].tid == 1) {
-						output.push('<strong>IP:</strong> ' + response[i].ip_content + ' &mdash; ' + response[i].name+'<br />');
-						hasIP = true;
+						//output.push('<strong>IP:</strong> ' + response[i].ip_content + ' &mdash; ' + response[i].name+'<br />');
+						output.push( response[i].name + ' <strong>IN A</strong> ' + response[i].ip_content + '<br />' )
+						//hasIP = true;
 					}
 					else if (response[i].tid == 5) {
-						output.push('<strong>CNAME:</strong> ' + response[i].name + ' &mdash; ' + response[i].text_content + '<br />');
+						//output.push('<strong>CNAME:</strong> ' + response[i].name + ' &mdash; ' + response[i].text_content + '<br />');
+						output.push( response[i].name + ' <strong>IN CNAME</strong> ' + response[i].text_content + '<br />' )
 					}
 					else if (response[i].tid == 12) {
-						output.push('<strong>PTR:</strong> ' + response[i].name + ' &mdash; ' + response[i].text_content + '<br />');
+						//output.push('<strong>PTR:</strong> ' + response[i].name + ' &mdash; ' + response[i].text_content + '<br />');
+						output.push( response[i].name + ' <strong>IN PTR</strong> ' + response[i].text_content + '<br />' )
 					}
 					else if (response[i].tid == 15) {
-						output.push('<strong>MX:</strong> ' + response[i].name + ' &mdash; ' + response[i].priority + ' ' + response[i].text_content + '<br />');
+						//output.push('<strong>MX:</strong> ' + response[i].name + ' &mdash; ' + response[i].priority + ' ' + response[i].text_content + '<br />');
+						output.push( response[i].name + ' <strong>IN MX</strong> ' + response[i].prio + ' ' + response[i].text_content + '<br />' )
 					}
 					else if (response[i].tid == 33) {
-						output.push('<strong>SRV:</strong> ' + response[i].name + ' &mdash; ' + response[i].priority + ' ' + response[i].text_content + '<br />');
+						//output.push('<strong>SRV:</strong> ' + response[i].name + ' &mdash; ' + response[i].priority + ' ' + response[i].text_content + '<br />');
+						output.push( response[i].name + ' <strong>IN SRV</strong> ' + response[i].prio + ' ' + response[i].text_content + '<br />' )
 					}
 				}
-				if (!hasIP) {
+				/*if (!hasIP) {
 					output.push('<strong>IP:</strong> dynamic<br />');
-				}
+				}*/
 				$("#hostInfo" + mac + " div.innerHostInfo #loaderIcon").remove();
 				position.append(output.join(''));
 			}
