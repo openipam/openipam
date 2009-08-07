@@ -16,7 +16,7 @@ class Basics(object):
 		self.__current_section = section
 		self.__javascript = javascript
 		
-		self.__sections = { 'hosts' : '<a href="/hosts/search/?q=user%%3a%s">Manage Hosts</a>' % cherrypy.session['username'],
+		self.__sections = { 'hosts' : '<a href="/hosts/">Manage Hosts</a>',
 						'networks' : '<a href="/networks">Networks</a>',
 						'domains' : '<a href="/domains">Domains</a>',
 						'dns' : '<a href="/dns">Manage DNS</a>',

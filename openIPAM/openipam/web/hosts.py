@@ -86,8 +86,6 @@ class Hosts(BasePage):
 				raise
 		
 		for host in hosts:
-			print 'web/get_hosts()'
-			print host
 			host['clean_mac'] = misc.fix_mac(host['mac'])
 			host['description'] = host['description'].encode('utf8') if host['description'] else ''
 			
@@ -191,7 +189,7 @@ class Hosts(BasePage):
 			cherrypy.session['show_all_hosts'] = not cherrypy.session['show_all_hosts']
 			redirect_to_referer()
 			
-		if cherrypy.session['show_all_hosts'] or cherrypy.session['has_global_owner']:
+		if cherrypy.session['has_global_owner']:
 			values['show_search_here'] = True
 		else:
 			#values['num_hosts'],values['hosts'] = self.get_hosts( page=page, count=True )
@@ -359,9 +357,6 @@ class Hosts(BasePage):
 		values['limit'] = limit
 		
 		values['url'] = cherrypy.url()
-
-		print 'values set:'
-		print values.keys()
 
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'%frontend.static_dir, values=values)
 	

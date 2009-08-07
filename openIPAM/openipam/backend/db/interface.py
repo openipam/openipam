@@ -35,7 +35,7 @@ from openipam.utilities import validation
 from openipam.utilities.perms import Perms
 from openipam.config import backend
 
-from sqlalchemy.sql import select, and_, or_, not_, join, outerjoin, subquery, text, union
+from sqlalchemy.sql import select, and_, or_, not_, join, outerjoin, subquery, text, union, column
 
 import openipam.utilities.perms
 
@@ -896,76 +896,48 @@ class DBBaseInterface(object):
 
 			whereclause.append(dns_where)
 
-		# Finalize the WHERE clause
-		if whereclause:
-			whereclause = self._finalize_whereclause( whereclause )
-		
 		# Check permissions and generate the query
+		hosts = obj.hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
+		hosts = hosts.outerjoin(obj.leases, obj.hosts.c.mac==obj.leases.c.mac)
+
+		if namesearch:
+			hosts = hosts.outerjoin(dns_q, obj.addresses.c.address == a_tbl.c.ip_content)
+		if only_dynamics:
+			hosts = hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
+		if gid:
+			hosts = hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
+
+		if uid:
+			hosts = hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
+			# Make sure to bitwise OR users_to_groups.host_permissions after finding the user's group permissions
+			hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,
+								and_(obj.users_to_groups.c.uid == uid,
+								obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
 		if self.has_min_perms( required_perms ):
-			hosts = obj.hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
-			hosts = hosts.outerjoin(obj.leases, obj.hosts.c.mac==obj.leases.c.mac)
-			
-			if gid:
-				hosts = hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
-			if only_dynamics:
-				hosts = hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
-			if uid:
-				hosts = hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
-				# Make sure to bitwise OR users_to_groups.host_permissions after finding the user's group permissions
-				hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,
-									and_(obj.users_to_groups.c.uid == uid,
-									obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
-			if namesearch:
-				hosts = hosts.outerjoin(dns_q, obj.addresses.c.address == a_tbl.c.ip_content)
-			
-			# Create the selectable	
-			hosts = select( columns, from_obj=hosts, distinct=True )
-			if whereclause:
-				hosts = hosts.where( whereclause )
-	
 			# Funky ordering to order by length ... fixes problems with guest registrations
 			# because, technically, 11 in ASCII is before 9 in ASCII ... think about it 	
 			if funky_ordering:
 				hosts = hosts.order_by('len DESC').order_by(obj.hosts.c.hostname.desc())
 			
-			return hosts
 		else:
 			# Get our permissions over hosts
-			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms )
+			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms, do_subquery=False ).alias('net_perms')
 			
 			# Get our permissions over networks
-			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = required_perms )
+			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = required_perms, do_subquery=False ).alias('host_perms')
 
-			# Find
-			net_hosts = net_perms.join( obj.networks, obj.networks.c.network == net_perms.c.nid )
-			net_hosts = net_hosts.join( obj.addresses, obj.networks.c.network == obj.addresses.c.network )
-			net_hosts = net_hosts.join( obj.hosts, obj.hosts.c.mac == obj.addresses.c.mac )
-			direct_hosts = host_perms.join( obj.hosts, obj.hosts.c.mac == host_perms.c.mac )
+			# This would be ideal, but it fails
+			hosts = hosts.outerjoin(host_perms, host_perms.c.mac == obj.hosts.c.mac)
+			hosts = hosts.outerjoin(net_perms, net_perms.c.nid == obj.addresses.c.network)
+			whereclause.append( or_( host_perms.c.permissions != None, net_perms.c.permissions != None ) )
 
-			if gid:
-				net_hosts = net_hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
-				direct_hosts = direct_hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
-			if only_dynamics:
-				net_hosts = net_hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
-				direct_hosts = direct_hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
-			if uid:
-				net_hosts = net_hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
-				direct_hosts = direct_hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
-				
-				net_hosts = net_hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid, obj.users_to_groups.c.uid == uid))
-				direct_hosts = direct_hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid, obj.users_to_groups.c.uid == uid))
-			
-			# Create the selectables
-			net_select = select( columns, from_obj=net_hosts, distinct=True )
-			host_select = select( columns, from_obj=direct_hosts, distinct=True )
-			
-			if whereclause:
-				net_select = net_select.where( whereclause )
-				host_select = host_select.where( whereclause )
-				
-			accessible_hosts = net_select.union( host_select )
-
-			return accessible_hosts
+		hosts = select(columns, from_obj=hosts, distinct=True)
+		# Finalize the WHERE clause
+		if whereclause:
+			whereclause = self._finalize_whereclause( whereclause )
+			hosts = hosts.where(whereclause)
+		return hosts
+		
 		
 	def _find_permissions_for_objects(self, objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
 		'''
