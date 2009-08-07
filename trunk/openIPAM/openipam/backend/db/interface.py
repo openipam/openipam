@@ -167,15 +167,6 @@ class DBBaseInterface(object):
 		
 		function = execute_get_function
 
-		if kw.has_key('count'):
-			for a in args:
-				print '%s' % repr(a)
-			for k in kw:
-				if type(kw[k]) == types.ListType:
-					print '%s: %s' % (k,len(kw[k]))
-				else:
-					print '%s: %s' % (k, repr(kw[k]))
-
 		page = None
 		if kw.has_key('page'):
 			page = kw['page']
@@ -224,12 +215,9 @@ class DBBaseInterface(object):
 
 			count = self._execute( count )
 			if count:
-				print count
 				count = count[0]['count']
 			else:
 				count=0
-			print 'count: %s' % count
-			print 'args/len(arg)s'
 
 		if page and limit:
 			query = self.__do_page( query=query, page=page, limit=limit)
@@ -1854,14 +1842,12 @@ class DBInterface( DBBaseInterface ):
 			bytes = []
 			for address in addresses:
 				address=address.strip()
-				# print address
 				octets = address.split('.')
 				if len(octets) != 4:
 					raise Exception('invalid ip address: %s' % address)
 				bytes.extend( octets )
 			bytes = map(int, bytes)
 			value = ''.join( map(chr , bytes ) )
-			# print "value: %s len: %s" % (value, len(value))
 		#option = self.get_option( oid )
 		if value == 51: # lease time
 			value = int_to_bytes( oid, 4 )
