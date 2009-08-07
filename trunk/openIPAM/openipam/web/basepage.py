@@ -68,7 +68,7 @@ class BasePage(object):
 	def index(self, **kw):
 		"""The home page."""
 		if cherrypy.session.has_key('transport'):
-			raise cherrypy.HTTPRedirect("/hosts")
+			raise cherrypy.HTTPRedirect("/hosts/search/?q=user%%3a%s" % cherrypy.session['username'])
 		raise cherrypy.HTTPRedirect("/login")
 
 	@cherrypy.expose
