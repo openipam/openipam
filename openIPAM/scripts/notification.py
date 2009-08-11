@@ -7,6 +7,11 @@ import scripts.mail
 from openipam.config import auth_sources
 from openipam.config import backend
 
+import re
+
+# FIXME: this should probably be more strict... I need to find an RFC
+email_re = re.compile( r'[^@]+@[^.]+\..+' )
+
 db = interface.DBInterface(username='admin')
 ldap_interface = LDAPInterface()
 
@@ -29,12 +34,14 @@ contactlist={}
 dynamic_subject = '[USU:Important] Your USU computer registration%(plural)s %(is_are)s about to expire'
 dynamic_msg = """%(name)s (%(username)s),
 
-The following computer%(plural)s %(is_are)s going to expire soon.
+The following computer registration%(plural)s %(is_are)s going to expire soon.
 
 If you would like to continue using the USU network for another year:
 
-1. Log in to https://bluezone.usu.edu
+1. Log in to https://bluezone.usu.edu from on-campus (or use the VPN)
 2. Click "Renew" next to the following computer%(plural)s:
+
+Instructions on using the VPN server may be found at http://it.usu.edu/vpn .
 
 %(rows)s
 
@@ -60,14 +67,16 @@ http://footprints.usu.edu (Issue Tracking System)
 static_subject = '[USU:Important] openIPAM Host Renewal Notice'
 static_msg = """%(name)s (%(username)s),
 
-The following computer%(plural)s %(is_are)s going to expire soon.
+The following computer%(plural) registrations %(is_are)s going to expire soon.
 
 To renew your servers and clients for another year:
 
-1. Log in to https://openipam.usu.edu
+1. Log in to https://openipam.usu.edu from on-campus (or use the VPN)
 2. Click "Show my hosts expiring within 60 days"
 3. Check the boxes next to those hosts you wish to renew
 4. At the bottom, choose "Renew selected hosts" and click "Go"
+
+Instructions on using the VPN server may be found at http://it.usu.edu/vpn .
 
 Remember: help us keep up-to-date data. Don't renew hosts you don't need.
 
@@ -110,6 +119,9 @@ for rowitem in notification_list:
 
 mailer = scripts.mail.Mailer(backend.smtp_host)
 
+failed_dynamic = []
+failed_static = []
+
 for item in contactlist:
 	try:
 		user = auth_sources.get_info(username=item)
@@ -117,8 +129,13 @@ for item in contactlist:
 			raise Exception('User %s not found' % item)
 		if not user.email:
 			raise Exception('User %s does not have preferred email set' % item)
+		if not email_re.search(user.email):
+			raise Exception('User %s has an invalid preferred email address (%s)' % (item,user.email) )
 	except Exception, e:
-		sys.stderr.write( '%s: %s\n%s\n\n' % (e,item,'\n'.join(contactlist[item]['rows'])) )
+		if contactlist[item]['is_static']:
+			failed_static.append( '%s: %s\n%s\n\n' % (e,item,'\n'.join(contactlist[item]['rows'])) )
+		else:
+			failed_dynamic.append( '%s: %s\n%s\n\n' % (e,item,'\n'.join(contactlist[item]['rows'])) )
 		continue
 	#print item
 	#print contactlist[item]
@@ -144,4 +161,10 @@ for item in contactlist:
 
 	mailer.send_msg(to=contactlist[item]['email'], bounce=bounceaddr, sender=fromaddr, subject=subject, body=emailtext, headers={'Reply-to':replyaddr})
 	db.del_notification_to_host(id=contactlist[item]['notifications'])
+
+sys.stderr.write("Failed static hosts:\n")
+sys.stderr.write(''.join(failed_static))
+sys.stderr.write("\nFailed dynamic hosts:\n")
+sys.stderr.write(''.join(failed_dynamic))
+
 
