@@ -392,6 +392,10 @@ table.infoTable tr.expiredinfo {
     background-color: #e5e5e5
 }
 
+table.infoTable tr.expiredinfo td.expires {
+    color: #ff0000;
+}
+
 table.infoTable tr.infoNew {
     border: 1px dotted #444444;
     border-bottom: none;
