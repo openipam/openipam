@@ -94,7 +94,10 @@ class Hosts(BasePage):
 		perms = perms[0] if perms else perms
 		
 		for host in hosts:
-			host['has_permissions'] = ((Perms(perms[host['mac']]) & frontend.perms.OWNER) == frontend.perms.OWNER)
+			if perms.has_key(host['mac']):
+				host['has_permissions'] = ((Perms(perms[host['mac']]) & frontend.perms.OWNER) == frontend.perms.OWNER)
+			else:
+				host['has_permissions'] = '00000000'
 		
 		if count:
 			return num_hosts,hosts
