@@ -3,6 +3,7 @@ import types
 import cherrypy
 
 import framework
+import re
 from basepage import BasePage
 from resource.submenu import submenu, OptionsSubmenu
 from openipam.utilities import misc, error, validation
@@ -44,7 +45,7 @@ class Hosts(BasePage):
 	def get_leftnav(self, action="", show_options=True):
 		return '%s%s' % (self.leftnav_actions(action), (self.leftnav_options() if show_options else ''))
 	
-	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, namesearch=None, network=None, username=None, expiring=False, count=False):
+	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, namesearch=None, network=None, username=None, expiring=False, count=False, order_by='hostname'):
 		"""
 		@param page: the current page the user is viewing
 		@param show_all_hosts: default false, will only show hosts that the current user has OWNER over
@@ -56,6 +57,12 @@ class Hosts(BasePage):
 		additional_perms = str(frontend.perms.OWNER)
 		if cherrypy.session['show_all_hosts']:
 			additional_perms = '00000000'
+
+		if hostname:
+			hostname = hostname.replace('*','%')
+		
+		if namesearch:
+			namesearch = namesearch.replace('*','%')
 		
 		values = {
 			'additional_perms' : str(additional_perms),
@@ -68,7 +75,7 @@ class Hosts(BasePage):
 			'username' : username,
 			'hostname' : hostname,
 			'namesearch' : namesearch,
-			'order_by' : 'hostname',
+			'order_by' : order_by,
 			'network' : network,
 			'expiring' : expiring
 			}
@@ -280,7 +287,7 @@ class Hosts(BasePage):
 		return self.__template.wrap(leftcontent=self.get_leftnav(show_options=False), filename='%s/templates/mod_host.tmpl'%frontend.static_dir, values=values)
 	
 	@cherrypy.expose
-	def search(self, q=None, expiring=False, page=0, success=False, **kw):
+	def search(self, q='', expiring=False, page=0, order_by='hostname', success=False, **kw):
 		'''
 		The search page where the search form POSTs
 		'''
@@ -291,8 +298,11 @@ class Hosts(BasePage):
 		# Initialization
 		values = {}
 		page = int(page)
+
+		if re.search(r'[^a-zA-Z.,_ ]',order_by):
+			raise Exception('Who do you think you are?')
 		
-		if not q:
+		if not q and not kw.keys():
 			if not expiring:
 				raise cherrypy.InternalRedirect('/hosts')
 			else:
@@ -301,63 +311,75 @@ class Hosts(BasePage):
 		if success:
 			values['global_success'] = 'Hosts Updated Successfully'
 		
-		# Strip the query string and make sure it's a string
-		q = str(q).strip()
+		if expiring:
+			kw['expiring'] = expiring
+		if page:
+			kw['page'] = page
 
-		search_str = '/search/?'
+		special_search = {
+				'ip':'ip', 'mac':'mac', 'user':'username',
+				'username':'username', 'net':'network',
+				'network':'network', 'hostname':'namesearch',
+				'name':'namesearch',
+				}
+
+		for element in q.split( ):
+			if validation.is_mac(element):
+				kw['mac'] = element
+			elif validation.is_ip(element):
+				kw['ip'] = element
+			elif validation.is_cidr(element):
+				kw['network'] = element
+			elif ':' in element:
+				# I strongly recommend that we do this next to last...
+				stype,value = element.split(':',1)
+				if special_search.has_key(stype):
+					kw[special_search[stype]] = value
+				else:
+					raise error.InvalidArgument('Unrecognized special search type: %s (value: %s)' % (stype, value))
+			else:
+				# Let's assume it's a hostname.
+				if '.' in element or '*' in element or '%' in element:
+					namesearch = element.replace('%','*')
+				else:
+					namesearch = '*%s*' % element.replace('%','*')
+				if kw.has_key('namesearch'):
+					raise error.InvalidArgument('Invalid search string -- more than one name (%s, %s)' % (kw['namesearch'], namesearch))
+				kw['namesearch'] = namesearch
+
 
 		# FIXME: this might break with special characters
+		kw_elements = []
+		kw_keys = kw.keys()
+		kw_keys.sort()
+		for k in kw_keys:
+			v = kw[k]
+			if '&' in v:
+				raise error.InvalidArgument('& is not valid here')
+			kw_elements.append('%s=%s' % (k,v))
+
+		search_str = '/search/?%s&' % '&'.join(kw_elements)
+		print search_str
+
 		if q:
-			search_str = "%sq=%s&" % (search_str,q)
-		if expiring:
-			search_str = "%sexpiring=%s&" % (search_str,expiring)
+			# we are ignoring order_by here, but this should only happen with a new search anyway...
+			raise cherrypy.HTTPRedirect('/hosts%s' % ( search_str[:-1] ) )
+
+		kw['order_by'] = order_by
 
 		values['search'] = search_str
 		values['page'] = int(page)
 		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
-		gh_args = None
-		if validation.is_ip(q):
-			gh_args = {'ip':q,}
-		elif validation.is_mac(q):
-			gh_args = {'mac':q,}
-		elif "user:" in q:
-			# Special search for user:some_username
-			gh_args = {'username':q.replace("user:", "").strip(),}
-		elif validation.is_fqdn(q):
-			namesearch = '%%%s%%' % q
-			#names = set( [ i['hostname'] for i in self.get_hosts( hostname='%%%s%%' % q, page=page, expiring=expiring, ) ] )
-			
-			# Include hosts that have CNAMEs pointed to them by this name
-			#cnames = self.webservice.get_dns_records({ 'tid' : 5, 'name' : '%%%s%%' % q, 'distinct':True, 'columns':['text_content',] })
-			#for row in cnames:
-			#	names.add(row['text_content'])
 
-			#a_hosts = self.webservice.get_dns_records({ 'name': '%%%s%%'%q, 'distinct': True, 'columns':['ip_content',] })
-			#addrs = [ a['ip_content'] for a in a_hosts ]
-			#hostnames = self.webservice.get_hosts({'ip': addrs, 'columns': ['hostname',],})
-			#for h in hostnames:
-			#	host = h['hostname']
-			#	names.add(host)
-
-			#names = list(names)
-
-			#gh_args = {'hostname':names,}
-			gh_args = {'namesearch':namesearch,}
-
-		elif validation.is_cidr(q):
-			gh_args = {'network':q,}
-		else:
-			values['message'] = 'Un-recognized search term. Please use a complete IP address, MAC address, hostname, or CIDR network mask.' 
-
-		if not gh_args:
-			raise error.InvalidArgument('You must specify what host you are searching for!')
-
-		values['num_hosts'],values['hosts'] = self.get_hosts( page=page, expiring=expiring, count=True, **gh_args )
+		values['num_hosts'],values['hosts'] = self.get_hosts( count=True, **kw )
 		values['len_hosts'] = len(values['hosts'])
 		values['num_pages'] = int( (values['num_hosts'] + limit - 1) / limit )
 		values['first_host'] = page * limit + 1
 		values['last_host'] = page * limit + len(values['hosts'])
 		values['limit'] = limit
+
+		values['username'] = cherrypy.session['username']
+		values['order_by'] = order_by
 		
 		values['url'] = cherrypy.url()
 

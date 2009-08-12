@@ -1,8 +1,17 @@
 <div id="searchHelp" class="hidden">
-	<p>Search for hostnames, IP addresses, MAC addresses, or networks (in CIDR notation).</p>
+	<p>Search for hostnames, IP addresses, MAC addresses, or networks (in
+	CIDR notation).  Wildcards are allowed in hostnames.  Hostnames without a '.'
+	are assumed to be *name*.</p>
 	<strong>For advanced searches...</strong>
+	<p>Multiple search terms may be included, space separated, but no more
+	than one of each type.  Many combinations do not make sense, but you can try
+	them anyway.</p>
 	<p>Try these special query types:<p>
 	<pre>user:<em>username here</em></pre>
+	<pre>name:<em>hostname</em></pre>
+	<pre>ip:<em>IP address</em></pre>
+	<pre>net:<em>network (CIDR notation)</em></pre>
+	<pre>mac:<em>MAC address</em></pre>
 </div>
 
 <div style="float: right; width: 320px;">
@@ -17,7 +26,7 @@
 </div>
 
 <h1>Hosts</h1>
-<a href="/hosts/search/?expiring=60" />Show my hosts expiring within 60 days</a><br /><br />
+#echo '<a href="/hosts/search/?q=user%%3A%s&expiring=60" />Show my hosts expiring within 60 days</a><br /><br />' % $username
 
 #if 'message' in $template_keys:
 	<div id="localMessage" class="message">
@@ -39,9 +48,12 @@
 			<thead>
 				<tr>
 					<th style="width: 20px">&nbsp;</th>
-					<th style="width: 30%">Hostname</th>
-					<th>Ethernet Address</th>
-					<th>Expires</th>
+					#set class_foo='' if 'hostname' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=hostname%s">Hostname</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'hostname' else '')
+					#set class_foo='' if 'mac' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=mac%s">Ethernet Address</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'mac' else '')
+					#set class_foo='' if 'expires' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=expires%s">Expires</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'expires' else '')
 					<th style="text-align: right">
 						<input type="checkbox" name="selectAll" id="selectAll" />
 					</th>
@@ -49,7 +61,9 @@
 			</thead>
 			<tbody>
 		#for $host in $hosts:
-				#if $host.expired:
+				#if $host.disabled:
+					<tr class="disabledinfo" id="hostRow_$host.clean_mac">
+				#elif $host.expired:
 					<tr class="expiredinfo" id="hostRow_$host.clean_mac">
 				#else:
 					<tr class="info" id="hostRow_$host.clean_mac">
@@ -62,7 +76,9 @@
 					<td>$host.mac</td>
 					<td class="expires">$host.expires</td>
 					<td class="actions">
-					#if $host.has_permissions:
+					#if $host.disabled:
+						host is disabled
+					#elif $host.has_permissions:
 						<a href="/dns/search/?q=$host.hostname">Manage DNS</a> | 
 						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
 						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> |
@@ -91,7 +107,7 @@
 			#set temp_text = []
 			#set search_str = '/?'
 			#if 'search' in $template_keys:
-				#set search_str = $search
+				#set search_str = $search if not $order_by else '%sorder_by=%s&' % ($search,$order_by)
 			#end if
 			#if $page == 0:
 				#silent	temp_text.append("&#171; Previous page &nbsp;&nbsp;")

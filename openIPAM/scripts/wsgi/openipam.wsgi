@@ -55,7 +55,18 @@ def err():
 		#cherrypy.response.body = tb
 		cherrypy.response.headers['Content-Length'] = None
 	cherrypy.request.hooks.attach('after_error_response', set_tb)
+
+def ajax_err():
+	import sys
+	exc = sys.exc_info()[1]
+	exc_str = get_exc_str(exc)
+	def set_tb():
+		cherrypy.response.body = exc_str
+		cherrypy.response.headers['Content-Length'] = None
+	cherrypy.request.hooks.attach('after_error_response', set_tb)
+
 cherrypy.tools.cgitb = cherrypy.Tool('before_error_response', err)
+cherrypy.tools.ajaxtb = cherrypy.Tool('before_error_response', ajax_err)
 
 cherrypy.config.update({'environment': 'embedded'})
 
@@ -77,8 +88,8 @@ if cherrypy.engine.state == 0:
     atexit.register(cherrypy.engine.stop)
 
 config = {
-	'/': { 'tools.cgitb.on': True },
-	'/ajax': { 'tools.cgitb.on': False },
+	'/': { 'tools.cgitb.on': True, 'tools.ajaxtb.on': False },
+	'/ajax': { 'tools.ajaxtb.on': True, 'tools.cgitb.on': False },
 }
 
 application = cherrypy.Application(webroot.get_web_root(), config=config)
