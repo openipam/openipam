@@ -373,6 +373,26 @@ table.infoTable {
     border: 1px solid #444444;
 }
 
+table.infoTable thead tr th a {
+    color: #ffffff;
+}
+
+table.infoTable thead tr th.asc, th.desc{
+    padding-left: 20px;
+}
+
+table.infoTable thead tr th.asc {
+    background-image: url("/images/interface/tblsort_asc.gif");
+    background-position: left center;
+    background-repeat:no-repeat;
+}
+
+table.infoTable thead tr th.desc {
+    background-image: url("/images/interface/tblsort_desc.gif");
+    background-position: left center;
+    background-repeat:no-repeat;
+}
+
 table.infoTable tr td {
     padding: 3px;
 }
@@ -381,15 +401,29 @@ table.infoTable tr td.actions {
     text-align: right;
 }
 
-table.infoTable tr.info {
+table.infoTable tr {
     border: 1px dotted #444444;
     border-bottom: none;
 }
 
+table.infoTable tr:hover {
+	background: #f7fdf7;
+}
+
+table.infoTable tr.expiredinfo:hover {
+	background: #f8e0e0;
+}
+
 table.infoTable tr.expiredinfo {
-    border: 1px dotted #444444;
-    border-bottom: none;
     background-color: #e5e5e5
+}
+
+table.infoTable tr.disabledinfo:hover {
+	background: #f8aaaa;
+}
+
+table.infoTable tr.disabledinfo {
+    background-color: #e5aaaa
 }
 
 table.infoTable tr.expiredinfo td.expires {
@@ -411,42 +445,22 @@ table.infoTable tr.infoExpand td {
     margin: 0px;
 }
 
-table.infoTable tr.info td.text-only {
-    padding-left: 10px;
-}
-
-table.infoTable tr.expiredinfo td.text-only {
+table.infoTable tr td.text-only {
     padding-left: 10px;
 }
 
 table.infoTable tr.infoExpand td div.hiddenInfo {
-	display: none;
+    display: none;
     border: none;
     background: #DDDDDD;
 }
 
-table.infoTable tr.info td a img.expand {
+table.infoTable tr td a img.expand {
 	background-image: url(/images/interface/expand.gif);
 }
 
-table.infoTable tr.expiredinfo td a img.expand {
-	background-image: url(/images/interface/expand.gif);
-}
-
-table.infoTable tr.info td a img.contract {
+table.infoTable tr td a img.contract {
 	background-image: url(/images/interface/contract.gif);
-}
-
-table.infoTable tr.expiredinfo td a img.contract {
-	background-image: url(/images/interface/contract.gif);
-}
-
-table.infoTable tr:hover {
-	background: #f7fdf7;
-}
-
-table.infoTable tr.expiredinfo:hover {
-	background: #f8e0e0;
 }
 
 table.infoTable td.ttl {

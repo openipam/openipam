@@ -11,9 +11,7 @@
 
 	openipam = {
 		error: function(event, XMLHttpRequest, ajaxOptions, thrownError) {
-			
-			fault = XMLHttpRequest.responseXML.documentElement.textContent
-			if (fault.indexOf("<Fault 1: '[ListXMLRPCFault] ") != -1) {
+			if (XMLHttpRequest.responseXML && fault.indexOf("<Fault 1: '[ListXMLRPCFault] ") != -1) {
 				// Have a ListXMLRPCFault
 				start = fault.indexOf("<Fault 1: '[ListXMLRPCFault] ")+"<Fault 1: '[ListXMLRPCFault] ".length;
 				faultLength = fault.indexOf("'>") - start;

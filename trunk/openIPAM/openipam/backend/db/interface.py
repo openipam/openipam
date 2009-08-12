@@ -839,7 +839,7 @@ class DBBaseInterface(object):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
 		
 		if not columns:
-			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired')]
+			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired'), (obj.disabled.c.mac != None).label('disabled')]
 
 		if funky_ordering:
 			columns.append(sqlalchemy.sql.func.length(obj.hosts.c.hostname).label('len'))
@@ -897,7 +897,9 @@ class DBBaseInterface(object):
 			whereclause.append(dns_where)
 
 		# Check permissions and generate the query
-		hosts = obj.hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
+		hosts = obj.hosts
+		hosts = hosts.outerjoin(obj.disabled, obj.hosts.c.mac == obj.disabled.c.mac)
+		hosts = hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
 		hosts = hosts.outerjoin(obj.leases, obj.hosts.c.mac==obj.leases.c.mac)
 
 		if namesearch:
@@ -1917,11 +1919,14 @@ class DBInterface( DBBaseInterface ):
 			# If the host exists by mac, but is expired, delete old host
 			host = self.get_hosts(mac=mac, show_expired=True, show_active=False)
 			if host:
-				raise Exception("Host with mac %s already exists.  Please delete it first." % mac)
+				raise error.AlreadyExists("Host with mac %s already exists.  Please delete it first." % mac, mac = mac)
 			
 			host = self.get_hosts(hostname=hostname, show_expired=True, show_active=False)
+			dns = self.get_dns_records(name=hostname)
 			if host:
-				raise Exception("Host with name %s already exists.  Please delete it first." % hostname)
+				raise error.AlreadyExists("Host with name %s already exists.  Please delete it first." % hostname, hostname = hostname)
+			if dns:
+				raise error.AlreadyExists("DNS record(s) with name %s already exist(s).  Please delete first." % hostname, hostname = hostname)
 			
 			query = obj.hosts.insert( values={
 									'mac' : mac,

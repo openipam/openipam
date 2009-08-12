@@ -21,11 +21,11 @@ def parse_webservice_fault(fault):
 	
 	string = fault.faultString
 	
-	if string.find("[") == -1:
-		fault.faultString = "Error from backend was raised, but could not be parsed. Error: %s" % fault.faultString
+	if string.find("(") == -1:
+		#fault.faultString = "Error from backend was raised, but could not be parsed. Error: %s" % fault.faultString
 		raise fault
 	
-	return string[string.find("[")+1:string.find("]")]
+	return string[string.find("(")+1:string.find(")")]
 
 def get_nice_error(e):
 	"""
@@ -51,7 +51,7 @@ class BaseException(Exception):
 	def __init__(self, thing=''):
 		self._thing = thing
 	def __str__(self):
-		return '[%s]%s' % (self.__class__.__name__, (self._thing and (" %s" % str(self._thing)) or '',)[0])
+		return '(%s)%s' % (self.__class__.__name__, (self._thing and (" %s" % str(self._thing)) or '',)[0])
 	def __repr__(self):
 		return str(self)
 	
@@ -136,7 +136,15 @@ class InvalidTicket(BaseException):
 
 class AlreadyExists(BaseException): 
 	"""Raised when we're adding something that already exists (logically, not SQLAlchemy)"""
-	pass
+	def __init__(self, *args, **kw):
+		if kw.has_key('mac'):
+			self.mac = kw['mac']
+			del kw['mac']
+		if kw.has_key('host'):
+			self.host = kw['host']
+			del kw['host']
+		BaseException.__init__(self, *args, **kw)
+
 	
 class InvalidMACAddress(BaseException): 
 	"""Raised for an invalid MAC addresses"""

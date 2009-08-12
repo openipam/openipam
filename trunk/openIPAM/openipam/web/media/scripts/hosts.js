@@ -44,6 +44,18 @@ function toggleHostFlyout( mac ){
 		});
 		
 		$.ajax({
+			url: "/ajax/ajax_is_disabled/",
+			data: { mac : mac },
+			async: false, 
+			success: function(response){
+				if (response.length){
+					var disabled = response[0]
+					output.push('<strong>Host is disabled:</strong> ' + disabled.reason + ' <strong>disabled on</strong> ' + eval(disabled.disabled) + '<br /><br />');
+				}
+			}
+		});
+		
+		$.ajax({
 			url: "/ajax/ajax_get_hosts_to_pools/",
 			data: { mac : mac },
 			async: false, 
