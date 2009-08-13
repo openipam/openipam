@@ -1513,6 +1513,33 @@ class DBInterface( DBBaseInterface ):
 					raise error.RequiredArgument("Could not convert expires to datetime object (from %s %s) -- expiration_format must be specified for strings" % (repr(expires),type(expires)))
 		return expires
 	
+	def _do_delete(self, table, where):
+		if not where:
+			raise error.InvalidArgument('You just tried to delete everything in the "%s" table.  You are fired.' % str(table.name))
+		values = {}
+		if table.name == 'disabled':
+			values['disabled'] = sqlalchemy.sql.func.now()
+			values['disabled_by'] = self._uid
+		# auditing
+		if 'changed' in table.c:
+			values['changed'] = sqlalchemy.sql.func.now()
+		if 'changed_by' in table.c:
+			values['changed_by'] = self._uid
+
+		if values:
+			self._begin_transaction()
+			try:
+				# Let's do some auditing :)
+				self._execute_set( table.update( where, values=values ) )
+				result = self._execute_set( table.delete( where ) )
+				# Commit the transaction
+				self._commit()
+			except:
+				self._rollback()
+				raise
+			return result
+		return self._execute_set( table.delete( where ) )
+
 	def add_address( self, address, network, mac=None, pool=None, reserved=False ):
 		"""
 		Add an address in either the specified pool or belonging to the specified MAC.
@@ -1581,8 +1608,7 @@ class DBInterface( DBBaseInterface ):
 		
 		if mac is not None:
 			# delete any previous leases
-			query = obj.leases.delete(obj.leases.c.address == address)
-			self._execute_set( query )
+			self._do_delete( table=obj.leases, where=obj.leases.c.address == address )
 		
 		# FIXME: take care of "reserved" ... right now just doesn't change whatever it is set to and has DB constraints
 		query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : pool })
@@ -2095,8 +2121,7 @@ class DBInterface( DBBaseInterface ):
 				self.update_address(address=address, mac=mac)
 			
 				# If claimed, delete any previous leases
-				query = obj.leases.delete(obj.leases.c.address == address)
-				self._execute_set( query )
+				self._do_delete( table=obj.leases, where=obj.leases.c.address == address )
 			
 			# Add the A record for this static (also adds PTR)
 			if hostname:
@@ -2465,20 +2490,16 @@ class DBInterface( DBBaseInterface ):
 			# Require DELETE permissions if MAC is specified
 			self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
 		
-		# Delete the record
-		query = obj.dns_records.delete(obj.dns_records.c.id==rid)
-		
+		where = obj.dns_records.c.id==rid
+
 		# If it was an A Record, delete the associated PTR (without permissions checking)
 		if record['tid'] == 1:
 			ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
 			
 			if ptr:
-				query = obj.dns_records.delete((obj.dns_records.c.id==ptr[0]['id']) | (obj.dns_records.c.id==rid))
-			else:
-				# TODO: log the fact that there was no PTR record
-				pass
+				where = or_(where, (obj.dns_records.c.id==ptr[0]['id']))
 
-		return self._execute_set(query)
+		return self._do_delete( obj.dns_records, where=where )
 	
 	def del_dns_type( self ):
 		"""dns_type"""
@@ -2499,9 +2520,9 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		query = obj.domains_to_groups.delete(and_(obj.domains_to_groups.c.did==did, obj.domains_to_groups.c.gid==gid))
+		where = and_(obj.domains_to_groups.c.did==did, obj.domains_to_groups.c.gid==gid)
 		
-		return self._execute_set(query)
+		return self._do_delete( table=obj.domains_to_groups, where=where )
 		
 	def del_dhcp_option_to_group( self, rid, gid ):
 		"""Remove a DHCP option from a DHCP group
@@ -2518,11 +2539,11 @@ class DBInterface( DBBaseInterface ):
 			raise error.RequiredArgument("Specify exactly one of name or IP address")
 		
 		if ip:
-			query = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.ip_content==ip )
+			where = obj.dhcp_dns_records.c.ip_content==ip
 		if name:
-			query = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.name==name )
+			where = obj.dhcp_dns_records.c.name==name
 		
-		return self._execute_set(query)
+		return self._do_delete( table=obj.dhcp_dns_records, where=where )
 
 	def del_guest_ticket( self, ticket ):
 		"""
@@ -2548,9 +2569,9 @@ class DBInterface( DBBaseInterface ):
 			if not my_ticket:
 				raise error.NotFound("Ticket to delete was not found")
 			
-		query = obj.guest_tickets.delete(obj.guest_tickets.c.id == my_ticket[0]['id'])
+		where = obj.guest_tickets.c.id == my_ticket[0]['id']
 		 
-		return self._execute_set(query)
+		return self._do_delete( table=obj.guest_tickets, where=where )
 
 	def del_group( self, gid ):
 		"""
@@ -2561,9 +2582,9 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		query = obj.groups.delete(obj.groups.c.id==gid)
+		where = obj.groups.c.id==gid
 		
-		return self._execute_set(query)
+		return self._do_delete( table=obj.groups, where=where )
 	
 	def del_host( self, mac ):
 		"""
@@ -2607,14 +2628,12 @@ class DBInterface( DBBaseInterface ):
 						# FIXME: this may not be the best way, but catch the case where a PTR
 						# has already been deleted by del_dns_record, but we still have it in this list
 						pass
-						
 					
-				# Delete the host
-				query = obj.hosts.delete(obj.hosts.c.mac==mac)
+				where = obj.hosts.c.mac==mac
 			else:
 				raise error.NotFound("Couldn't find host to delete. MAC: %s " % mac)
 			
-			result = self._execute_set(query)
+			result = self._do_delete( table=obj.hosts, where=where )
 			
 			self._commit()
 		except:
@@ -2650,10 +2669,8 @@ class DBInterface( DBBaseInterface ):
 		if group_name:
 			gid = self.get_groups(name=group_name)[0]['id']
 			whereclause = and_(whereclause, obj.hosts_to_groups.c.gid==gid)
-			
-		query = obj.hosts_to_groups.delete(whereclause)
 		
-		return self._execute_set(query)
+		return self._do_delete( table=obj.hosts_to_groups, where=whereclause )
 	
 	
 	def del_internal_auth( self ):
@@ -2669,13 +2686,16 @@ class DBInterface( DBBaseInterface ):
 		
 		self._begin_transaction()
 		try:
+			nets = self.get_networks(network=network)
+			if len(nets) != 1:
+				raise error.NotFound('%d networks found matching %s -- not deleting' % (len(nets),network) )
+
 			# Delete all addresses that were in this network
-			query = obj.addresses.delete(obj.addresses.c.address.op("<<")(network))
-			self._execute_set(query)
+			self._do_delete( table=obj.addresses, where=obj.addresses.c.address.op("<<")(network) )
 			
 			# Delete the network
-			query = obj.networks.delete(obj.users.c.id==uid)
-			result = self._execute_set(query)
+			where = obj.netwoks.c.network == network
+			result = self._do_delete( table=obj.networks, where=where )
 			
 			self._commit()
 		except:
@@ -2683,7 +2703,6 @@ class DBInterface( DBBaseInterface ):
 			raise
 		
 		return result
-	
 	
 	def del_network_to_group( self, nid, gid  ):
 		"""
@@ -2696,10 +2715,10 @@ class DBInterface( DBBaseInterface ):
 		# FIXME: these permissions should probably be more granular
 		# Check permissions
 		self.require_perms(perms.DEITY)
-		
-		query = obj.networks_to_groups.delete(and_(obj.networks_to_groups.c.nid==nid, obj.networks_to_groups.c.gid==gid))
-		
-		return self._execute_set(query)
+
+		where = and_(obj.networks_to_groups.c.nid==nid, obj.networks_to_groups.c.gid==gid)
+
+		return self._execute_delete( table=obj.networks_to_groups, where=where)
 	
 	def del_notification_to_host( self, id=None, mac=None ):
 		"""
@@ -2717,15 +2736,15 @@ class DBInterface( DBBaseInterface ):
 					
 		if id:
 			if type(id) == types.ListType:
-				query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.id.in_(id) )
+				where = obj.notifications_to_hosts.c.id.in_(id)
 			else:
-				query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.id==id)
+				where = obj.notifications_to_hosts.c.id==id
 		elif mac:
-			query = obj.notifications_to_hosts.delete(obj.notifications_to_hosts.c.mac==mac)
+			where = obj.notifications_to_hosts.c.mac==mac
 		else:
 			raise error.RequiredArgument("Must specify exactly one of id or mac to del_notification_to_host")
 		
-		return self._execute_set(query)
+		return self._do_delete( table=obj.notifications_to_hosts, where=where )
 		
 	def del_supermaster( self ):
 		"""supermaster"""
@@ -2735,12 +2754,13 @@ class DBInterface( DBBaseInterface ):
 		"""Delete a user. If that user is an internal user account, the delete will cascade to internal_auth
 		@param uid: the database user ID"""
 		
+		raise error.NotImplemented('This action is not currently supported.')
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		query = obj.users.delete(obj.users.c.id==uid)
+		where = obj.users.c.id==uid
 		
-		return self._execute_set(query)
+		return self._do_delete( table=obj.users, where=where )
 	
 	def del_lease( self, address=None, mac=None ):
 		"""Delete a lease ... this function is probably going away"""
@@ -2752,13 +2772,11 @@ class DBInterface( DBBaseInterface ):
 			raise error.RequiredArgument("Need one of address or mac in del_lease")
 		
 		if address:
-			query = obj.leases.delete(obj.leases.c.address==address)
-			result = self._execute_set(query)
+			where = obj.leases.c.address==address
 		if mac:
-			query = obj.leases.delete(obj.leases.c.mac==mac)
-			result = self._execute_set(query)
+			where = obj.leases.c.mac==mac
 		
-		return result 
+		return self._do_delete( table=obj.leases, where=where )
 	
 	def del_user_to_group( self, uid, gid ):
 		"""Remove a user from a group
@@ -2770,9 +2788,9 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		query = obj.users_to_groups.delete(and_(obj.users_to_groups.c.uid==uid, obj.users_to_groups.c.gid==gid))
+		where = and_(obj.users_to_groups.c.uid==uid, obj.users_to_groups.c.gid==gid)
 		
-		return self._execute_set(query)
+		return self._do_delete( obj.users_to_groups, where=where )
 		
 	def add_dhcp_group( self, info ):
 		"""Add a group
@@ -3168,22 +3186,8 @@ class DBInterface( DBBaseInterface ):
 
 		# Check permissions
 		self.require_perms(perms.OWNER)
-		self._begin_transaction()
-		try:
-			# Consider this a hack for logging purposes.
-			update_query = obj.disabled.update( obj.disabled.c.mac == mac, values={ 'reason' : reason,
-									'disabled_by' : self._uid } )
-			self._execute_set(update_query)
 
-			# FIXME: we need a way to see who enabled this
-			query = obj.disabled.delete( obj.disabled.c.mac == mac )
-			result = self._execute_set(query)
-			self._commit()
-		except:
-			self._rollback()
-			raise
-
-		return result
+		return self._do_delete( table=obj.disabled, where=obj.disabled.c.mac==mac )
 
 	def renew_hosts(self, hosts=None):
 		# Renew the given hosts until 1 year from now.

@@ -88,22 +88,55 @@ function toggleHostFlyout( mac ){
 			}
 		});
 		
+		var addresses = []
 		$.ajax({
 			url: "/ajax/ajax_get_addresses/",
 			data: { mac : mac, order_by : 'address' },
 			async: false, 
 			success: function(response){
 				if (response.length){
-					addresses = [];
 					output.push('<strong>Static addresses:</strong><br />');
 					for (i in response){
 						output.push(response[i].address + '<br />');
+						addresses.push(response[i].address)
 					}
 					output.push('<br />');
 				}
 			}
 		});
 		
+		$.ajax({
+			url: "/ajax/ajax_arp_data/",
+			data: { mac : mac },
+			async: false, 
+			success: function(response){
+				if (response.length){
+					output.push('<strong>most recent arp by mac address:</strong><br />');
+					for (i in response){
+						output.push(response[i].mac + ' last used by ' + response[i].ip + ' ' + response[i].ago + '<br />');
+					}
+					output.push('<br />');
+				}
+			}
+		});
+		
+		if (addresses.length) {
+			$.ajax({
+				url: "/ajax/ajax_arp_data/",
+				data: { ip : addresses },
+				async: false, 
+				success: function(response){
+					if (response.length){
+						output.push('<strong>most recent arp by ip address:</strong><br />');
+						for (i in response){
+							output.push(response[i].ip + ' last used by ' + response[i].mac + ' ' + response[i].ago + '<br />');
+						}
+						output.push('<br />');
+					}
+				}
+			});
+		}
+			
 		$.ajax({
 			url: "/ajax/ajax_get_dns_records/",
 			data: { mac : mac, order_by : 'tid, ip_content, name' },

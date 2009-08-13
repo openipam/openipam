@@ -42,11 +42,16 @@ from openipam.utilities.function_wrapper import fcn_wrapper
 
 from openipam.config import auth_sources
 
+try:
+	from openipam.extensions import arp
+except:
+	arp = None
+
 import openipam.iptypes
 
 perms = interface.perms
 
-	
+
 
 class MainWebService(XMLRPCController):
 	'''The main openIPAM API--all of the methods for remote consumption'''
@@ -1867,6 +1872,27 @@ class MainWebService(XMLRPCController):
 		
 		db.del_guest_ticket( **args[0] )
 		
+	@cherrypy.expose
+	def arp_data(self, kw):
+		mac=None
+		ip=None
+		if kw.has_key('mac'):
+			mac = kw['mac']
+		if kw.has_key('ip'):
+			ip = kw['ip']
+		print 'arp_data(mac=%s,ip=%s)' % (mac,ip)
+		if mac and ip or (not mac and not ip):
+			raise error.InvalidArgument('Specify exactly one of mac(%s) and ip(%s).' % (mac, ip))
+		if not arp.min_permissions:
+			raise error.NotImplemented('You do not have this extension installed...')
+		if not Perms(cherrypy.session['user']['min_permissions']) & arp.min_permissions == arp.min_permissions:
+			raise error.InsufficientPermissions('You are not permitted (have: %s, need: %s)' % (cherrypy.session['user']['min_permissions'], arp.min_permissions))
+		if mac:
+			data = arp.bymac(mac)
+		else:
+			data = arp.byip(ip)
+		return self.__sanitize( data )
+
 	@cherrypy.expose
 	def create_shared_network( self, *args ):
 		"""
