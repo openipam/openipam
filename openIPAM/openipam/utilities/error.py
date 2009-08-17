@@ -140,9 +140,9 @@ class AlreadyExists(BaseException):
 		if kw.has_key('mac'):
 			self.mac = kw['mac']
 			del kw['mac']
-		if kw.has_key('host'):
-			self.host = kw['host']
-			del kw['host']
+		if kw.has_key('hostname'):
+			self.host = kw['hostname']
+			del kw['hostname']
 		BaseException.__init__(self, *args, **kw)
 
 	
