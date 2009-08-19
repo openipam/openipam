@@ -916,16 +916,19 @@ class DBBaseInterface(object):
 								and_(obj.users_to_groups.c.uid == uid,
 								obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
 		else:
-			# Get our permissions over hosts
-			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms, do_subquery=False ).alias('net_perms')
-			
-			# Get our permissions over networks
-			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = required_perms, do_subquery=False ).alias('host_perms')
+			# FIXME: we should be able to include a column with effective permissions over a host and reduce some network traffic.
+			if not self._min_perms & required_perms == required_perms:
+				# Get our permissions over hosts
+				net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms, do_subquery=False ).alias('net_perms')
+				
+				# Get our permissions over networks
+				host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = required_perms, do_subquery=False ).alias('host_perms')
 
-			# This would be ideal, but it fails
-			hosts = hosts.outerjoin(host_perms, host_perms.c.mac == obj.hosts.c.mac)
-			hosts = hosts.outerjoin(net_perms, net_perms.c.nid == obj.addresses.c.network)
-			whereclause.append( or_( host_perms.c.permissions != None, net_perms.c.permissions != None ) )
+				hosts = hosts.outerjoin(host_perms, host_perms.c.mac == obj.hosts.c.mac)
+				hosts = hosts.outerjoin(net_perms, net_perms.c.nid == obj.addresses.c.network)
+				whereclause.append( or_( host_perms.c.permissions != None, net_perms.c.permissions != None ) )
+
+				#columns.append( (sqlalchemy.sql.func.coalesce(net_perms.c.permissions,self._min_perms).op('|')(sqlalchemy.sql.func.coalesce(host_perms.c.permissions,self._min_perms))).label('effective_perms')
 
 		hosts = select(columns, from_obj=hosts, distinct=True)
 		# Finalize the WHERE clause
