@@ -915,12 +915,6 @@ class DBBaseInterface(object):
 			hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,
 								and_(obj.users_to_groups.c.uid == uid,
 								obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
-		if self.has_min_perms( required_perms ):
-			# Funky ordering to order by length ... fixes problems with guest registrations
-			# because, technically, 11 in ASCII is before 9 in ASCII ... think about it 	
-			if funky_ordering:
-				hosts = hosts.order_by('len DESC').order_by(obj.hosts.c.hostname.desc())
-			
 		else:
 			# Get our permissions over hosts
 			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms, do_subquery=False ).alias('net_perms')
@@ -938,6 +932,12 @@ class DBBaseInterface(object):
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
 			hosts = hosts.where(whereclause)
+		if self.has_min_perms( required_perms ):
+			# Funky ordering to order by length ... fixes problems with guest registrations
+			# because, technically, 11 in ASCII is before 9 in ASCII ... think about it 	
+			if funky_ordering:
+				hosts = hosts.order_by('len DESC').order_by(obj.hosts.c.hostname.desc())
+			
 		return hosts
 		
 		
