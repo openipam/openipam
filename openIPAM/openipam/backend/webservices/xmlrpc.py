@@ -2009,6 +2009,12 @@ class MainWebService(XMLRPCController):
 			
 			__guest_db._begin_transaction()
 			try:
+				host = __guest_db.get_host( mac = macaddr )
+				if host and host['expired']:
+					# FIXME: this is a hack
+					# It will allow unregistered users (with a valid guest ticket) to delete expired hosts.
+					# Is there no other way?
+					__guest_db.del_host( mac = macaddr )
 				__guest_db.register_host( mac = macaddr,
 								hostname = hostname,
 								description = args[0]['description'],
