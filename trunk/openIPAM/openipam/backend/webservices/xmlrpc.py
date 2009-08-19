@@ -2029,7 +2029,8 @@ class MainWebService(XMLRPCController):
 				__guest_db._commit()
 			except Exception, e:
 				__guest_db._rollback()
-				raise error.AlreadyExists("MAC address may already exists ... couldn't add guest host. Error was: %s" % e)
+				#raise error.AlreadyExists("MAC address may already exists ... couldn't add guest host. Error was: %s" % e)
+				raise
 			
 			
 		else:
