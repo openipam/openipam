@@ -1947,8 +1947,12 @@ class DBInterface( DBBaseInterface ):
 			
 			# If the host exists by mac, but is expired, delete old host
 			host = self.get_hosts(mac=mac, show_expired=True, show_active=False)
+			addresses = self.get_addresses(mac=mac)
 			if host:
-				raise error.AlreadyExists("Host with mac %s already exists.  Please delete it first." % mac, mac = mac)
+				if addresses:
+					raise error.AlreadyExists("Static host with mac %s already exists.  Please renew or delete it via the openipam interface." % mac, mac = mac)
+				else:
+					self.del_host(mac=mac)
 			
 			host = self.get_hosts(hostname=hostname, show_expired=True, show_active=False)
 			dns = self.get_dns_records(name=hostname)
@@ -2240,9 +2244,12 @@ class DBInterface( DBBaseInterface ):
 			
 			# If not add_host_to_my_group, then delete the host from my group after all other actions are finished
 			if not add_host_to_my_group:
+				if not owners:
+					raise error.InvalidArgument('Must specify owners if add_host_to_my_group is true.')
 				self.del_host_to_group(mac=mac, group_name=my_usergroup)
 				
 			# Make sure I'm first in the owners list so that I have permissions
+			# FIXME: document why
 			if owners and my_usergroup in owners:
 				owners.remove(my_usergroup)
 				owners.insert(0, my_usergroup)
