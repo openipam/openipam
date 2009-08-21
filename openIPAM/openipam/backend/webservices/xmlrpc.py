@@ -2021,7 +2021,7 @@ class MainWebService(XMLRPCController):
 								description = args[0]['description'],
 								expires = ticket['ends'],
 								is_dynamic = True,
-								owners = [ownergroupname],
+								owners = ['user_%s' % backend.guest_user, ownergroupname],
 								add_host_to_my_group = False )
 				
 				# FIXME: it might be better to associate these with the owner of the ticket
