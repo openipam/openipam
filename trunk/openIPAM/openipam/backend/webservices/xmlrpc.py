@@ -32,6 +32,8 @@ import time
 import ldap
 import re
 
+from openipam.utilities.jsonhax import utc
+
 from openipam.config import backend
 from openipam.config import auth
 from openipam.backend.auth.interfaces import InternalAuthInterface, LDAPInterface
@@ -118,7 +120,8 @@ class MainWebService(XMLRPCController):
 		transported over XML-RPC.
 		
 		Rows that contain certain objects like datetime.datetime() will actually
-		be just fine transported over XML-RPC (sweet, I know).
+		be transported over XML-RPC (sweet, I know) -- however, remember that
+		timezone information is lost.
 		
 		@query: a SQLAlchemy ResultProxy object
 		@return: a list of dictionaries, each representing a returned row
@@ -1967,10 +1970,7 @@ class MainWebService(XMLRPCController):
 			
 			ticket = ticket[0]
 			
-			if ticket['starts'] > now:
-				raise error.InvalidTicket()
-			
-			if ticket['ends'] < now:
+			if not ticket['valid']:
 				raise error.InvalidTicket()
 			
 			# Valid ticket, register their MAC address
