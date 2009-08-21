@@ -749,7 +749,7 @@ class DBBaseInterface(object):
 		if (not ticket and not uid):
 			raise error.RequiredArgument("Must specify at least one of name or uid to get guest tickets")
 		
-		query = select( [obj.guest_tickets, (and_(obj.guest_tickets.c.starts >= sqlalchemy.sql.func.now(),obj.guest_tickets.c.ends < sqlalchemy.sql.func.now())).label('valid')] )
+		query = select( [obj.guest_tickets, (and_(obj.guest_tickets.c.starts <= sqlalchemy.sql.func.now(),obj.guest_tickets.c.ends > sqlalchemy.sql.func.now())).label('valid')] )
 		
 		if ticket:
 			query = query.where(obj.guest_tickets.c.ticket == ticket)
