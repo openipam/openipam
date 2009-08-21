@@ -2006,6 +2006,13 @@ class MainWebService(XMLRPCController):
 			else:
 				# No guest hosts registered yet:
 				hostname = hostname_fmt % '1'
+
+			ticket_owner = __guest_db.get_users(id=ticket['uid'])
+
+			if not ticket_owner:
+				raise error.InvalidTicket('Ticket owner could not be found.')
+
+			ownergroupname = 'user_%s' % ticket_owner[0]['username']
 			
 			__guest_db._begin_transaction()
 			try:
@@ -2014,6 +2021,7 @@ class MainWebService(XMLRPCController):
 								description = args[0]['description'],
 								expires = ticket['ends'],
 								is_dynamic = True,
+								owners = [ownergroupname],
 								add_host_to_my_group = False )
 				
 				# FIXME: it might be better to associate these with the owner of the ticket
