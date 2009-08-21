@@ -749,7 +749,7 @@ class DBBaseInterface(object):
 		if (not ticket and not uid):
 			raise error.RequiredArgument("Must specify at least one of name or uid to get guest tickets")
 		
-		query = select( [obj.guest_tickets] )
+		query = select( [obj.guest_tickets, (and_(obj.guest_tickets.c.starts >= sqlalchemy.sql.func.now(),obj.guest_tickets.c.ends < sqlalchemy.sql.func.now()).label('valid')] )
 		
 		if ticket:
 			query = query.where(obj.guest_tickets.c.ticket == ticket)
@@ -1746,6 +1746,9 @@ class DBInterface( DBBaseInterface ):
 
 			# Check if we have the required permissions over this domain
 			if not domains:
+				if tid == 12:
+					# FIXME: Find permissions over IP address
+					pass
 				raise error.InsufficientPermissions("Insufficient permissions to access domain containing %s" % name)
 			
 			values = { 
@@ -1772,6 +1775,7 @@ class DBInterface( DBBaseInterface ):
 					raise error.InsufficientPermissions("Insufficient permissions to add a DNS record of type %s" % tid)
 			
 			if tid == 1 or tid == 28:
+				# FIXME: Be sure we have owner perms or so over this address
 				ip = openipam.iptypes.IP(ip_content)
 				if tid == 1 and ip.version() != 4:
 					raise Exception('A record must have ip4 address: name: %s tid: %s address: %s' % (name,tid,ip_content))
