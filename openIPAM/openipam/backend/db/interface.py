@@ -2249,7 +2249,7 @@ class DBInterface( DBBaseInterface ):
 			# If not add_host_to_my_group, then delete the host from my group after all other actions are finished
 			if not add_host_to_my_group:
 				if not owners:
-					raise error.InvalidArgument('Must specify owners if add_host_to_my_group is true.')
+					raise error.InvalidArgument('Must specify owners if add_host_to_my_group is false.')
 				self.del_host_to_group(mac=mac, group_name=my_usergroup)
 				
 			# Make sure I'm first in the owners list so that I have permissions
