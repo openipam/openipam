@@ -2007,7 +2007,7 @@ class MainWebService(XMLRPCController):
 				# No guest hosts registered yet:
 				hostname = hostname_fmt % '1'
 
-			ticket_owner = __guest_db.get_users(id=ticket['uid'])
+			ticket_owner = __guest_db.get_users(uid=ticket['uid'])
 
 			if not ticket_owner:
 				raise error.InvalidTicket('Ticket owner could not be found.')
