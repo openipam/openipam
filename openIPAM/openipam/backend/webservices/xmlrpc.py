@@ -2028,7 +2028,7 @@ class MainWebService(XMLRPCController):
 				# -- We'll probably need to do both, they should probably be in the guest group in any case
 				__guest_db.add_host_to_group( mac = macaddr, gid=backend.db_default_guest_group_id )
 
-				__guest_db.del_notification_to_hosts( mac = macaddr )
+				__guest_db.del_notification_to_host( mac = macaddr )
 				
 				__guest_db._commit()
 			except Exception, e:
