@@ -75,6 +75,8 @@ def datetime2json(dt):
     """
     if isinstance(dt, datetime.datetime):
         # Apply UTC if datetime is naive, otherwise convert to UTC
+        # FIXME: this probably isn't a reasonable assumption... if we don't have a
+        #   timetz, it usually means that this is localtime...
         dt = (dt.tzinfo is None) and dt.replace(tzinfo = utc) or dt.astimezone(utc)
         # Truncate (not round) to milliseconds
         milliseconds = dt.microsecond / 1000
