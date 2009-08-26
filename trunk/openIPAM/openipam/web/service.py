@@ -93,13 +93,8 @@ class Service(BasePage):
 			# The user doesn't exist in our database, so add them
 			try:
 				self.webservice.verify_ldap_user( { 'username' : username } )
-				self.webservice.add_user( {
-					'username' : username,
-					'source' : 2,
-					# FIXME: we should leave this empty and let the DB set it properly
-					'min_perms' : frontend.db_default_min_permissions
-				})
 			except:
+				raise
 				messages.append("The specified user does not exist in LDAP")
 				raise Exception(messages)
 		else:
