@@ -94,7 +94,6 @@ class Service(BasePage):
 			try:
 				self.webservice.verify_ldap_user( { 'username' : username } )
 			except:
-				raise
 				messages.append("The specified user does not exist in LDAP")
 				raise Exception(messages)
 		else:
