@@ -301,6 +301,39 @@ class DBBaseInterface(object):
 			if not group_hosts and not net_hosts:
 				raise error.InsufficientPermissions(error_msg)
 
+	def _require_perms_on_address(self, permission, address, error_msg=None):
+		if not self.has_min_perms(permission):
+			addr_record = self.get_addresses(address = address)
+			if len(addr_record) > 1:
+				raise error.InvalidArgument('\'address\' argument should only match a single address: %s' % address)
+			if addr_record:
+				addr_record = addr_record[0]
+			else:
+				addr_record = None
+
+			andwhere = obj.networks.c.network.op('<<')(address)
+
+			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = permission, do_subquery=False, andwhere=andwhere )
+			net_perms = self._execute(net_perms)
+
+			if net_perms:
+				return
+
+			if not addr_record or not addr_record['mac']:
+				if not error_msg:
+					error_msg = "need %s or greater on network containing %s" % (perms,address)
+				raise error.InsufficientPermissions(error_msg)
+
+
+			addr_where = obj.hosts.c.mac == addr_record['mac']
+			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = permission, do_subquery=False, andwhere=addr_where )
+		
+			if not host_perms:
+				if not error_msg:
+					error_msg = "need %s or greater network containing %s or host with mac %s" % (perms,address,addr_record['mac'])
+				raise error.InsufficientPermissions(error_msg)
+			return
+
 	def _require_perms_on_net(self, permission, network=None, address=None, error_msg=None):
 		if not self.has_min_perms(permission):
 			if (not network and not address) or (network and address):
@@ -1720,7 +1753,7 @@ class DBInterface( DBBaseInterface ):
 		content = "%(primary)s %(hostmaster)s %(serial)d %(refresh)d %(retry)d %(expire)d %(default_ttl)d" % locals()
 		return self.add_dns_record( name=name, text_content=content, tid=6 )
 
-	def add_dns_record( self, name, tid, ip_content=None, text_content=None, priority=None, vid=None, add_ptr=True ):
+	def add_dns_record( self, name, tid, ip_content=None, text_content=None, priority=None, ttl=None, vid=None, add_ptr=True ):
 		"""Add a DNS resource record
 			@param name: name for SOA record
 			@param tid: the database type ID
@@ -1733,6 +1766,9 @@ class DBInterface( DBBaseInterface ):
 		
 		# Important, lowercase the name
 		name = name.lower()
+
+		if not ttl:
+			ttl = backend.default_ttl
 		
 		# FIXME: default to 0 for unspecified priority
 		
@@ -1746,10 +1782,28 @@ class DBInterface( DBBaseInterface ):
 
 			# Check if we have the required permissions over this domain
 			if not domains:
-				if tid == 12:
+				domains = self.get_domains(contains=name)
+				if not domains:
+					raise error.NotFound("Could not find domain to contain %s" % name)
+				if tid == 12 and domains:
 					# FIXME: Find permissions over IP address
-					pass
-				raise error.InsufficientPermissions("Insufficient permissions to access domain containing %s" % name)
+					if 'in-addr.arpa' in name:
+						parts = name.split('.')[:4]
+						parts.reverse()
+						address = '.'.join(parts)
+					elif 'ip6.arpa' in name and backend.allow_ipv6:
+						parts = name.split('.')[:-2]
+						parts.reverse()
+						addr = []
+						for i in range( len(parts) / 4 ):
+							addr.append(''.join(parts[4*i,4*(i+1)]))
+						address = ':'.join(addr)
+					else:
+						raise error.InvalidArgument('Invalid name for PTR: %s' % name)
+
+					self._require_perms_on_address(perms.OWNER, address)
+				else:
+					raise error.InsufficientPermissions("Insufficient permissions to access domain containing %s" % name)
 			
 			values = { 
 				'name' : name,
@@ -1758,7 +1812,7 @@ class DBInterface( DBBaseInterface ):
 				'ip_content' : ip_content,
 				'priority' : priority,
 				'text_content' : text_content,
-				'ttl' : backend.default_ttl,
+				'ttl' : ttl,
 				'vid' : vid,
 				'changed' : sqlalchemy.sql.func.now(),
 				'changed_by' : self._uid
@@ -1774,6 +1828,10 @@ class DBInterface( DBBaseInterface ):
 				if not result:
 					raise error.InsufficientPermissions("Insufficient permissions to add a DNS record of type %s" % tid)
 			
+			# We want to add the PTR after here in case we decide to do extra checking in the db at some point
+			#  (ie. ensure there is a valid fwd lookup associated with each ptr)
+			result = self._execute_set( obj.dns_records.insert( values=values ) )
+			
 			if tid == 1 or tid == 28:
 				# FIXME: Be sure we have owner perms or so over this address
 				ip = openipam.iptypes.IP(ip_content)
@@ -1783,29 +1841,10 @@ class DBInterface( DBBaseInterface ):
 					raise Exception('AAAA record must have ip6 address: name: %s tid: %s address: %s' % (name,tid,ip_content))
 				# PTR record
 				if add_ptr:
-					
 					ptrname = ip.reverseName()[:-1]
+					self.add_dns_record(name=ptrname, text_content=name, tid=12, ttl=ttl, vid=vid)
 					
-					domains = self.get_domains( contains=ptrname )
-					
-					if not domains:
-						raise error.NotFound("Could not find appropriate domain to add PTR record for %s (ptrname: %s, address: %s)" % (name,ptrname,ip_content))
-					
-					ptr_values = {
-						'name': ptrname,
-						'tid' : 12,
-						'did' : domains[0]['id'],
-						'text_content': name,
-						'ttl' : backend.default_ttl,
-						'vid' : vid,
-						'changed' : sqlalchemy.sql.func.now(),
-						'changed_by' : self._uid
-					}
-					result = self._execute_set( obj.dns_records.insert( values=ptr_values ) )
-	
 
-			result = self._execute_set( obj.dns_records.insert( values=values ) )
-			
 			# Commit the transaction
 			self._commit()
 		except:
