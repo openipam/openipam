@@ -72,7 +72,7 @@ def bymac(mac):
 			raise error.InvalidArgument('Not a valid mac address: %s' % mac)
 		cond = "mac = '%s'" % mac
 
-	data = execute("SELECT ip, mac, COALESCE(AGE(stopstamp), interval '0 minutes') AS last_seen FROM arpentries JOIN maclastarp ON arpentries.id = maclastarp.arpid WHERE %s;" % cond)
+	data = execute("SELECT ip, mac, COALESCE(NOW() - stopstamp, interval '0 minutes') AS last_seen FROM arpentries JOIN maclastarp ON arpentries.id = maclastarp.arpid WHERE %s;" % cond)
 	return mk_dicts(data)
 
 def byip(ip):
@@ -89,7 +89,7 @@ def byip(ip):
 			raise error.InvalidArgument('Not a valid ip address: %s' % ip)
 		cond = "ip = '%s'" % ip
 
-	data = execute("SELECT ip, mac, COALESCE(AGE(stopstamp), interval '0 minutes') AS last_seen FROM arpentries JOIN iplastarp ON arpentries.id = iplastarp.arpid WHERE %s;" % cond)
+	data = execute("SELECT ip, mac, COALESCE(NOW() - stopstamp, interval '0 minutes') AS last_seen FROM arpentries JOIN iplastarp ON arpentries.id = iplastarp.arpid WHERE %s;" % cond)
 	return mk_dicts(data)
 
 
