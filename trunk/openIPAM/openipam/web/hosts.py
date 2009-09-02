@@ -349,12 +349,13 @@ class Hosts(BasePage):
 
 
 		# FIXME: this might break with special characters
+		# FIXME: need more thorough input validation
 		kw_elements = []
 		kw_keys = kw.keys()
 		kw_keys.sort()
 		for k in kw_keys:
 			v = kw[k]
-			if '&' in v:
+			if hasattr(v, '__contains__') and '&' in v:
 				raise error.InvalidArgument('& is not valid here')
 			kw_elements.append('%s=%s' % (k,v))
 
