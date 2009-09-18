@@ -802,7 +802,9 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		expiration = datetime.datetime.today().replace( hour=0, minute=0, second=0, microsecond=0 ) + datetime.timedelta( 365 )
 
-		self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration, add_host_to_my_group=add_host_to_my_group )
+		mac = self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration, add_host_to_my_group=add_host_to_my_group )
+
+		print mac
 
 	def do_add_user( self, arg ):
 		vals = self.get_from_user( [ ('username',), ('source',), ('min_perms',), ] )

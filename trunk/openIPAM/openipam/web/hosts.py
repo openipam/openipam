@@ -137,7 +137,7 @@ class Hosts(BasePage):
 		# Confirm user authentication
 		self.check_session()
 		
-		self.webservice.register_host(
+		mac = self.webservice.register_host(
 			{
 			'mac' : kw['mac'],
 			'hostname' : kw['hostname'],
@@ -151,7 +151,7 @@ class Hosts(BasePage):
 			'address' : (kw['ip'] if kw.has_key('ip') else None)
 			})
 		
-		raise cherrypy.HTTPRedirect('/hosts/search/?q=%s' % misc.fix_mac(kw['mac']))
+		raise cherrypy.HTTPRedirect('/hosts/search/?q=%s' % misc.fix_mac(mac))
 	
 	def edit_host(self, **kw):
 		'''
