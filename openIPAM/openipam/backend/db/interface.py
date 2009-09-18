@@ -1958,6 +1958,24 @@ class DBInterface( DBBaseInterface ):
 		
 		return self._execute_set(query)
 		
+	def __find_next_mac(self, mac):
+		if mac.lower() == 'vmware':
+			oui = '00:50:56:00:00:00'
+		# find the next unused MAC address in the vmware OUI -- FIXME: make a table of name,min_mac,max_mac to get this from
+		q = self.get_hosts(mac=oui)
+		if not q:
+			return oui
+		h = obj.hosts.alias('h')
+		q = select(columns = [(obj.hosts.c.mac + 1).label('next'),], from_obj=obj.hosts).where(sqlalchemy.sql.func.trunc(obj.hosts.c.mac) == oui)
+		sub_q =  sqlalchemy.sql.exists(whereclause=and_(h.c.mac == obj.hosts.c.mac + 1, sqlalchemy.sql.func.trunc(h.c.mac + 1) == oui))
+		q = q.where(~sub_q)
+		q = q.limit(1).order_by('next')
+		results = self._execute(q)
+		if not results:
+			raise Exception('Did not find a usable MAC address?! mac: %s (oui: %s)'%(mac, oui))
+		address = results[0][0]
+		return address
+
 	# FIXME: this function should require and id from expiration_types instead of an expiration date
 	def add_host( self, mac, hostname, description=None, dhcp_group=None, expires=None ):
 		"""Add a host
@@ -1969,6 +1987,9 @@ class DBInterface( DBBaseInterface ):
 		"""
 
 		hostname = hostname.lower()
+		
+		if not validation.is_mac(mac):
+			mac = self.__find_next_mac(mac)
 		
 		if self.is_disabled(mac=mac):
 			raise error.InvalidArgument('This host is disabled (mac: %s)' % mac)
@@ -2022,7 +2043,7 @@ class DBInterface( DBBaseInterface ):
 			self._rollback()
 			raise
 		
-		return result
+		return mac
 	
 	def add_host_to_group( self, mac, gid=None, group_name=None ):
 		'''
@@ -2271,6 +2292,7 @@ class DBInterface( DBBaseInterface ):
 			# Add the host, which will also add the host to my user group so that the following additions can happen.
 			# See add_host_to_my_group code below for how deleting my host_to_group relation works
 			result = self.add_host(mac=mac, hostname=hostname, description=description, dhcp_group=dhcp_group, expires=expires)
+			mac = result
 			
 			# STATIC HOST
 			if not is_dynamic:
