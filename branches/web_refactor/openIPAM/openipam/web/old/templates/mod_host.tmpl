@@ -1,0 +1,281 @@
+#if 'host' not in $template_keys and 'editing' not in $template_keys:
+	#set editing = False
+	#set title = "Add Host"
+	#set action_string = "Add Host"
+	
+	#if 'submitted_info' in $template_keys:
+		#set host = $submitted_info
+		#set network = $submitted_info.network if $submitted_info.has_key('network') else ''
+		#set domain = $submitted_info.domain
+		#set owners_list = $submitted_info.owners_list
+		#set owners_list_shown = $submitted_info.owners_list
+	#else:
+		#set host = {}
+		#set host['mac'] = ''
+		#set host['hostname'] = ''
+		#set host['description'] = ''
+		#set network = ''
+		#set owners_list = 'user_%s,' % $username
+		#set owners_list_shown = 'user_%s' % $username
+	#end if
+#else:
+	#set editing = True
+	#set title = "Edit Host"
+	#set action_string = "Update Host"
+
+	#set owners_list = []
+	#set owners_list_shown = []
+	
+	#for $owner in $owners:
+		#silent $owners_list.append('%s,' % $owner.name)
+		#silent $owners_list_shown.append( $owner.name )
+	#end for
+	
+	#set owners_list = ''.join($owners_list)
+	#set owners_list_shown = ', '.join($owners_list_shown)
+	
+	#set host = $host
+	#set host['full_hostname'] = $host['hostname']
+	#set host['hostname'] = $host.hostname[0:$host.hostname.find('.')]
+	
+	#if 'network' not in $template_keys:
+		#set network = ''
+	#end if
+#end if
+
+#set SEPERATOR = "-*-"
+#set full_group_list = $SEPERATOR.join([$group.name for $group in $groups]) 
+
+<h1>$title</h1>
+
+#if 'message' in $template_keys:
+	<div id="localMessage" class="message">
+		$message
+	</div>
+#end if
+
+<form action="" method="post" class="form">
+	<input type="hidden" id="owners_list" name="owners_list" value="$owners_list" />
+	<input type="hidden" id="full_group_list" value="$full_group_list" />
+	<div id="element">
+		<div id="label">Ethernet Address:</div>
+		<div id="value">
+			<input type="text" class="text" name="mac" id="mac" value="$host.mac" />
+			#if $editing:
+				<input type="hidden" name="old_mac" value="$host.mac" />
+			#end if
+		</div>
+	</div>
+	<div id="element">
+		<div id="label">Hostname:</div>
+		<div id="value">
+		
+			#if not $editing or ($editing and $has_domain_access):
+				<input type="text" class="text" id="hostname" name="hostname" value="$host.hostname" /> .
+				<select id="domains_for_hosts" name="domain">
+						<option value="">...</option>
+						#set selected = ''
+						#for $one_domain in $domains:
+							#if $editing and ($one_domain.id == int($domain)):
+								#set selected = ' selected=""'
+							#end if
+							<option value="$one_domain.id"$selected>$one_domain.name</option>
+							#set selected = ''
+						#end for
+				</select>
+			#end if
+
+			#if $editing and not $has_domain_access:
+				$host.full_hostname
+			#end if
+				
+		</div>
+	</div>
+	
+	#if $allow_dynamic_ip:
+		## We are allowing dynamic IPs
+	
+		<div id="element">
+			<div id="label">&nbsp;</div>
+			<div id="value">
+				<label for="dynamicIP">
+					#set dynamic_checked = ' checked="checked"'
+					#if $editing and not $is_dynamic:
+						#set dynamic_checked = ''
+					#elif $editing and $is_dynamic:
+						<input type="hidden" name="was_dynamic" value="True" />
+					#end if
+					
+					#if ($networks and not $editing) or ($networks and $editing and $has_domain_access):
+						<input type="checkbox" name="dynamicIP" id="dynamicIP" $dynamic_checked />
+					#else:
+						## If you disable a form element, it doesn't show up in the POSTed keys
+						## This creates a hidden value of the correct name and disables the visible checkbox if appropriate
+						<input type="checkbox" name="dyn" disabled="" $dynamic_checked />
+						#if $dynamic_checked:
+							<input type="hidden" name="dynamicIP" value="on" />
+						#end if
+					#end if
+					Dynamic IP Address
+				</label>
+			</div>
+		</div>
+		
+		#if $editing and not $is_dynamic:
+			<div id="currentIPContent">
+				<div id="element">
+					<div id="label">Current IP Address:</div>
+					<div id="value">
+						#if len( $ips ) == 1:
+							$ips[0].ip_content
+						#else:
+							Multiple IPs
+						#end if
+						#if $networks and (not $editing or ($editing and $has_domain_access)):
+							<a href="javascript:;" id="changeIPLink">[ change IP address ]</a>
+							<input type="hidden" name="did_not_change_ip" value="" />
+						#end if
+					</div>
+				</div>
+			</div>
+		#end if
+		
+		#if $networks and (not $editing or ($editing and $has_domain_access)):
+			<div id="ipContent">
+				<div id="element">
+					<div id="label">Network:</div>
+					<div id="value">
+						<select name="network">
+							<option value="">...</option>
+							#set selected = ''
+							#for $one_network in $networks:
+								#if $one_network.network == $network:
+									#set selected = ' selected=""'
+								#end if
+								<option value="$one_network.network"$selected>$one_network.network - $one_network.name</option>
+								#set selected = ''
+							#end for
+						</select>
+					</div>
+				</div>
+			
+				## If I have min_perms of ADMIN+, let me choose an IP address manually
+				#if $has_admin_perms:
+					<div id="element">
+						<div id="label">IP Address (optional):</div>
+						<div id="value">
+							<input type="text" class="text" id="ip" name="ip" value="" />
+						</div>
+					</div>
+				#end if
+			</div>
+		#end if
+	
+	#end if ## -- allowing dynamic IPs
+
+	#if $editing:
+	<div id="element">
+		<div id="label">Expiration:</div>
+		<div id="value">
+				$host.expires
+				<a id="renewLink" href="javascript:;">[ renew host ]</a>
+				<input type="hidden" name="did_not_renew_host" value="" /> 
+		</div>
+	</div>
+	
+	<div id="expirationContent">
+	#end if
+	
+		<div id="element">
+			<div id="label">
+				#if $editing:
+					Renew for:
+				#else: 
+					Expiration:
+				#end if
+			</div>
+			<div id="value">
+				<select name="expiration">
+					#set selected = ''
+					#for $exp in $expirations:
+						#set $exp['expiration'] = $exp['expiration'][:$exp['expiration']find(',')]
+						#if $exp.id == $expirations[-1].id:
+							#set selected = ' selected=""'
+						#end if
+						<option value="$exp.id"$selected>$exp.expiration</option>
+						#set selected = ''
+					#end for
+				</select>
+			</div>
+		</div>
+	#if $editing:
+		</div> ## end expirationContent div
+	#end if
+	
+	<div id="element">
+		<div id="label">Owners:</div>
+		<div id="value">
+			<span id="owners">$owners_list_shown</span>
+			<a id="groupLink" href="javascript:;">[ change owners ]</a>
+		</div>
+	</div>
+	
+	<div id="element">
+		<div id="label">Description:</div>
+		<div id="value"><textarea class="text" name="description" style="width: 350px;">$host.description</textarea></div>
+	</div>
+	
+	<div class="submit">
+		<input type="submit" class="button" name="submit" value="$action_string">
+	</div>
+	
+</form>
+
+<div id="group_dialog" class="dialog">
+	<h4>Current group owners</h4>
+	<table class="infoTable" style="margin-bottom: 0pt">
+		<thead>
+			<tr>
+				<th>Group name</th>
+				<th>&nbsp;</th>
+			</tr>
+		</thead>
+	</table>
+	<div style="height: 100px; overflow: auto; border: 1px solid black;">
+		<table class="infoTable" style="border: none;">
+			<tbody id="currentOwners"> 
+			</tbody>
+		</table>
+	</div>
+	
+	<h4 style="padding-top: 5pt">Add group owners</h4>
+	
+	<form action="" method="post">
+		<div style="float: left">
+			<p><span>Search by username: </span><input type="text" id="username" name="username" value="" /><input type="submit" id="usernameSearch" name="usernameSearch"  class="button" value="Search" /></p>
+		</div>
+		<div style="float: right;">
+			<a href="javascript:;" id="showGroupsAgain" class="hidden">Show groups again</a>
+		</div>
+	</form>
+	
+	<div class="clear"><!-- --></div>
+	
+	<div id="searchMessage" class="message hidden">
+	</div>
+	
+	<table class="infoTable" style="margin-bottom: 0pt">
+		<thead>
+			<tr>
+				<th>Group name</th>
+				<th>&nbsp;</th>
+			</tr>
+		</thead>
+	</table>
+	<div style="height: 150px; overflow: auto; border: 1px solid black;">
+		<table class="infoTable" style="border: none;">
+				<tbody id="ownersToAdd"> 
+				</tbody>
+		</table>
+	</div>
+</div>

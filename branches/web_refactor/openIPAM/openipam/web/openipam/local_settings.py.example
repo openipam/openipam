@@ -1,0 +1,25 @@
+import os
+
+DEBUG = True
+
+# The base installation directory of openIPAM (including trailing slash)
+#BASE_DIR = '/usr/local/openipam/web/'
+BASE_DIR = os.sep.join(__file__.split(os.sep)[:-2])
+
+ADMINS = (
+	# ('Your Name', 'your_email@domain.com'),
+)
+
+# Make this a really long unique string, and don't share it with anybody.
+#SECRET_KEY = ''
+
+#TIME_ZONE = 'American/Denver'
+
+# Enable error emails
+EMAIL_HOST = ''
+DEFAULT_FROM_EMAIL = ''
+SERVER_EMAIL = ''
+EMAIL_SUBJECT_PREFIX = '[openIPAM] '
+
+# On production, force all pages to be served over SSL
+FORCE_ALL_SSL = True
