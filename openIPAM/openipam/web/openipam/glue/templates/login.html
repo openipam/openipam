@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ block.super }} - Login{% endblock %}
+
+{% block inner %}
+<div id="login">
+	<h1>Login</h1>
+</div>
+{% endblock %}
+
+{% block scripts %}
+	<script src="{{ MEDIA_URL }}scripts/login.js" type="text/javascript"></script>
+{% endblock %}

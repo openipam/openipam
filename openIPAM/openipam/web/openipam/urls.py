@@ -4,9 +4,9 @@ from django.conf.urls.defaults import *
 # from django.contrib import admin
 # admin.autodiscover()
 
-urlpatterns = patterns('',
+urlpatterns = patterns('glue.views',
     # Example:
-    # (r'^openipam/', include('openipam.foo.urls')),
+    (r'^login/$', 'login'),
 
     # Uncomment the admin/doc line below and add 'django.contrib.admindocs' 
     # to INSTALLED_APPS to enable admin documentation:
