@@ -16,13 +16,13 @@
  */
 
 /* import core styles | Basis-Stylesheets einbinden */
-@import url(/yaml/core/base.css);
+@import url(/static/css/yaml/core/base.css);
 
 /* import screen layout | Screen-Layout einbinden */
-  @import url(/yaml/navigation/nav_shinybuttons.css);
-  @import url(/yaml/navigation/nav_vlist.css);
-  @import url(/styles/css/content.css);
-  @import url(/styles/css/basemod.css);
+  @import url(/static/css/yaml/navigation/nav_shinybuttons.css);
+  @import url(/static/css/yaml/navigation/nav_vlist.css);
+  @import url(/static/css/content.css);
+  @import url(/static/css/basemod.css);
   
 /* import print layout | Druck-Layout einbinden */
 /* @import url(/css/print/print_003.css); */

@@ -63,7 +63,8 @@ TEMPLATE_LOADERS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'openipam.middleware.permissions.PermissionsMiddleware',
+#    'django.contrib.auth.middleware.AuthenticationMiddleware',
 )
 
 ROOT_URLCONF = 'openipam.urls'
@@ -72,13 +73,15 @@ TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
+    '%s/openipam/glue/templates/' % BASE_DIR,
 )
 
 INSTALLED_APPS = (
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
+    #'django.contrib.auth',
+    #'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django.contrib.sites',
+    #'django.contrib.sites',
+    'dataforms',
 )
 
 # The settings of the backend webservice
@@ -87,6 +90,11 @@ WEBSERVICE_PORT = 8080
 WEBSERVICE_HOST = '127.0.0.1'
 
 FORCE_ALL_SSL = True
+
+LOGIN_URL = '/login/'
+LOGOUT_URL = '/logout/'
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.file'
 
 # proxy settings?
 # perms handling?
