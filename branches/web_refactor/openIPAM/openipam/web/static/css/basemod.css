@@ -50,7 +50,7 @@ ul, ol, dl {
 }
 
 #nav_main {
-	background:#C0C0C0 url(/yaml/navigation/images/shiny_buttons/background.gif) repeat-x scroll;
+	background:#C0C0C0 url(/static/css/yaml/navigation/images/shiny_buttons/background.gif) repeat-x scroll;
 }
 
 #nav_main ul {
@@ -204,7 +204,7 @@ ul, ol, dl {
 .submit input:focus,
 .button,
 .button:focus {
-	background:transparent url(/images/interface/fade-butt.png) repeat scroll 0%;
+	background:transparent url(/static/images/interface/fade-butt.png) repeat scroll 0%;
 	border-color:#CCCCCC rgb(153, 153, 153) rgb(153, 153, 153) rgb(204, 204, 204);
 	border-style:double;
 	border-width:3px;
@@ -382,13 +382,13 @@ table.infoTable thead tr th.asc, th.desc{
 }
 
 table.infoTable thead tr th.asc {
-    background-image: url("/images/interface/tblsort_asc.gif");
+    background-image: url("/static/images/interface/tblsort_asc.gif");
     background-position: left center;
     background-repeat:no-repeat;
 }
 
 table.infoTable thead tr th.desc {
-    background-image: url("/images/interface/tblsort_desc.gif");
+    background-image: url("/static/images/interface/tblsort_desc.gif");
     background-position: left center;
     background-repeat:no-repeat;
 }
@@ -456,11 +456,11 @@ table.infoTable tr.infoExpand td div.hiddenInfo {
 }
 
 table.infoTable tr td a img.expand {
-	background-image: url(/images/interface/expand.gif);
+	background-image: url('/static/images/interface/expand.gif');
 }
 
 table.infoTable tr td a img.contract {
-	background-image: url(/images/interface/contract.gif);
+	background-image: url('/static/images/interface/contract.gif');
 }
 
 table.infoTable td.ttl {
@@ -483,7 +483,7 @@ body.login {
     background-color: #000000;
 }
 #login {
-    background:transparent url(/images/login/login_top.png) no-repeat scroll center top;
+    background:transparent url('/static/images/login/login_top.png') no-repeat scroll center top;
     color:#ffffff;
     margin:5em auto 1em;
     padding:35px 0pt 0pt 0pt;
@@ -506,7 +506,7 @@ body.login {
     color: #ffffff;
 }
 #login form {
-	background:transparent url(/images/login/login_bottom.png) no-repeat scroll center bottom;
+	background:transparent url('/static/images/login/login_bottom.png') no-repeat scroll center bottom;
 	height:auto !important;
 	min-height:200px;
 	padding:0pt 50px 15px;

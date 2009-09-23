@@ -3,16 +3,57 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
 	<title>{% block title %}openIPAM{% endblock %}</title>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<meta http-equiv="content-language" content="en" />
+	<meta name="robots" content="noindex,nofollow" />
 	<link rel="stylesheet" href="{{ MEDIA_URL }}css/main.css" type="text/css" />
+	<!--[if lte IE 7]>
+	<link href="/styles/css/patch_layout.css" rel="stylesheet" type="text/css" />
+	<![endif]-->
 	{% block head %}{% endblock %}
 </head>
-<body>
-	{% block header %}
-	{% endblock %}
-	
-	{% block inner %}
-	{% endblock %}
-	
+{% block body %}<body>
+	<div id="page_margins">
+		<div id="topnav">
+			<a class="skip" title="skip link" href="#navigation">Skip to the navigation</a>
+			<span class="hideme">.</span>
+			<a class="skip" title="skip link" href="#main">Skip to the content</a>
+			<span class="hideme">.</span>
+			<a href="/logout">Logout {{ request.user }}</a> |  
+		</div>
+		
+		<div id="page">
+			{% block header %}
+			<div id="header">
+				<a href="/" onfocus="this.blur()"><img src="/images/logo/logo.png" /></a>
+			</div>
+			{% endblock %}
+			{% block topnav %}
+			<div id="nav">
+				<a id="navigation" name="navigation"></a>
+				<div id="nav_main">
+					<ul>
+					</ul>
+					<ul class="rightbar">
+					</ul>
+				</div>
+			</div>
+			{% endblock %}
+			{% block inner %}
+			{% endblock %}
+			{% block footer %}
+			<div id="footer">
+				Powered by <a href="http://www.openipam.org">openIPAM</a> - Produced by <a href="http://www.usu.edu">Utah State University</a> - <a href="http://it.usu.edu/">Information Technology</a>
+			</div>
+			{% endblock %}
+		</div><!-- end page -->
+	</div><!-- end page margins -->
 	{% block scripts %}{% endblock %}
-</body>
+	<script type="text/javascript" src="{{ MEDIA_URL }}scripts/jquery/jquery.min.js"></script>
+	<script type="text/javascript" src="{{ MEDIA_URL }}scripts/jquery.openipam.js"></script>
+	<script type="text/javascript">
+		$.openipam.init();
+	</script>
+	%s
+</body>{% endblock %}
 </html>
