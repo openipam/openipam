@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block head %}{% endblock %}
+
+{% block left %}
+	<ul id="submenu"><li id="title">Actions</li><li><a href="/hosts/add">Add Host</a></li></ul><ul class="options" id="submenu"><li id="title">Options</li><li><a href="/hosts/?show_expired">Hide expired hosts</a></li><li><a href="/hosts/?show_all">Show only my hosts</a></li></ul>
+{% endblock %}
+	
+{% block right %}
+	<div class="hidden" id="searchHelp">
+		<p>
+			Search for hostnames, IP addresses, MAC addresses, or networks (in
+			CIDR notation).  Wildcards are allowed in hostnames.  Hostnames without a '.'
+			are assumed to be *name*.
+		</p>
+		<strong>For advanced searches...</strong>
+		<p>
+			Multiple search terms may be included, space separated, but no more
+			than one of each type.
+		</p>
+		<p>Try these special query types:</p>
+		<pre>user:<em>username here</em></pre>
+		<pre>name:<em>hostname</em></pre>
+		<pre>ip:<em>IP address</em></pre>
+		<pre>net:<em>network (CIDR notation)</em></pre>
+		<pre>mac:<em>MAC address</em></pre>
+	</div>
+
+	<div style="float: right; width: 320px;">
+		<img style="float: left; padding-top: 8px; display: none;" id="loaderIcon" src="{{ MEDIA_URL }}images/interface/loader.gif"/>
+		<form action="/hosts/search/" method="get" class="search" name="search">
+				<div class="submit">
+					<a id="searchHelpIcon" href="javascript:;"><img src="{{ MEDIA_URL }}images/interface/question.gif"/></a>
+					<input type="text" value="" style="width: 200px;" name="q" id="searchBox" class="text"/>
+					<input type="submit" value="Search" id="submitSearch"/>
+				</div>
+		</form>
+	</div>
+
+	<h1>{{ title|default:"Hosts" }}</h1>
+	
+	<form action="." method="post">
+		{{ form.as_p }}
+		<p class="submit">
+			<input type="submit" value="Add Host &raquo;"/>
+		</p>
+	</form>
+	
+	
+	<!-- 
+	<a href="/hosts/search/">Show my hosts expiring within 60 days</a><br/><br/>
+	<img src="{{ MEDIA_URL }}images/interface/search_here.png" style="float: right; margin-right: 350px; margin-top: 6px;"/>
+	<div class="goodMessage">
+		What hosts would you like to see?
+	</div>
+	 -->
+{% endblock %}
+
+{% block scripts %}
+	<script type="text/javascript" src="{{ MEDIA_URL }}scripts/hosts.js"></script>
+{% endblock %}
+

@@ -81,7 +81,10 @@ INSTALLED_APPS = (
     #'django.contrib.contenttypes',
     'django.contrib.sessions',
     #'django.contrib.sites',
-    'dataforms',
+    'hosts',
+    'networks',
+    'domains',
+    'admin'
 )
 
 # The settings of the backend webservice
