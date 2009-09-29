@@ -1,23 +1,15 @@
 from django.conf.urls.defaults import *
 from django.conf import settings
 
-# Uncomment the next two lines to enable the admin:
-# from django.contrib import admin
-# admin.autodiscover()
-
-urlpatterns = patterns('glue.views',
-	url(r'^$', 'index', name='index'),
+urlpatterns = patterns('',
+	url(r'^$', 'glue.views.index', name='index'),
+	url(r'^hosts/$', 'hosts.views.index', name='hosts'),
+	url(r'^hosts/add/$', 'hosts.views.host', name='add_host'),
+	url(r'^hosts/edit/(?P<host>.*)$', 'hosts.views.host', name='edit_host'),
 	
 	# Login/Logout urls
 	url(r'^login/$', 'login', name='login'),
 	url(r'^logout/$', 'login', { 'logout' : True }, name='logout'),
-
-    # Uncomment the admin/doc line below and add 'django.contrib.admindocs' 
-    # to INSTALLED_APPS to enable admin documentation:
-    # (r'^admin/doc/', include('django.contrib.admindocs.urls')),
-
-    # Uncomment the next line to enable the admin:
-    # (r'^admin/(.*)', admin.site.root),
 )
 
 # Only serve static files in development

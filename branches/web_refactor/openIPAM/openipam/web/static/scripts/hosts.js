@@ -24,7 +24,7 @@ function toggleHostFlyout( mac ){
 	if($("#hostInfo" + mac + ' input.isLoaded').attr('name') == "False") {
 		
 		position = $("#hostInfo" + mac + ' div.innerHostInfo');
-		position.append('<img src="/images/interface/loader.gif" id="loaderIcon" />');
+		position.append('<img src="/static/images/interface/loader.gif" id="loaderIcon" />');
 		
 		output = [];
 		
@@ -308,7 +308,7 @@ $(function() {
 	});
 	
 	$('#usernameSearch').click(function () {
-		$(this).after('<img src="/images/interface/loader.gif" id="loaderIcon" />');
+		$(this).after('<img src="/static/images/interface/loader.gif" id="loaderIcon" />');
 		$('#showGroupsAgain').show();
 		$.ajax({
 			url: "/ajax/ajax_get_groups/",
