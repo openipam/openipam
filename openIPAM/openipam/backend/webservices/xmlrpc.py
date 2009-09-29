@@ -1032,6 +1032,17 @@ class MainWebService(XMLRPCController):
 		return net_ids
 	
 	@cherrypy.expose
+	def update_network(self, *args):
+		"""
+		Change a network
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		db.update_network( **args[0] )
+	
+	@cherrypy.expose
 	def edit_network(self, *args):
 		"""
 		Edit a network

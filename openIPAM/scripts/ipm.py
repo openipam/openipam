@@ -823,6 +823,31 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=True, do_validation=False, expires=expiration )
 
+	def do_update_network( self, arg ):
+		match = self.iface.get_networks(network=arg.strip())
+		if len(match) != 1:
+			raise Exception("No unique match: %s" % match)
+
+		network = match[0]
+
+		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id') ] , defaults=network)
+		
+		changed = {}
+		new_net = None
+		for k in vals.keys():
+			if network.has_key(k):
+				if vals[k] != network[k]:
+					if k=='network':
+						new_net = vals[k]
+					else:
+						changed[k] = vals[k]
+			else:
+				if vals[k]:
+					changed[k] = vals[k]
+
+		print changed
+		self.iface.update_network(network=arg, new_network=new_net, **changed)
+
 	def do_add_network( self, arg ):
 		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id') ] )
 

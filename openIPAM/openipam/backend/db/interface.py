@@ -1961,6 +1961,9 @@ class DBInterface( DBBaseInterface ):
 	def __find_next_mac(self, mac):
 		if mac.lower() == 'vmware':
 			oui = '00:50:56:00:00:00'
+		else:
+			raise Exception("Don't know how to handle OUI: %s" % mac )
+
 		# find the next unused MAC address in the vmware OUI -- FIXME: make a table of name,min_mac,max_mac to get this from
 		q = self.get_hosts(mac=oui)
 		if not q:
@@ -2339,6 +2342,78 @@ class DBInterface( DBBaseInterface ):
 		"""internal_auth"""
 		raise Exception('This functionality is provided by DBAuthInterface.create_internal_user(...)')
 		
+	def update_network( self, network, new_network=None, pool=False, **kw ):
+		# Check permissions
+		self.require_perms(perms.DEITY)
+
+		kw['changed_by'] = self._uid
+		if kw.has_key('changed'):
+			raise Exception("Naughty!")
+
+		if new_network:
+			kw['network'] = new_network
+			addr = openipam.iptypes.IP(new_network)
+			if addr.family == 6 and not backend.allow_ipv6:
+				raise error.InvalidArgument('IPv6 support is disabled in backend configuration.')
+			del addr
+
+			# Add all addresses from this network into the addresses table
+			net = openipam.iptypes.IP(new_network)
+			ip4 = net.version() == 4
+			if not ip4 and net.prefixlen() != 64:
+				raise Exception('Are you really trying to allocate a network that isn\'t a /64?')
+			if pool and not ip4:
+				raise Exception('Pools are only used for IPv4 addresses.')
+		
+		# Check if this network overlaps with another network
+		self._begin_transaction()
+		try:
+			query = select([obj.networks.c.network], or_(obj.networks.c.network.op("<<=")(new_network), obj.networks.c.network.op(">>")(new_network)))
+			result = self._execute(query)
+
+			if len(result) != 1:
+				raise Exception("I can't do what you want: %s" % result)
+
+			if new_network:
+				net = openipam.iptypes.IP(new_network)
+				old_net = openipam.iptypes.IP(network)
+				if not old_net in net:
+					raise Exception("Cannot change network %s to %s.  Network must be a strict subset of new_network." % (network, new_network))
+				
+			query = obj.networks.update( values=kw ).where( obj.networks.c.network == network )
+			result = self._execute_set( query )
+
+			# new network must contain old network
+			if new_network:
+				invalid = [ net[0], net[backend.default_gateway_address_index], net.broadcast(), ] # mark gateways as reserved, although we should assign the mac of the router
+
+				if ip4:
+					for address in net:
+						# FIXME: probably should un-reserve the old gateway, etc. if necessary
+						if address not in old_net:
+							if (address not in invalid) or (net.prefixlen() >= 31):
+								# If address is not invalid or in a /31 or /32, add the address as unreserved
+								# otherwise we would end up with no available addresses
+								if pool == False:
+									addr_pool = backend.func_get_pool_id( address )
+								else:
+									addr_pool = pool
+								self.add_address( address = str( address ), network=new_network, pool = addr_pool )
+							else:
+								self.add_address( address = str( address ), network=new_network, pool = None, reserved=True )
+				else:
+					# FIXME: IPv6: reserve our router/network addresses here
+					for address in invalid:
+						self.add_address(address=address, network=network, reserved=True)
+				
+			self._commit()
+		except:
+			self._rollback()
+			raise
+		
+		return result
+		
+
 	def add_network( self, network, name=None, gateway=None, description=None, dhcp_group=None, pool=False, shared_network=None ):
 		"""Add a network
 		@param network: a CIDR network mask
