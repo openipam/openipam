@@ -357,7 +357,8 @@ class Hosts(BasePage):
 			v = kw[k]
 			if hasattr(v, '__contains__') and '&' in v:
 				raise error.InvalidArgument('& is not valid here')
-			kw_elements.append('%s=%s' % (k,v))
+			if k != 'page':
+				kw_elements.append('%s=%s' % (k,v))
 
 		search_str = '/search/?%s&' % '&'.join(kw_elements)
 		print search_str
