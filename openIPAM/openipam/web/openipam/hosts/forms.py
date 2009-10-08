@@ -1,10 +1,11 @@
 from django import forms
-from fields import MACAddressFormField
+from fields import MACAddressFormField, HostnameFormField
 
 class SingleHostForm(forms.Form):
-    mac = MACAddressFormField(max_length=17)
+    mac = MACAddressFormField(label="MAC Address")
     hostname = forms.CharField()
     expiration = forms.EmailField()
     owners = forms.BooleanField(required=False)
-    hostname = forms.CharField()
+    hostname = HostnameFormField()
+    ip_address = forms.IPAddressField(label="IP Address")
     description = forms.TextInput() 

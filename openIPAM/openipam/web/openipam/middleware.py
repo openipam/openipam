@@ -15,7 +15,9 @@ class PermissionsMiddleware(object):
 		
 		# Make sure the user is logged in to see anything, otherwise redirect
 		if not request.session.has_key('user'):
-			print request.session
 			return HttpResponseRedirect('%s?next=%s' %(settings.LOGIN_URL, request.path))
 			
 		return None
+	
+class WebserviceMiddleware(object):
+	pass

@@ -40,7 +40,24 @@
 	<h1>{{ title|default:"Hosts" }}</h1>
 	
 	<form action="." method="post">
-		{{ form.as_p }}
+		{% for field in form %}
+			{% if not field.is_hidden %}
+				<div class="form-row">
+					{% if field.field.is_checkbox %}
+						{{ field }} {{ field.label_tag }}
+					{% else %}
+						{{ field.label_tag }} {{ field }}
+					{% endif %}
+					{{ field.errors }}
+					
+					{% if field.help_text %}
+					<p>{{ field.help_text }}</p>
+					{% endif %}
+				</div>
+			{% else %}
+				{{ field }}
+			{% endif %}
+		{% endfor %}
 		<p class="submit">
 			<input type="submit" value="Add Host &raquo;"/>
 		</p>

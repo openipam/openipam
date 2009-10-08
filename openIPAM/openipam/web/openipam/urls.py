@@ -8,8 +8,8 @@ urlpatterns = patterns('',
 	url(r'^hosts/edit/(?P<host>.*)$', 'hosts.views.host', name='edit_host'),
 	
 	# Login/Logout urls
-	url(r'^login/$', 'login', name='login'),
-	url(r'^logout/$', 'login', { 'logout' : True }, name='logout'),
+	url(r'^login/$', 'glue.views.login', name='login'),
+	url(r'^logout/$', 'glue.views.login', { 'logout' : True }, name='logout'),
 )
 
 # Only serve static files in development
