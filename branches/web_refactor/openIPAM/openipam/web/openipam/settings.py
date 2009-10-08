@@ -63,7 +63,8 @@ TEMPLATE_LOADERS = (
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'openipam.middleware.permissions.PermissionsMiddleware',
+    'openipam.middleware.WebserviceMiddleware',
+    'openipam.middleware.PermissionsMiddleware',
 #    'django.contrib.auth.middleware.AuthenticationMiddleware',
 )
 
@@ -84,8 +85,12 @@ INSTALLED_APPS = (
     'hosts',
     'networks',
     'domains',
-    'admin'
+    'admin',
 )
+
+try: __import__("django_extensions")
+except ImportError: pass
+else: INSTALLED_APPS += ("django_extensions",)
 
 # The settings of the backend webservice
 WEBSERVICE_SSL_ENABLED = False

@@ -345,26 +345,41 @@ div#col3 div#col3_content .form {
 	width: 100%;
 }
 
-form div#element {
+.form-row {
 	clear: right;
 	display: block;
 	line-height: 2.5em;
 	min-height:25pt;
+	line-height: 2.0em;
+	margin-bottom: 6px;
 }
-form div#label {
+	
+.form-row label {
 	float:left;
 	font-size: 1.2em;
 	width:20%;
 }
-form div#value {
-	padding: 0.3em 0pt 0.3em 20%;
-	width: auto;
+.form-row label + input[type=text] {
+	padding: 4px;
+	min-width: 350px;
 }
 
-form input.text, input.file {
-	padding: 3px;
-	width: 350px;
+.form-row ul.errorlist {
+	color: red;
+	list-style-type:none;
+	margin: 0 0 10px 0;
 }
+.form-row ul.errorlist li {
+	margin: 0;
+}
+		
+.error, .notice, .success {padding:.8em;margin-bottom:1em;border:2px solid #ddd;}
+.error {background:#FBE3E4;color:#8a1f11;border-color:#FBC2C4;}
+.notice {background:#FFF6BF;color:#514721;border-color:#FFD324;}
+.success {background:#E6EFC2;color:#264409;border-color:#C6D880;}
+.error a {color:#8a1f11;}
+.notice a {color:#514721;}
+.success a {color:#264409;}
 
 /* Info Table CSS */
 
