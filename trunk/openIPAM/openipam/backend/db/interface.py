@@ -642,15 +642,18 @@ class DBBaseInterface(object):
 
 			if addresses:
 				a_records = self._get_dns_records( address = addresses ).distinct()
-				union_foo.append(a_records.where(whereclause))
+				if a_records:
+					union_foo.append(a_records.where(whereclause))
 
 				ptr_names = [ openipam.iptypes.IP(i).reverseName()[:-1] for i in addresses ]
-				ptrs = self._get_dns_records( name=ptr_names ).distinct()
-				union_foo.append(ptrs.where(whereclause))
+				if ptr_names:
+					ptrs = self._get_dns_records( name=ptr_names ).distinct()
+					union_foo.append(ptrs.where(whereclause))
 
 				a_record_names = [ i['name'] for i in self._execute(self._get_dns_records(address=addresses).with_only_columns([obj.dns_records.c.name,]) ) ]
-				other_records = self._get_dns_records( content = a_record_names ).distinct()
-				union_foo.append(other_records.where(whereclause))
+				if a_record_names:
+					other_records = self._get_dns_records( content = a_record_names ).distinct()
+					union_foo.append(other_records.where(whereclause))
 
 			if len(union_foo) > 2:
 				query = union( *union_foo )
