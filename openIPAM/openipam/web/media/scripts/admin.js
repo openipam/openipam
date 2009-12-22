@@ -94,7 +94,7 @@ function restoreNetworkRemove( id ) {
 
 function removeNetwork( id ){
 	$.ajax({
-		url: "/ajax/ajax_del_network_from_group/?nid="+id+"&gid="+$('input#gid').val(),
+		url: "/ajax/ajax_del_network_from_group/?nid="+id.replace('--','/').replace('-','.')+"&gid="+$('input#gid').val(),
 		type: "GET",
 		success: function() {
 				$("#network" + id).remove();
