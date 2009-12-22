@@ -2847,7 +2847,7 @@ class DBInterface( DBBaseInterface ):
 			self._do_delete( table=obj.addresses, where=obj.addresses.c.address.op("<<")(network) )
 			
 			# Delete the network
-			where = obj.netwoks.c.id == network
+			where = obj.networks.c.network == network
 			result = self._do_delete( table=obj.networks, where=where )
 			
 			self._commit()
