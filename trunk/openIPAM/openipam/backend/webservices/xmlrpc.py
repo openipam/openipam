@@ -1061,8 +1061,7 @@ class MainWebService(XMLRPCController):
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
-		
-		pass
+		db.del_network(*args)		
 	
 	@cherrypy.expose
 	def get_networks(self, *args):

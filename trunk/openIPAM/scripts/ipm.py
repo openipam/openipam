@@ -501,6 +501,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		net = arg.strip()
 		self.onecmd( 'show_network %s' % net )
 		if self.get_bool_from_user( 'delete this network', default=False ):
+			print 'deleting...'
 			self.iface.del_network( network=net )
 	
 	def do_add_domain( self, arg ):
