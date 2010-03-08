@@ -45,7 +45,7 @@ class Hosts(BasePage):
 	def get_leftnav(self, action="", show_options=True):
 		return '%s%s' % (self.leftnav_actions(action), (self.leftnav_options() if show_options else ''))
 	
-	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, namesearch=None, network=None, username=None, expiring=False, count=False, order_by='hostname'):
+	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, namesearch=None, network=None, uid=None, username=None, gid=None, groupname=None, expiring=False, count=False, order_by='hostname'):
 		"""
 		@param page: the current page the user is viewing
 		@param show_all_hosts: default false, will only show hosts that the current user has OWNER over
@@ -72,7 +72,10 @@ class Hosts(BasePage):
 			'ip' : ip,
 			'mac' : mac,
 			'count' : count,
+			'uid' : uid,
 			'username' : username,
+			'gid' : gid,
+			'groupname' : groupname,
 			'hostname' : hostname,
 			'namesearch' : namesearch,
 			'order_by' : order_by,
