@@ -320,7 +320,7 @@ class Hosts(BasePage):
 				'ip':'ip', 'mac':'mac', 'user':'username',
 				'username':'username', 'net':'network',
 				'network':'network', 'hostname':'namesearch',
-				'name':'namesearch',
+				'name':'namesearch', 'group':'groupname',
 				}
 
 		for element in q.split( ):

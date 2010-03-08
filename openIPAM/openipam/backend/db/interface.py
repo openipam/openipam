@@ -838,7 +838,7 @@ class DBBaseInterface(object):
 			
 		return query
 	
-	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
+	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
 		"""
 		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
@@ -882,10 +882,21 @@ class DBBaseInterface(object):
 			
 		# If username was passed in, get the uid
 		if username:
+			if uid:
+				raise Exception("You cannot specify both username and uid.")
 			user = self.get_users(username=username)
 			if not user:
 				raise error.NotUser("No user found named %s" % username)
 			uid = user[0]['id']
+			
+		# If groupname was passed in, get the gid
+		if groupname:
+			if gid:
+				raise Exception("You cannot specify both groupname and gid.")
+			group = self.get_groups(name=groupname)
+			if not group:
+				raise error.NotUser("No group found named %s" % groupname)
+			gid = group[0]['id']
 			
 		# Filter and make the whereclause
 		
