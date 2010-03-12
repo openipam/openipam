@@ -424,6 +424,7 @@ $(function() {
 	}
 	
 	$('#searchBox').focus();
+	$('#mac').focus();
 
 	$("#selectAll").click(function() {
 		if ($(this).attr("checked")) {
