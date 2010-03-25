@@ -59,10 +59,10 @@ class Hosts(BasePage):
 			additional_perms = '00000000'
 
 		if hostname:
-			hostname = hostname.replace('*','%')
+			hostname = hostname.replace('*','%').lower()
 		
 		if namesearch:
-			namesearch = namesearch.replace('*','%')
+			namesearch = namesearch.replace('*','%').lower()
 		
 		values = {
 			'additional_perms' : str(additional_perms),
