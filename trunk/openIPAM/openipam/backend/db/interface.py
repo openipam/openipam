@@ -996,7 +996,7 @@ class DBBaseInterface(object):
 			
 		return hosts
 		
-	def _find_permissions_for_objects_query(self, objects_list, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
+	def _find_permissions_for_objects_query(self, objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
 		primary_key_name = primary_key.name
 		
 		# Create a list of primary key IDs
