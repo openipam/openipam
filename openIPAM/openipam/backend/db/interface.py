@@ -996,7 +996,7 @@ class DBBaseInterface(object):
 			
 		return hosts
 		
-	def _find_permissions_for_objects_query(self, objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
+	def _find_permissions_for_objects_query(self, objects_list, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
 		primary_key_name = primary_key.name
 		
 		# Create a list of primary key IDs
@@ -1007,7 +1007,7 @@ class DBBaseInterface(object):
 			objects_list = objects
 			
 		if not objects_list:
-			return [{}]
+			return None, None
 		
 		# Query for the objects, LEFT joining permissions
 		fromobj = (bridge_table.join( primary_table, and_(foreign_key==primary_key, primary_key.in_(objects_list) ) )
@@ -1038,6 +1038,8 @@ class DBBaseInterface(object):
 		'''
 		
 		permissions_col, fromobj = self._find_permissions_for_objects_query( objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key )
+		if not permissions_col or not fromobj:
+			return [{}]
 
 		columns = [primary_key, permissions_col.label('permissions') ]
 
@@ -1073,6 +1075,8 @@ class DBBaseInterface(object):
 		primary_key=obj.hosts.c.mac
 
 		permissions_col, fromobj = self._find_permissions_for_objects_query(objects=hosts, primary_table=obj.hosts, primary_key=primary_key, bridge_table=obj.hosts_to_groups, foreign_key=obj.hosts_to_groups.c.mac, alternate_perms_key=alternate_perms_key)
+		if not permissions_col or not fromobj:
+			return [{}]
 
 		dom_u2g = obj.users_to_groups.alias('domain_users_to_groups')
 		dom_u2g2d = dom_u2g.join(obj.domains_to_groups, and_(dom_u2g.c.gid == obj.domains_to_groups.c.gid, dom_u2g.c.uid == self._uid ))
