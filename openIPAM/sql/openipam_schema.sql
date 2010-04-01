@@ -617,4 +617,19 @@ CREATE TABLE disabled (
 	disabled_by integer REFERENCES users(id) NOT NULL
 );
 
+CREATE TABLE vlans (
+	id smallint PRIMARY KEY,
+	name varchar(12) NOT NULL, -- our HP switches
+	description text,
+	changed timestamp default NOW(),
+	changed_by integer REFERENCES users(id) NOT NULL,
+	CHECK (id > 0 AND id < 4096)
+);
+
+CREATE TABLE networks_to_vlans (
+	network cidr references networks(network) PRIMARY KEY,
+	vlan smallint REFERENCES vlans(id) NOT NULL,
+	changed timestamp default NOW(),
+	changed_by integer REFERENCES users(id) NOT NULL
+);
 
