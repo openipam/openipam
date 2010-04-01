@@ -281,6 +281,7 @@ class DBBaseInterface(object):
 		if not self.has_min_perms(permission):
 			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = permission )
 			net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = permission )
+			dom_perms = obj.perm_query( self._uid, self._min_perms, domains = True, required_perms = permission )
 			
 			# Find all hosts where the user has access via networks_to_groups
 			net_perms = net_perms.join(obj.addresses, and_(net_perms.c.nid == obj.addresses.c.network, obj.addresses.c.mac==mac))
@@ -288,17 +289,22 @@ class DBBaseInterface(object):
 			# Find all hosts where the user has access via hosts_to_groups
 			host_perms = host_perms.join(obj.hosts, and_(host_perms.c.mac==obj.hosts.c.mac, obj.hosts.c.mac==mac))
 			
+			# Find all hosts where the user has access via networks_to_groups
+			dom_perms = dom_perms.join(obj.domains, dom_perms.c.did == obj.domains.c.id).join(obj.hosts, and_( obj.hosts.c.hostname.like('%.' + obj.domains.c.name), obj.hosts.c.mac==mac))
+			
 			net_hosts = select([obj.addresses.c.mac], from_obj=net_perms)
 			group_hosts = select([obj.hosts.c.mac], from_obj=host_perms)
+			dom_hosts = select([obj.hosts.c.mac], from_obj=dom_perms)
 			
-			# Execute the queries
+			# Execute the queries -- FIXME - do a union
 			net_hosts = self._execute(net_hosts)
 			group_hosts = self._execute(group_hosts)
+			dom_hosts = self._execute(dom_hosts)
 			
 			# If anything exists, we allow this to continue because the user has permissions
 			# over that host either via a host group or a network
 			# If empty, raise exception
-			if not group_hosts and not net_hosts:
+			if not group_hosts and not net_hosts and not dom_hosts:
 				raise error.InsufficientPermissions(error_msg)
 
 	def _require_perms_on_address(self, permission, address, error_msg=None):
@@ -990,6 +996,30 @@ class DBBaseInterface(object):
 			
 		return hosts
 		
+	def _find_permissions_for_objects_query(self, objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
+		primary_key_name = primary_key.name
+		
+		# Create a list of primary key IDs
+		
+		if objects and (type(objects[0]) is types.DictionaryType or type(objects[0] is sqlalchemy.engine.base.RowProxy)):
+			objects_list = [object[primary_key_name] for object in objects]
+		else:
+			objects_list = objects
+			
+		if not objects_list:
+			return [{}]
+		
+		# Query for the objects, LEFT joining permissions
+		fromobj = (bridge_table.join( primary_table, and_(foreign_key==primary_key, primary_key.in_(objects_list) ) )
+			.outerjoin(obj.users_to_groups, and_(obj.users_to_groups.c.gid==bridge_table.c.gid, obj.users_to_groups.c.uid == self._uid)))
+		
+		permissions_col = sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.permissions).op('|')(str(self._min_perms)),str(self._min_perms))
+
+		if primary_key==obj.hosts.c.mac:
+			host_permissions_col = sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.host_permissions),str(self._min_perms))
+			permissions_col = permissions_col.op('|')(host_permissions_col)
+
+		return permissions_col, fromobj
 		
 	def _find_permissions_for_objects(self, objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key=None ):
 		'''
@@ -1007,27 +1037,12 @@ class DBBaseInterface(object):
 		primary_key's name is used. This better be a unique column or bad things may happen.
 		'''
 		
-		primary_key_name = primary_key.name
-		
-		# Create a list of primary key IDs
-		
-		if objects and (type(objects[0]) is types.DictionaryType or type(objects[0] is sqlalchemy.engine.base.RowProxy)):
-			objects_list = [object[primary_key_name] for object in objects]
-		else:
-			objects_list = objects
-			
-		if not objects_list:
-			return [{}]
-		
-		# Query for the objects, LEFT joining permissions
-		fromobj = (bridge_table.join( primary_table, and_(foreign_key==primary_key, primary_key.in_(objects_list) ) )
-			.outerjoin(obj.users_to_groups, and_(obj.users_to_groups.c.gid==bridge_table.c.gid, obj.users_to_groups.c.uid == self._uid)))
-		
-		columns = [primary_key, sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.permissions).op('|')(str(self._min_perms)),str(self._min_perms)).label('permissions'),
-				sqlalchemy.sql.func.coalesce(sqlalchemy.sql.func.bit_or(obj.users_to_groups.c.host_permissions).op('|')(str(self._min_perms)),str(self._min_perms)).label('host_permissions')]
-		
+		permissions_col, fromobj = self._find_permissions_for_objects_query( objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key )
+
+		columns = [primary_key, permissions_col.label('permissions') ]
+
 		if alternate_perms_key:
-			columns += [alternate_perms_key]
+			columns.append(alternate_perms_key)
 		
 		query = select(columns, from_obj=fromobj).group_by(primary_key)
 		if alternate_perms_key:
@@ -1038,23 +1053,10 @@ class DBBaseInterface(object):
 		permissions = {}
 		
 		# If the alternate_perms_key is specified, use that for our permissions object
-		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key_name
+		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key.name
 		
-		# Initialize the permissions dictionary with my min_perms for every element
-		# DELETEME: the DB is doing this now
-		#for row in results:
-		#	permissions[row[perms_key_name]] = str(self._min_perms)
-		
-		# This section inherently takes care of having permissions to an object via multiple groups
-		# ie. A host can be in multiple groups and the final permissions you have over that host
-		# is a bitwise OR of ALL of those permission sets (and your min_permissions)
 		for row in results:
-			# Because we LEFT JOINed, row['permissions'] will be NULL if we don't have group access over this object 
-			# FIXME: is it reasonable to | in host_permissions here?  (ie. is this only used for hosts?)
-			if permissions.has_key(row[perms_key_name]):
-				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'] | permissions[row[perms_key_name]])
-			else:
-				permissions[row[perms_key_name]] = str(Perms(row['permissions']) | row['host_permissions'])
+			permissions[row[perms_key_name]] = row['permissions']
 			
 		# FIXME: why are we making a list of length 1?
 		return [permissions]
@@ -1068,7 +1070,50 @@ class DBBaseInterface(object):
 		The dictionary must have 'mac' key, all others keys are not used
 		'''
 		
-		return self._find_permissions_for_objects(objects=hosts, primary_table=obj.hosts, primary_key=obj.hosts.c.mac, bridge_table=obj.hosts_to_groups, foreign_key=obj.hosts_to_groups.c.mac, alternate_perms_key=alternate_perms_key)
+		primary_key=obj.hosts.c.mac
+
+		permissions_col, fromobj = self._find_permissions_for_objects_query(objects=hosts, primary_table=obj.hosts, primary_key=primary_key, bridge_table=obj.hosts_to_groups, foreign_key=obj.hosts_to_groups.c.mac, alternate_perms_key=alternate_perms_key)
+
+		dom_u2g = obj.users_to_groups.alias('domain_users_to_groups')
+		dom_u2g2d = dom_u2g.join(obj.domains_to_groups, and_(dom_u2g.c.gid == obj.domains_to_groups.c.gid, dom_u2g.c.uid == self._uid ))
+
+		fromobj = fromobj.outerjoin( obj.domains, obj.hosts.c.hostname.like('%.' + obj.domains.c.name) )
+	
+		fromobj = fromobj.outerjoin(dom_u2g2d, obj.domains_to_groups.c.did == obj.domains.c.id)
+
+		# Bad order!
+		#fromobj = fromobj.outerjoin( obj.domains_to_groups, obj.domains_to_groups.c.did == obj.domains.c.id )
+		#fromobj = fromobj.outerjoin( dom_u2g, and_(dom_u2g.c.gid == obj.domains_to_groups.c.gid, dom_u2g.c.uid == self._uid ))
+
+		# Do _not_ or in the 'host_perms' here, or everyone will be able to mess with everything.
+		dom_permissions_col = sqlalchemy.sql.func.coalesce( sqlalchemy.sql.func.bit_or(dom_u2g.c.permissions), str(self._min_perms))
+		permissions_col = permissions_col.op('|')(dom_permissions_col)
+
+		columns = [primary_key, permissions_col.label('permissions'), dom_permissions_col.label('meh') ]
+
+		if alternate_perms_key:
+			columns.append(alternate_perms_key)
+		
+		query = select(columns, from_obj=fromobj).group_by(primary_key)
+		if alternate_perms_key:
+			query = query.group_by(alternate_perms_key)
+
+		debug = select( [primary_key, dom_u2g.c.permissions, dom_u2g.c.uid, dom_u2g.c.gid, obj.hosts.c.hostname, obj.domains.c.name], from_obj=fromobj )
+		print self._execute(debug)
+		
+		results = self._execute(query)
+		print results
+		
+		permissions = {}
+		
+		# If the alternate_perms_key is specified, use that for our permissions object
+		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key.name
+		
+		for row in results:
+			permissions[row[perms_key_name]] = row['permissions']
+			
+		# FIXME: why are we making a list of length 1?
+		return [permissions]
 	
 	def find_permissions_for_domains(self, domains, alternate_perms_key=None):
 		'''
