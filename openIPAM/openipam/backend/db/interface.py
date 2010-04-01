@@ -2232,8 +2232,8 @@ class DBInterface( DBBaseInterface ):
 					if network:
 						query = query.where(obj.addresses.c.address.op('<<')(str(network))).order_by(obj.addresses.c.address)
 					
-					# Only show expired leases
-					query = query.where(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None))
+					# Only show expired or owned leases
+					query = query.where(or_(or_(obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.ends == None),obj.leases.c.mac == mac))
 					
 					if address:
 						query = query.where(obj.addresses.c.address == str(address))
