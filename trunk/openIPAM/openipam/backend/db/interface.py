@@ -804,13 +804,25 @@ class DBBaseInterface(object):
 			query = query.where(obj.guest_tickets.c.uid == uid) 
 			
 		return query
+
+	def _get_users_to_groups(self, uid=None, gid=None):
+		# require read permissions over associated groups
+		self.require_perms(perms.READ)
+
+		query = select([obj.users_to_groups], from_obj=obj.users_to_groups)
+		if uid:
+			query = query.where(obj.users_to_groups.c.uid==int(uid))
+		if gid:
+			query = query.where(obj.users_to_groups.c.gid==int(gid))
 			
+		return query
+
 	def _get_groups( self, gid=None, name=None, ignore_usergroups=False, uid=None, additional_perms=None):
 		"""
 		Return groups
 		
 		@param gid: return a single group of this database ID
-		@param name: return a single group of this name
+		@param name: return groups matching this name
 		@param ignore_usergroups: a boolean, if true no groups prepended with 'user_' will be returned
 		@param uid: a user's database ID, returns a user's groups, optionally filtered by permissions in that group
 		@param additional_perms: return groups where the users_to_groups.permissions meet these additional permission requirements
@@ -838,7 +850,10 @@ class DBBaseInterface(object):
 		if gid:
 			query = query.where(obj.groups.c.id == gid)
 		if name:
-			query = query.where(sqlalchemy.sql.func.lower(obj.groups.c.name) == name.lower())
+			if '%' in name:
+				query = query.where( sqlalchemy.sql.func.lower(obj.groups.c.name).like(name.lower()) )
+			else:
+				query = query.where(sqlalchemy.sql.func.lower(obj.groups.c.name) == name.lower())
 		if ignore_usergroups:
 			query = query.where(not_(sqlalchemy.sql.func.lower(obj.groups.c.name).like('user_%')))
 			
