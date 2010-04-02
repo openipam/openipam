@@ -200,7 +200,7 @@ class LDAPInterface(BaseAuthInterface):
 		
 		return result
 	
-	def __query( self, basedn=None, scope=ldap.SCOPE_SUBTREE, filter=None, attrs=None ):
+	def _query( self, basedn=None, scope=ldap.SCOPE_SUBTREE, filter=None, attrs=None ):
 		result = self.__conn.search_st( basedn, scope, filter, attrs )
 		return result
 	
