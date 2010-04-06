@@ -95,7 +95,7 @@ class Server(DhcpServer):
 
 		# ALWAYS set these
 		# Server-related options:
-		packet.SetOption("siaddr",dhcp.server_ip_lst)
+		# packet.SetOption("siaddr",dhcp.server_ip_lst) -- this is the 'next-server' option
 		if not bootp:
 			packet.SetOption("server_identifier",dhcp.server_ip_lst) # DHCP server IP
 
@@ -459,10 +459,16 @@ def db_consumer( dbq, send_packet ):
 			for opt in opt_vals:
 				ack.SetOption( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
 				print "Setting %s to '%s'" % ( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
+				# Use  for next-server == saddr
+				if opt['oid'] == 11:
+					ack.SetOption("siaddr", bytes_to_ints( opt['value'] ) )
+					print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt['value'] ) )
 				# Use tftp-server for next-server == sname
 				if opt['oid'] == 66:
-					ack.SetOption("sname", opt['value'])
-					print "Setting next-server to '%s'" % ( bytes_to_ints( opt['value'] ) )
+					v = opt['value']
+					v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
+					ack.SetOption("sname", bytes_to_ints(v) )
+					print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
 
 			# send an ack
 			print "  > sending ack"
