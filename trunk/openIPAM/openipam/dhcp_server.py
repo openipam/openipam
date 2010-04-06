@@ -459,10 +459,10 @@ def db_consumer( dbq, send_packet ):
 			for opt in opt_vals:
 				ack.SetOption( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
 				print "Setting %s to '%s'" % ( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
-				# Use resource-location-server for next-server
-				if opt['oid'] == 11:
-					ack.SetOption("next-server", opt['value'])
-					print "Setting next-server to '%s'" % ( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
+				# Use tftp-server for next-server == sname
+				if opt['oid'] == 66:
+					ack.SetOption("sname", opt['value'])
+					print "Setting next-server to '%s'" % ( bytes_to_ints( opt['value'] ) )
 
 			# send an ack
 			print "  > sending ack"
