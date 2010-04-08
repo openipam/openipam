@@ -299,23 +299,23 @@ def db_consumer( dbq, send_packet ):
 					print "Setting %s to '%s'" % ( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
 					# Use  for next-server == siaddr
 					if i == 11:
-						ack.SetOption("siaddr", bytes_to_ints( opt_vals[i] ) )
+						packet.SetOption("siaddr", bytes_to_ints( opt_vals[i] ) )
 						print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) )
 					# Use tftp-server for next-server == sname
 					if i == 66:
 						v = opt_vals[i]
 						v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
-						ack.SetOption("sname", bytes_to_ints(v) )
+						packet.SetOption("sname", bytes_to_ints(v) )
 						print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
 					# Use tftp file name for bootfile
 					if i == 67:
 						v = opt_vals[i]
 						v = v + '\0'*(128-len(v)) # pydhcplib is too lame to do this for us
-						ack.SetOption("file", bytes_to_ints(v) )
+						packet.SetOption("file", bytes_to_ints(v) )
 						print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
 						#print "Adding padding for lame fujitsu PXE foo"
 						# This doesn't work because pydhcplib sucks
-						#ack.SetOption("pad",'')
+						#packet.SetOption("pad",'')
 
 		def dhcp_inform(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
