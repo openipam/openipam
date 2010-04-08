@@ -288,6 +288,35 @@ def db_consumer( dbq, send_packet ):
 			mac = decode_mac( packet.GetOption('chaddr') )
 			log_packet( packet, prefix='IGN/REL:' )
 
+		def assign_dhcp_options(self, options, requested, packet):
+			opt_vals = {}
+			for o in options:
+				opt_vals[ int(o['oid']) ] = o['value']
+
+			for i in requested:
+				if opt_vals.has_key( i ):
+					packet.SetOption( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
+					print "Setting %s to '%s'" % ( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
+					# Use  for next-server == siaddr
+					if i == 11:
+						ack.SetOption("siaddr", bytes_to_ints( opt_vals[i] ) )
+						print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) )
+					# Use tftp-server for next-server == sname
+					if i == 66:
+						v = opt_vals[i]
+						v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
+						ack.SetOption("sname", bytes_to_ints(v) )
+						print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+					# Use tftp file name for bootfile
+					if i == 67:
+						v = opt_vals[i]
+						v = v + '\0'*(128-len(v)) # pydhcplib is too lame to do this for us
+						ack.SetOption("file", bytes_to_ints(v) )
+						print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+						#print "Adding padding for lame fujitsu PXE foo"
+						# This doesn't work because pydhcplib sucks
+						#ack.SetOption("pad",'')
+
 		def dhcp_inform(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
 			client_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
@@ -302,10 +331,8 @@ def db_consumer( dbq, send_packet ):
 			hops = packet.GetOption('hops')
 			if hops:
 				ack.SetOption('hops',hops)
-
-			for opt in opt_vals:
-				ack.SetOption( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
-				#print "Setting %s to '%s'" % ( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
+			
+			self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=ack )
 
 			# send an ack
 			self.SendPacket( ack )
@@ -374,9 +401,7 @@ def db_consumer( dbq, send_packet ):
 				opt_vals = self.__db.retrieve_dhcp_options( mac=mac, address=requested_ip, option_ids = requested_options )
 				print "opt_vals: %s" % str(opt_vals)
 
-				for opt in opt_vals:
-					offer.SetOption( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
-					print "Setting %s to '%s'" % ( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
+				self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=offer )
 
 			# send an offer
 			print "  > sending offer"
@@ -456,19 +481,7 @@ def db_consumer( dbq, send_packet ):
 			ack.SetOption("broadcast_address",ip_to_list(lease['broadcast'])) # TEST
 			ack.SetOption("router",ip_to_list(lease['router']))
 
-			for opt in opt_vals:
-				ack.SetOption( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
-				print "Setting %s to '%s'" % ( DhcpRevOptions[opt['oid']], bytes_to_ints( opt['value'] ) )
-				# Use  for next-server == saddr
-				if opt['oid'] == 11:
-					ack.SetOption("siaddr", bytes_to_ints( opt['value'] ) )
-					print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt['value'] ) )
-				# Use tftp-server for next-server == sname
-				if opt['oid'] == 66:
-					v = opt['value']
-					v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
-					ack.SetOption("sname", bytes_to_ints(v) )
-					print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+			self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=ack )
 
 			# send an ack
 			print "  > sending ack"
