@@ -72,11 +72,14 @@ class odict(UserDict):
         return zip(self.keys(), self.values())
 
     def keys(self):
-        l = len(self._preferred_order)
-        # Put unknown keys first
-        newkeys = self._keys[l:]
-        for k in self._keys[:l]:
-            if k is not None: newkeys.append(k)
+        if self._preferred_order:
+            l = len(self._preferred_order)
+            # Put unknown keys first
+            newkeys = self._keys[l:]
+            for k in self._keys[:l]:
+                if k is not None: newkeys.append(k)
+        else:
+            newkeys = self._keys[:]
         return newkeys
 
     def popitem(self):
