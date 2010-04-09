@@ -293,7 +293,7 @@ def db_consumer( dbq, send_packet ):
 			for o in options:
 				opt_vals[ int(o['oid']) ] = o['value']
 
-			packet.option_values.set_preferred_order(requested)
+			packet.options_data.set_preferred_order(requested)
 
 			for i in opt_vals.keys():
 				packet.SetOption( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
