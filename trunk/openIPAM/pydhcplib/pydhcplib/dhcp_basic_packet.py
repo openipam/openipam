@@ -26,36 +26,61 @@ from UserDict import UserDict
 # Lovingly ripped off from http://code.activestate.com/recipes/107747/
 
 class odict(UserDict):
-    def __init__(self, dict = None):
+    def __init__(self, _dict = None):
         self._keys = []
-        UserDict.__init__(self, dict)
+        self._preferred_order = None
+        UserDict.__init__(self, _dict)
 
     def __delitem__(self, key):
         UserDict.__delitem__(self, key)
+        if self._preferred_order:
+            if key in self._preferred_order:
+                p_idx = self._preferred_order.index(key)
+                self._keys[p_idx] = None
+                return
         self._keys.remove(key)
 
     def __setitem__(self, key, item):
+        if key == None:
+            raise Exception('I don\'t know how to handle None as a key.')
         UserDict.__setitem__(self, key, item)
-        if key not in self._keys: self._keys.append(key)
+        if self._preferred_order and key in self._preferred_order:
+            self._keys[self._preferred_order.index(key)] = key
+        elif key not in self._keys: self._keys.append(key)
+
+    def set_preferred_order(self, order):
+        self._preferred_order = order[:]
+        newkeys = [None] * len(self._preferred_order)
+        for k in self._keys:
+            if k in self._preferred_order:
+                newkeys[self._preferred_order.index(k)] = k
+            else:
+                newkeys.append(k)
+        self._keys = newkeys
 
     def clear(self):
         UserDict.clear(self)
         self._keys = []
 
     def copy(self):
-        dict = UserDict.copy(self)
-        dict._keys = self._keys[:]
-        return dict
+        _dict = UserDict.copy(self)
+        _dict._keys = self._keys[:]
+        _dict._preferred_order = self._preferred_order[:]
+        return _dict
 
     def items(self):
-        return zip(self._keys, self.values())
+        return zip(self.keys(), self.values())
 
     def keys(self):
-        return self._keys
+        newkeys = []
+        for k in self._keys:
+            if k is not None: newkeys.append(k)
+        return newkeys
 
     def popitem(self):
+        keys = self.keys()
         try:
-            key = self._keys[-1]
+            key = keys[-1]
         except IndexError:
             raise KeyError('dictionary is empty')
 
@@ -65,16 +90,15 @@ class odict(UserDict):
         return (key, val)
 
     def setdefault(self, key, failobj = None):
+        if key not in self._keys: self[key] = failobj
         UserDict.setdefault(self, key, failobj)
-        if key not in self._keys: self._keys.append(key)
 
     def update(self, dict):
-        UserDict.update(self, dict)
         for key in dict.keys():
-            if key not in self._keys: self._keys.append(key)
+            self[key] = dict[key]
 
     def values(self):
-        return map(self.get, self._keys)
+        return map(self.get, self.keys())
 
 
 class DhcpBasicPacket:

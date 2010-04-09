@@ -293,29 +293,30 @@ def db_consumer( dbq, send_packet ):
 			for o in options:
 				opt_vals[ int(o['oid']) ] = o['value']
 
-			for i in requested:
-				if opt_vals.has_key( i ):
-					packet.SetOption( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
-					print "Setting %s to '%s'" % ( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
-					# Use  for next-server == siaddr
-					if i == 11:
-						packet.SetOption("siaddr", bytes_to_ints( opt_vals[i] ) )
-						print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) )
-					# Use tftp-server for next-server == sname
-					if i == 66:
-						v = opt_vals[i]
-						v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
-						packet.SetOption("sname", bytes_to_ints(v) )
-						print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
-					# Use tftp file name for bootfile
-					if i == 67:
-						v = opt_vals[i]
-						v = v + '\0'*(128-len(v)) # pydhcplib is too lame to do this for us
-						packet.SetOption("file", bytes_to_ints(v) )
-						print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
-						#print "Adding padding for lame fujitsu PXE foo"
-						# This doesn't work because pydhcplib sucks
-						#packet.SetOption("pad",'')
+			packet.option_values.set_preferred_order(requested)
+
+			for i in opt_vals.keys():
+				packet.SetOption( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
+				print "Setting %s to '%s'" % ( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
+				# Use  for next-server == siaddr
+				if i == 11:
+					packet.SetOption("siaddr", bytes_to_ints( opt_vals[i] ) )
+					print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) )
+				# Use tftp-server for next-server == sname
+				if i == 66:
+					v = opt_vals[i]
+					v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
+					packet.SetOption("sname", bytes_to_ints(v) )
+					print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+				# Use tftp file name for bootfile
+				if i == 67:
+					v = opt_vals[i]
+					v = v + '\0'*(128-len(v)) # pydhcplib is too lame to do this for us
+					packet.SetOption("file", bytes_to_ints(v) )
+					print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+					#print "Adding padding for lame fujitsu PXE foo"
+					# This doesn't work because pydhcplib sucks
+					#packet.SetOption("pad",'')
 
 		def dhcp_inform(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
