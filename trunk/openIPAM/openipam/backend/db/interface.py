@@ -3599,7 +3599,7 @@ class DBDHCPInterface(DBInterface):
 												) )
 			self._execute_set(query)
 			
-			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),(text('extract( epoch from leases.ends - NOW() )::int').label('time_left'))], obj.leases.c.mac==mac)
+			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))], obj.leases.c.mac==mac)
 			result = self._execute(query)
 			
 			# If this lease is < 10 seconds old, don't bother updating it
@@ -3608,7 +3608,7 @@ class DBDHCPInterface(DBInterface):
 					'address':address,
 					#'starts':sqlalchemy.sql.func.now(), # Doesn't really matter, since we are extending a lease; RIGHT?
 					'server':self.server_ip,
-					'ends':sqlalchemy.sql.func.now() + text("interval '%s sec'" % expires + 300) # store an extra 5 minutes on the lease to reduce writes caused by stupid client software
+					'ends':sqlalchemy.sql.func.now() + text("interval '%s sec'" % (expires + 300) ) # store an extra 5 minutes on the lease to reduce writes caused by stupid client software
 					}
 			# select * from leases where mac = mac, if exists: update where starts < NOW()-10 sec else, insert.
 			if result:
