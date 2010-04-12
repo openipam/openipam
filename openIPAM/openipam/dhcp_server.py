@@ -315,7 +315,14 @@ def db_consumer( dbq, send_packet ):
 					v = opt_vals[i]
 					v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
 					packet.SetOption("sname", bytes_to_ints(v) )
-					print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+					print "Setting sname to '%s'" % ( bytes_to_ints( v ) )
+					try:
+						host = self.get_dns_records(tid=1,name=v)[0]
+						addr = map(int,host['ip_content'].split('.'))
+						packet.SetOption("siaddr", addr )
+						print "Setting next-server (siaddr) to '%s'" % ( addr )
+					except:
+						pass
 				# Use tftp file name for bootfile
 				if i == 67:
 					v = opt_vals[i]
