@@ -209,7 +209,11 @@ class DhcpBasicPacket:
         for each in self.options_data.keys() :
             options.append(DhcpOptions[each])
             options.append(len(self.options_data[each]))
-            options += self.options_data[each]
+	    options.append(self.options_data[each][:])
+            if DhcpOptions[each] == 67:
+                # we have a bunch of crap that reuse buffers they shouldn't,
+                #   so add a null for them here
+                options.append(0)
 
         packet = self.packet_data[:240] + options
         packet.append(255) # add end option

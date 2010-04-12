@@ -312,12 +312,13 @@ def db_consumer( dbq, send_packet ):
 					print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) )
 				# Use tftp-server for next-server == sname
 				if i == 66:
-					v = opt_vals[i]
-					v = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
-					packet.SetOption("sname", bytes_to_ints(v) )
+					v = str(opt_vals[i])
+
+					v_padded = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
+					packet.SetOption("sname", bytes_to_ints(v_padded) )
 					print "Setting sname to '%s'" % ( bytes_to_ints( v ) )
 					try:
-						host = self.get_dns_records(tid=1,name=v)[0]
+						host = self.__db.get_dns_records(tid=1,name=v)[0]
 						addr = map(int,host['ip_content'].split('.'))
 						packet.SetOption("siaddr", addr )
 						print "Setting next-server (siaddr) to '%s'" % ( addr )
