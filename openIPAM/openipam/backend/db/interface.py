@@ -3599,7 +3599,7 @@ class DBDHCPInterface(DBInterface):
 												) )
 			self._execute_set(query)
 			
-			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent')], obj.leases.c.mac==mac)
+			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),(text('extract( epoch from leases.ends - NOW() )::int').label('time_left'))], obj.leases.c.mac==mac)
 			result = self._execute(query)
 			
 			# If this lease is < 10 seconds old, don't bother updating it
@@ -3608,13 +3608,16 @@ class DBDHCPInterface(DBInterface):
 					'address':address,
 					#'starts':sqlalchemy.sql.func.now(), # Doesn't really matter, since we are extending a lease; RIGHT?
 					'server':self.server_ip,
-					'ends':sqlalchemy.sql.func.now() + text("interval '%s sec'" % expires)
+					'ends':sqlalchemy.sql.func.now() + text("interval '%s sec'" % expires + 300) # store an extra 5 minutes on the lease to reduce writes caused by stupid client software
 					}
 			# select * from leases where mac = mac, if exists: update where starts < NOW()-10 sec else, insert.
 			if result:
-				if result[0]['recent']:
-					if self.debug:
+				if result[0]['recent'] or result[0]['time_left'] > expires:
+					# do nothing
+					if self.debug and result[0]['recent']:
 						print "Recent match (< %s s old) found: %s" % (min_lease_age,str(result))
+					else:
+						print "Longer existing lease found (requested %s): %s" % (expires,str(result))
 					self._commit()
 					return result
 				query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age) ),
@@ -3691,7 +3694,7 @@ class DBDHCPInterface(DBInterface):
 		address = None
 		lease_time = None
 		#if discover:
-		#	lease_time = 600 # Give the client 30 seconds to respond to our offer
+		#	lease_time = 60 # Give the client lease_time seconds to respond to our offer
 			
 		# False for static addresses
 		make_lease = True
@@ -3909,8 +3912,10 @@ class DBDHCPInterface(DBInterface):
 
 			# FIXME: we should check lease_time here, but oh well
 			self.update_or_create_lease_and_delete_conflicting(mac, address['address'], lease_time)
-			
-		return make_lease_dict( address, random.randrange( lease_time*2/3, lease_time ), hostname )
+		
+		# This probably doesn't gain us anything, since clients should renew at random intervals anyway
+		#return make_lease_dict( address, random.randrange( lease_time*2/3, lease_time ), hostname )
+		return make_lease_dict( address, lease_time, hostname )
 
 	def mark_abandoned_lease(self, address=None, mac=None):
 		whereclause = None

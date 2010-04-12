@@ -85,7 +85,7 @@ class Server(DhcpServer):
 					dhcp.client_port,
 					dhcp.server_port)
 		self.__dbq = dbq
-		self.last_seen = {}
+		#self.last_seen = {}
 	
 	def SendPacket(self, packet, dest = None, bootp = False):
 		"""Encode and send the packet."""
@@ -138,14 +138,17 @@ class Server(DhcpServer):
 
 		our_key = (mac, type,)
 
-		if self.last_seen.has_key( our_key ):
-			time = self.last_seen[ our_key ]
-			if ( ( c_time - time ) < dhcp.between_requests ):
-				print "ignoring request type %s from mac %s because we saw a request at %s (current: %s)" % (type, mac, str(time), str(c_time))
-				log_packet( packet, prefix='IGN/TIME:' )
-				return
-			else:
-				del self.last_seen[ our_key ]
+		# Thanks to the morons at MS, we can't do this.
+		# see http://support.microsoft.com/kb/835304 for more info
+		# FIXME: find another way to prevent DoS.
+		#if self.last_seen.has_key( our_key ):
+		#	time = self.last_seen[ our_key ]
+		#	if ( ( c_time - time ) < dhcp.between_requests ):
+		#		print "ignoring request type %s from mac %s because we saw a request at %s (current: %s)" % (type, mac, str(time), str(c_time))
+		#		log_packet( packet, prefix='IGN/TIME:' )
+		#		return
+		#	else:
+		#		del self.last_seen[ our_key ]
 		
 		try:
 			log_packet( packet, prefix='QUEUED:' )
@@ -160,7 +163,7 @@ class Server(DhcpServer):
 		# guarantee it will be seen by one of the workers.  Let's add
 		# this to our list of things we don't want to respond to right
 		# now.
-		self.last_seen[ our_key ] = ( c_time )
+		#self.last_seen[ our_key ] = ( c_time )
 
 
 	def HandleDhcpDiscover(self, packet):
