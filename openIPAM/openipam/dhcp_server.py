@@ -86,6 +86,8 @@ class Server(DhcpServer):
 					dhcp.server_port)
 		self.__dbq = dbq
 		#self.last_seen = {}
+		self.seen = {}
+		self.seen_cleanup = []
 	
 	def SendPacket(self, packet, dest = None, bootp = False):
 		"""Encode and send the packet."""
@@ -129,14 +131,44 @@ class Server(DhcpServer):
 			packet.PrintOptions()
 			print "---------------------------------"
 	
-	def QueuePacket( self, packet, type ):
+	def do_seen_cleanup( self, mac, min_timestamp ):
+		if not self.seen.has_key( mac ):
+			self.seen[mac] = []
+		seen = self.seen[ mac ]
+
+		# do some cleanup on our mac
+		while seen and seen[0][0] < min_timestamp:
+			del seen[0]
+
+		# do a little bit of housekeeping while we're at it
+		if self.seen_cleanup:
+			cleanup_mac = self.seen_cleanup.pop()
+			while self.seen[ cleanup_mac ] and self.seen[ cleanup_mac ][0][0] < min_timestamp:
+				del self.seen[ cleanup_mac ][0]
+			if not self.seen[ cleanup_mac ]:
+				del self.seen[ cleanup_mac ]
+		else:
+			self.seen_cleanup = self.seen.keys()
+
+		return seen
+
+	def QueuePacket( self, packet, pkttype ):
 		mac = decode_mac( packet.GetOption('chaddr') )
 		c_time=datetime.datetime.now()
 
 		# Minimum time between allowing a user to make the same kind of request
 		#BETWEEN_REQUESTS = datetime.timedelta(days=0,minutes=0,seconds=10)
+		TIME_PERIOD = datetime.timedelta(days=0,minutes=1,seconds=0)
 
-		our_key = (mac, type,)
+		#types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
+		MESSAGE_TYPE_LIMIT = { None:2, 1:6, 3:8, 4:10, 7:16, 8:14  } # we are only counting serviced packets, regardless of type
+		
+		if MESSAGE_TYPE_LIMIT.has_key(pkttype):
+			MAX_REQUESTS = MESSAGE_TYPE_LIMIT[pkttype]
+		else:
+			MAX_REQUESTS = 0
+
+		#our_key = (mac, pkttype,)
 
 		# Thanks to the morons at MS, we can't do this.
 		# see http://support.microsoft.com/kb/835304 for more info
@@ -144,19 +176,27 @@ class Server(DhcpServer):
 		#if self.last_seen.has_key( our_key ):
 		#	time = self.last_seen[ our_key ]
 		#	if ( ( c_time - time ) < dhcp.between_requests ):
-		#		print "ignoring request type %s from mac %s because we saw a request at %s (current: %s)" % (type, mac, str(time), str(c_time))
+		#		print "ignoring request type %s from mac %s because we saw a request at %s (current: %s)" % (pkttype, mac, str(time), str(c_time))
 		#		log_packet( packet, prefix='IGN/TIME:' )
 		#		return
 		#	else:
 		#		del self.last_seen[ our_key ]
+
+		min_timestamp = c_time - TIME_PERIOD
+
+		seen = self.do_seen_cleanup( mac, min_timestamp )
+
+		if len(seen) > MAX_REQUESTS:
+				print "ignoring request type %s from mac %s because we have seen %s requests in %s" % (pkttype, mac, len(seen), str(TIME_PERIOD))
+				return
 		
 		try:
 			log_packet( packet, prefix='QUEUED:' )
-			self.__dbq.put_nowait( (type, packet) )
+			self.__dbq.put_nowait( (pkttype, packet) )
 		except Full, e:
 			# The queue is full, try again later.
 			log_packet( packet, prefix='IGN/FULL:' )
-			print "ignoring request type %s from mac %s because the queue is full ... be afraid" % (type,mac)
+			print "ignoring request type %s from mac %s because the queue is full ... be afraid" % (pkttype,mac)
 			return
 		
 		# If we get here, the packet should be in the queue, so we can
@@ -164,7 +204,7 @@ class Server(DhcpServer):
 		# this to our list of things we don't want to respond to right
 		# now.
 		#self.last_seen[ our_key ] = ( c_time )
-
+		seen.append( (c_time, pkttype,) )
 
 	def HandleDhcpDiscover(self, packet):
 		self.QueuePacket( packet, 1 )
@@ -190,12 +230,12 @@ class Server(DhcpServer):
 		self.QueuePacket( packet, None )
 
 def parse_packet( packet ):
-	type = packet.GetOption('dhcp_message_type')
+	pkttype = packet.GetOption('dhcp_message_type')
 	mac = decode_mac( packet.GetOption('chaddr') )
 	xid = bytes_to_int( packet.GetOption('xid') )
 	requested_options = packet.GetOption('parameter_request_list')
 
-	if type in [1,3,4,7,8,]:
+	if pkttype in [1,3,4,7,8,]:
 		client_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
 		if client_ip == '0.0.0.0':
 			x = packet.GetOption('request_ip_address')
@@ -204,7 +244,7 @@ def parse_packet( packet ):
 	else:
 		client_ip = '.'.join(map(str,packet.GetOption('yiaddr')))
 	
-	return (type, mac, xid, client_ip, requested_options)
+	return (pkttype, mac, xid, client_ip, requested_options)
 
 types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
 
