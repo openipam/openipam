@@ -187,6 +187,7 @@ class Server(DhcpServer):
 		seen = self.do_seen_cleanup( mac, min_timestamp )
 
 		if len(seen) > MAX_REQUESTS:
+				log_packet( packet, prefix='IGN/LIMIT:' )
 				print "ignoring request type %s from mac %s because we have seen %s requests in %s" % (pkttype, mac, len(seen), str(TIME_PERIOD))
 				return
 		
