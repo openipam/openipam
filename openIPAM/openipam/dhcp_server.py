@@ -79,18 +79,39 @@ def bytes_to_int( bytes ):
 		x = (x << 8) | i
 	return x
 
-class Server(DhcpServer):
+def get_packet_type( packet ):
+	_type = None
+	if packet.IsOption("dhcp_message_type"):
+		_type = bytes_to_int( packet.GetOption("dhcp_message_type") )
+	return _type
+	
+class Server():
+	BUFLEN=8192
+	listen_address = '0.0.0.0'
+	listen_port = 67
 	def __init__(self, dbq):
-		DhcpServer.__init__(self,dhcp.listen_address,
-					dhcp.client_port,
-					dhcp.server_port)
 		self.__dbq = dbq
 		#self.last_seen = {}
 		self.seen = {}
 		self.seen_cleanup = []
-	
-	def SendPacket(self, packet, dest = None, bootp = False):
+		self.dhcp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		self.dhcp_socket.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
+		self.dhcp_socket.bind((self.listen_address, self.listen_port))
+
+	def HandlePacket( self ):
+		data,sender = self.dhcp_socket.recvfrom(self.BUFLEN)
+
+		packet = dhcp_packet.DhcpPacket()
+		packet.DecodePacket(data)
+		packet.set_sender( sender )
+
+		packet_type = get_packet_type( packet )
+		self.QueuePacket( packet, packet_type )
+
+	def SendPacket(self, packet, bootp = False):
 		"""Encode and send the packet."""
+
+		sender = packet.get_sender()
 
 		giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 		ciaddr = '.'.join(map(str,packet.GetOption('ciaddr')))
@@ -105,28 +126,25 @@ class Server(DhcpServer):
 
 		# FIXME: If !ciaddr and first bit of flags (broadcast bit) is set, broadcast/send to giaddr, otherwise unicast to yiaddr ???
 
-		if not dest:
-			dest = ciaddr
-		
-		if dest != '0.0.0.0':
-			#print 'Sending packet directly to %s' % dest
-			log_packet(packet, prefix='SND/DIR:')
-			self.SendDhcpPacketTo(dest, packet, port=dhcp.client_port)
-		elif giaddr!='0.0.0.0':
-			#print " - in SendPacket, giaddr != 0.0.0.0, sending to giaddr=%s" % giaddr
-			log_packet(packet, prefix='SND/GW:')
-			self.SendDhcpPacketTo(giaddr, packet, port=dhcp.server_port)
-
-		# FIXME: This shouldn't broadcast if it has an IP address to send
-		# it to instead. See RFC2131 part 4.1 for full details
+		if sender[0] == '0.0.0.0':
+			# This was on our local network
+			if broadcast:
+				log_packet(packet, prefix='SND/BCAST:')
+				sender = ( '255.255.255.255', sender[1] )
+			else:
+				log_packet(packet, prefix='SND/LOCAL:')
+				sender = ( ciaddr, sender[1] )
+		elif sender[0] == ciaddr:
+			log_packet(packet, prefix='SND/DIRECT:')
 		else:
-			# actually, let's just not do this for now
-			#self.SendDhcpPacketTo("255.255.255.255",packet)
-			#self.SendDhcpPacketTo(offered_addr,packet, port=68)
-			raise Exception("Got a packet without gateway or client address.  Probably local traffic.")
+			log_packet(packet, prefix='SND/GW:')
+
+		self.dhcp_socket.sendto( packet.EncodePacket(), sender )
+
 
 		if show_packets:
 			print "------- Sending Packet ----------"
+			print sender
 			packet.PrintHeaders()
 			packet.PrintOptions()
 			print "---------------------------------"
@@ -207,34 +225,15 @@ class Server(DhcpServer):
 		#self.last_seen[ our_key ] = ( c_time )
 		seen.append( (c_time, pkttype,) )
 
-	def HandleDhcpDiscover(self, packet):
-		self.QueuePacket( packet, 1 )
-
-	def HandleDhcpRequest(self, packet):
-		self.QueuePacket( packet, 3 )
-
-	def HandleDhcpDecline(self, packet):
-		self.QueuePacket( packet, 4 )
-	
-	def HandleDhcpRelease(self, packet):
-		# update leases set expires = now() where mac=%(mac)s
-		self.QueuePacket( packet, 7 )
-	
-	def HandleDhcpInform(self, packet):
-		# see request
-		self.QueuePacket( packet, 8 )
-	
-	def HandleDhcpUnknown(self, packet):
-		'''They should have called this 'HandleBootpRequest'''
-		# Due to the nature of BOOTP, this should only allow
-		# static assignments.
-		self.QueuePacket( packet, None )
 
 def parse_packet( packet ):
-	pkttype = packet.GetOption('dhcp_message_type')
+	pkttype = get_packet_type(packet)
 	mac = decode_mac( packet.GetOption('chaddr') )
 	xid = bytes_to_int( packet.GetOption('xid') )
 	requested_options = packet.GetOption('parameter_request_list')
+
+	recvd_from = packet.get_sender()
+	giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 
 	if pkttype in [1,3,4,7,8,]:
 		client_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
@@ -245,19 +244,17 @@ def parse_packet( packet ):
 	else:
 		client_ip = '.'.join(map(str,packet.GetOption('yiaddr')))
 	
-	return (pkttype, mac, xid, client_ip, requested_options)
+	return (pkttype, mac, xid, client_ip, giaddr, recvd_from, requested_options)
 
 types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
 
 def log_packet( packet, prefix=''):
 	# This should be called for every incoming or outgoing packet.
-	type,mac,xid,client,req_opts = parse_packet(packet)
-	type = bytes_to_int(type)
-	if not type:
-		t_name='bootp'
-	else:
-		t_name = types[type]
-	dhcp.get_logger().info("%-10s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client)
+	pkttype,mac,xid,client,giaddr,recvd_from,req_opts = parse_packet(packet)
+
+	t_name = types[pkttype]
+
+	dhcp.get_logger().info("%-10s %-8s %s 0x%08x (%s via %s from %s)", prefix, t_name, mac, xid, client, giaddr, str(recvd_from) )
 
 def db_consumer( dbq, send_packet ):
 	logger = dhcp.get_logger()

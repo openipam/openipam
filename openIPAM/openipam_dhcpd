@@ -36,7 +36,7 @@ def start():
 	atexit.register( db_pool.join )
 
 	while True:
-		server.GetNextDhcpPacket()
+		server.HandlePacket()
 
 if __name__ == '__main__':
 	# FIXME: need command-line arguments
