@@ -264,7 +264,7 @@ def log_packet( packet, prefix=''):
 	else:
 		client_foo = str(client)
 
-	dhcp.get_logger().info("%-10s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
+	dhcp.get_logger().info("%-11s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 
 def db_consumer( dbq, send_packet ):
 	class dhcp_packet_handler:
