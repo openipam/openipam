@@ -111,6 +111,7 @@ class DhcpBasicPacket:
         self.packet_data = [0]*240
         self.options_data = odict()
         self.packet_data[236:240] = MagicCookie
+        self.sender = None
 
     def IsDhcpPacket(self):
         if self.packet_data[236:240] != MagicCookie : return False
@@ -124,7 +125,6 @@ class DhcpBasicPacket:
                     return False
             return True
         else : return False
-        
 
     def DeleteOption(self,name):
         # if name is a standard dhcp field
