@@ -161,7 +161,7 @@ class Server(DhcpServer):
 		TIME_PERIOD = datetime.timedelta(days=0,minutes=1,seconds=0)
 
 		#types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
-		MESSAGE_TYPE_LIMIT = { None:2, 1:6, 3:8, 4:10, 7:16, 8:14  } # we are only counting serviced packets, regardless of type
+		MESSAGE_TYPE_LIMIT = { None:2, 1:6, 3:10, 4:12, 7:20, 8:16  } # we are only counting serviced packets, regardless of type
 		
 		if MESSAGE_TYPE_LIMIT.has_key(pkttype):
 			MAX_REQUESTS = MESSAGE_TYPE_LIMIT[pkttype]
@@ -562,7 +562,8 @@ def db_consumer( dbq, send_packet ):
 			dhcp_handler.handle_packet( pkt, type=pkttype )	
 		except error.NotFound, e:
 			#print_exception( e, traceback=False )
-			print 'sorry'
+			print 'sorry, no lease found'
+			log_packet( pkt, prefix='IGN/UNAVAIL:' )
 			print str(e)
 		except Exception,e:
 			print_exception( e )
