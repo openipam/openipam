@@ -89,6 +89,8 @@ class Server():
 	BUFLEN=8192
 	listen_address = '0.0.0.0'
 	listen_port = 67
+	bootpc_port = 68
+	bootps_port = 67
 	def __init__(self, dbq):
 		self.__dbq = dbq
 		#self.last_seen = {}
@@ -111,36 +113,38 @@ class Server():
 	def SendPacket(self, packet, bootp = False):
 		"""Encode and send the packet."""
 
-		sender = packet.get_sender()
-
+		#sender = packet.get_sender()
 		giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 		ciaddr = '.'.join(map(str,packet.GetOption('ciaddr')))
+		yiaddr = '.'.join(map(str,packet.GetOption('yiaddr')))
 
-		# ALWAYS set these
-		# Server-related options:
-		# packet.SetOption("siaddr",dhcp.server_ip_lst) -- this is the 'next-server' option
 		if not bootp:
 			packet.SetOption("server_identifier",dhcp.server_ip_lst) # DHCP server IP
 
-		broadcast = packet.GetOption('flags')[0] >> 7
+		# See rfc1532 page 21
+		if ciaddr != '0.0.0.0':
+			log_packet(packet, prefix='SND/CIADDR:')
+			dest = ( ciaddr, self.bootpc_port )
+		elif giaddr != '0.0.0.0':
+			log_packet(packet, prefix='SND/GIADDR:')
+			dest = ( giaddr, self.bootps_port )
+		elif yiaddr != '0.0.0.0':
+			broadcast = packet.GetOption('flags')[0] >> 7
 
-		# FIXME: If !ciaddr and first bit of flags (broadcast bit) is set, broadcast/send to giaddr, otherwise unicast to yiaddr ???
-
-		if sender[0] == '0.0.0.0':
-			# This was on our local network
 			if broadcast:
 				log_packet(packet, prefix='SND/BCAST:')
-				sender = ( '255.255.255.255', sender[1] )
+				dest = ( '255.255.255.255', self.bootpc_port )
 			else:
-				log_packet(packet, prefix='SND/LOCAL:')
-				sender = ( ciaddr, sender[1] )
-		elif sender[0] == ciaddr:
-			log_packet(packet, prefix='SND/DIRECT:')
+				# FIXME: need to send this directly to chaddr :/
+				#log_packet(packet, prefix='SND/CHADDR:')
+				#dest = ( yiaddr, self.bootpc_port ) 
+				log_packet(packet, prefix='SND/HACK:')
+				dest = ( '255.255.255.255', self.bootpc_port )
 		else:
-			log_packet(packet, prefix='SND/GW:')
+			log_packet(packet, prefix='IGN/SNDFAIL:')
+			raise Exception('Cannot send packet without one of ciaddr, giaddr, or yiaddr.')
 
-		self.dhcp_socket.sendto( packet.EncodePacket(), sender )
-
+		self.dhcp_socket.sendto( packet.EncodePacket(), dest )
 
 		if show_packets:
 			print "------- Sending Packet ----------"
@@ -235,14 +239,15 @@ def parse_packet( packet ):
 	recvd_from = packet.get_sender()
 	giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 
-	if pkttype in [1,3,4,7,8,]:
+	client_ip = '.'.join(map(str,packet.GetOption('yiaddr')))
+	if client_ip == '0.0.0.0':
 		client_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
 		if client_ip == '0.0.0.0':
 			x = packet.GetOption('request_ip_address')
 			if x:
 				client_ip = '.'.join(map(str,x))
-	else:
-		client_ip = '.'.join(map(str,packet.GetOption('yiaddr')))
+			else:
+				client_ip = packet.get_sender()[0]
 	
 	return (pkttype, mac, xid, client_ip, giaddr, recvd_from, requested_options)
 
@@ -254,10 +259,14 @@ def log_packet( packet, prefix=''):
 
 	t_name = types[pkttype]
 
-	dhcp.get_logger().info("%-10s %-8s %s 0x%08x (%s via %s from %s)", prefix, t_name, mac, xid, client, giaddr, str(recvd_from) )
+	if giaddr != '0.0.0.0':
+		client_foo = '%s via %s' % (client, giaddr)
+	else:
+		client_foo = str(client)
+
+	dhcp.get_logger().info("%-10s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 
 def db_consumer( dbq, send_packet ):
-	logger = dhcp.get_logger()
 	class dhcp_packet_handler:
 		# Order matters here.  We want type_map[1] == discover, etc
 		def __init__( self, send_packet ):
@@ -398,7 +407,7 @@ def db_consumer( dbq, send_packet ):
 			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
 			
 			if router == '0.0.0.0':
-				logger.log( "Ignoring local DHCP traffic from %s (xid:0x%x)", mac, xid )
+				dhcp.get_logger().log( "Ignoring local DHCP traffic from %s (xid:0x%x)", mac, xid )
 				return
 
 			if not requested_ip:
@@ -499,15 +508,7 @@ def db_consumer( dbq, send_packet ):
 				hops = packet.GetOption('hops')
 				if hops:
 					nak.SetOption('hops',hops)
-				if giaddr != '0.0.0.0':
-					self.SendPacket( nak )
-				elif ciaddr != '0.0.0.0':
-					self.SendPacket( nak, dest=ciaddr )
-				elif requested_ip != '0.0.0.0':
-					self.SendPacket( nak, dest=requested_ip )
-				else:
-					self.SendPacket( nak )
-				# FIXME: We aren't handling this right... or somethink...
+				self.SendPacket( nak )
 				return
 
 			ack = DhcpPacket()
