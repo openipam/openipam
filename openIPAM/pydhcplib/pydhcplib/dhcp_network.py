@@ -22,42 +22,47 @@ import dhcp_packet
 
 
 class DhcpNetwork:
-    def __init__(self, listen_address="0.0.0.0", listen_port=67, emit_port=68):
+    def __init__(self, listen_address="0.0.0.0", listen_port=67 ):
 
         self.listen_port = int(listen_port)
-        self.emit_port = int(emit_port)
         self.listen_address = listen_address
+    #self.emit_port = int(emit_port)
         
     def GetNextDhcpPacket(self):
         data =""
 
         while data == "" :
-            data = self.dhcp_socket.recv(1024)
+            data, sender = self.dhcp_socket.recvfrom(8192)
             if data != "" :
-                packet = dhcp_packet.DhcpPacket()
-                packet.DecodePacket(data)
+                self.HandleDhcpPacket(self, data, sender)
+        
+    def HandleDhcpPacket(self, data, sender):
+        packet = dhcp_packet.DhcpPacket()
+        packet.DecodePacket(data)
 
-                self.HandleDhcpAll(packet)
-                
-                if packet.IsDhcpDiscoverPacket():
-                    self.HandleDhcpDiscover(packet)
-                elif packet.IsDhcpRequestPacket():
-                    self.HandleDhcpRequest(packet)
-                elif packet.IsDhcpDeclinePacket():
-                    self.HandleDhcpDecline(packet)
-                elif packet.IsDhcpReleasePacket():
-                    self.HandleDhcpRelease(packet)
-                elif packet.IsDhcpInformPacket():
-                    self.HandleDhcpInform(packet)
-                elif packet.IsDhcpOfferPacket():
-                    self.HandleDhcpOffer(packet)
-                elif packet.IsDhcpAckPacket():
-                    self.HandleDhcpAck(packet)
-                elif packet.IsDhcpNackPacket():
-                    self.HandleDhcpNack(packet)
-                else: self.HandleDhcpUnknown(packet)
+        packet.set_sender( sender )
 
-                return packet
+        self.HandleDhcpAll(packet)
+        
+        if packet.IsDhcpDiscoverPacket():
+            self.HandleDhcpDiscover(packet)
+        elif packet.IsDhcpRequestPacket():
+            self.HandleDhcpRequest(packet)
+        elif packet.IsDhcpDeclinePacket():
+            self.HandleDhcpDecline(packet)
+        elif packet.IsDhcpReleasePacket():
+            self.HandleDhcpRelease(packet)
+        elif packet.IsDhcpInformPacket():
+            self.HandleDhcpInform(packet)
+        elif packet.IsDhcpOfferPacket():
+            self.HandleDhcpOffer(packet)
+        elif packet.IsDhcpAckPacket():
+            self.HandleDhcpAck(packet)
+        elif packet.IsDhcpNackPacket():
+            self.HandleDhcpNack(packet)
+        else: self.HandleDhcpUnknown(packet)
+
+        return packet
 
 
     def SendDhcpPacketTo(self, To, packet, port=None):

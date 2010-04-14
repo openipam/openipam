@@ -24,6 +24,11 @@ from type_ipv4 import ipv4
 from type_strlist import strlist
 class DhcpPacket(DhcpBasicPacket):
 
+    def set_sender(self, sender):
+        self.sender = sender
+
+    def get_sender( self ):
+        return self.sender
 
     # Useful function for debugging
     def PrintHeaders(self):
@@ -124,6 +129,7 @@ class DhcpPacket(DhcpBasicPacket):
     # Server-side functions
     # From RFC 2132 page 28/29
     def CreateDhcpOfferPacketFrom(self,src): # src = discover packet
+        self.set_sender(src.get_sender())
         self.SetOption("htype",src.GetOption("htype"))
         self.SetOption("xid",src.GetOption("xid"))
         self.SetOption("flags",src.GetOption("flags"))
@@ -150,6 +156,7 @@ class DhcpPacket(DhcpBasicPacket):
 
     """ Dhcp ACK packet creation """
     def CreateDhcpAckPacketFrom(self,src): # src = request or inform packet
+        self.set_sender(src.get_sender())
         self.SetOption("htype",src.GetOption("htype"))
         self.SetOption("xid",src.GetOption("xid"))
         self.SetOption("ciaddr",src.GetOption("ciaddr"))
@@ -173,6 +180,7 @@ class DhcpPacket(DhcpBasicPacket):
 
     """ Dhcp NACK packet creation """
     def CreateDhcpNackPacketFrom(self,src): # src = request or inform packet
+        self.set_sender(src.get_sender())
         
         self.SetOption("htype",src.GetOption("htype"))
         self.SetOption("xid",src.GetOption("xid"))
