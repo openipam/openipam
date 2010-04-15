@@ -2441,7 +2441,7 @@ class DBInterface( DBBaseInterface ):
 			if not ip4 and net.prefixlen() != 64:
 				raise Exception('Are you really trying to allocate a network that isn\'t a /64?')
 			if pool and not ip4:
-				raise Exception('Pools are only used for IPv4 addresses.')
+				raise Exception('Pools are only used for IPv4 addresses; net=%s' % net)
 		
 		# Check if this network overlaps with another network
 		self._begin_transaction()
@@ -2516,8 +2516,8 @@ class DBInterface( DBBaseInterface ):
 		ip4 = net.version() == 4
 		if not ip4 and net.prefixlen() != 64:
 			raise Exception('Are you really trying to allocate a network that isn\'t a /64?')
-		if pool and ip4:
-			raise Exception('Pools are only used for IPv4 addresses.')
+		if pool and not ip4:
+			raise Exception('Pools are only used for IPv4 addresses. net: %s' % net)
 			
 		
 		# Check if this network overlaps with another network
