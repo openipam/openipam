@@ -2000,6 +2000,11 @@ class MainWebService(XMLRPCController):
 			
 			macaddr = macaddr[0]['mac']
 			
+			# Raise AlreadyExists exception if the host already exists and is not expired
+			hosts = __guest_db.get_hosts(mac=macaddr, show_expired=False)
+			if hosts:
+				raise error.AlreadyExists(mac=macaddr)
+			
 			# Get the last guest hosts
 			hosts = __guest_db.get_hosts( hostname=hostname_fmt % '%%', limit=1, funky_ordering=True)
 			
