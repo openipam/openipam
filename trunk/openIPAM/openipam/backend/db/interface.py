@@ -985,6 +985,7 @@ class DBBaseInterface(object):
 								obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER))))
 		else:
 			# FIXME: we should be able to include a column with effective permissions over a host and reduce some network traffic.
+			# FIXME: we should really be using the same code as find_permissions_for_hosts here
 			if not self._min_perms & required_perms == required_perms:
 				# Get our permissions over hosts
 				net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = required_perms, do_subquery=False ).alias('net_perms')
@@ -992,9 +993,14 @@ class DBBaseInterface(object):
 				# Get our permissions over networks
 				host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = required_perms, do_subquery=False ).alias('host_perms')
 
+				# Get our permissions over domains
+				dom_perms = obj.perm_query( self._uid, self._min_perms, domains = True, required_perms = required_perms, do_subquery=False ).alias('domain_perms')
+
 				hosts = hosts.outerjoin(host_perms, host_perms.c.mac == obj.hosts.c.mac)
 				hosts = hosts.outerjoin(net_perms, net_perms.c.nid == obj.addresses.c.network)
-				whereclause.append( or_( host_perms.c.permissions != None, net_perms.c.permissions != None ) )
+				hosts = hosts.outerjoin(obj.domains, obj.hosts.c.hostname.like('%.' + obj.domains.c.name) )
+				hosts = hosts.outerjoin(dom_perms, obj.domains.c.id == dom_perms.c.did)
+				whereclause.append( or_( host_perms.c.permissions != None, or_( net_perms.c.permissions != None, dom_perms.c.permissions != None ) ) )
 
 				#columns.append( (sqlalchemy.sql.func.coalesce(net_perms.c.permissions,self._min_perms).op('|')(sqlalchemy.sql.func.coalesce(host_perms.c.permissions,self._min_perms))).label('effective_perms')
 
