@@ -30,6 +30,12 @@ class DhcpPacket(DhcpBasicPacket):
     def get_sender( self ):
         return self.sender
 
+    def set_recv_interface( self, addr ):
+        self.recv_interface = addr
+
+    def get_recv_interface( self ):
+        return self.recv_interface
+
     # Useful function for debugging
     def PrintHeaders(self):
         print "# Header fields\n"

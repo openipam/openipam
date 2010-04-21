@@ -4,4 +4,5 @@ static_lease_time = 86400
 
 # The IP address of this server
 server_ip = '192.168.0.1'
+server_interface = 'eth0'
 

@@ -26,6 +26,8 @@ from pydhcplib.dhcp_constants import DhcpOptions
 from pydhcplib.dhcp_packet import *
 from pydhcplib.dhcp_network import *
 
+import IN
+
 #from pydhcplib.dhcp_packet import DhcpPacket
 #import dhcp_packet
 #import dhcp_network
@@ -98,7 +100,15 @@ class Server():
 		self.seen_cleanup = []
 		self.dhcp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self.dhcp_socket.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
+		if dhcp.server_interface:
+			self.interface = dhcp.server_interface
+			if self.interface[-1] != '\0':
+				iface=self.interface+'\0'
+			else:
+				iface=self.interface
+			self.dhcp_socket.setsockopt(socket.SOL_SOCKET,IN.SO_BINDTODEVICE,iface)
 		self.dhcp_socket.bind((self.listen_address, self.listen_port))
+		self.dhcp_socket_addr = dhcp.server_ip
 
 	def HandlePacket( self ):
 		data,sender = self.dhcp_socket.recvfrom(self.BUFLEN)
@@ -106,6 +116,7 @@ class Server():
 		packet = dhcp_packet.DhcpPacket()
 		packet.DecodePacket(data)
 		packet.set_sender( sender )
+		packet.set_recv_interface( self.dhcp_socket_addr )
 
 		packet_type = get_packet_type( packet )
 		self.QueuePacket( packet, packet_type )
@@ -117,6 +128,7 @@ class Server():
 		giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 		ciaddr = '.'.join(map(str,packet.GetOption('ciaddr')))
 		yiaddr = '.'.join(map(str,packet.GetOption('yiaddr')))
+		chaddr = decode_mac( packet.GetOption('chaddr') )
 
 		if not bootp:
 			packet.SetOption("server_identifier",dhcp.server_ip_lst) # DHCP server IP
@@ -138,8 +150,13 @@ class Server():
 				# FIXME: need to send this directly to chaddr :/
 				#log_packet(packet, prefix='SND/CHADDR:')
 				#dest = ( yiaddr, self.bootpc_port ) 
-				log_packet(packet, prefix='SND/HACK:')
-				dest = ( '255.255.255.255', self.bootpc_port )
+				try:
+					os.system("arp -H ether -i %s -s %s %s temp" % (self.dhcp_iface, yiaddr, chaddr))
+					log_packet(packet, prefix='SND/ARPHACK:')
+					dest = ( yiaddr, self.bootpc_port )
+				except:
+					log_packet(packet, prefix='SND/HACK:')
+					dest = ( '255.255.255.255', self.bootpc_port )
 		else:
 			log_packet(packet, prefix='IGN/SNDFAIL:')
 			raise Exception('Cannot send packet without one of ciaddr, giaddr, or yiaddr.')
@@ -407,8 +424,8 @@ def db_consumer( dbq, send_packet ):
 			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
 			
 			if router == '0.0.0.0':
-				dhcp.get_logger().log( "Ignoring local DHCP traffic from %s (xid:0x%x)", mac, xid )
-				return
+				# hey, local DHCP traffic!
+				router = packet.get_recv_interface()
 
 			if not requested_ip:
 				requested_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
