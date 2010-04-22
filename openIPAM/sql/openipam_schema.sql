@@ -13,6 +13,7 @@ COPY permissions ( id, name, description ) FROM stdin;
 00000110	READ_ADD	Read and add (but not modify) records
 00001110	MODIFY	Read and modify (and add and delete) records
 00001111	OWNER	The owner gets to do a lot of things...
+00010000	SECURITY	Special permission for disabling hosts
 11111111	DEITY	All permissions
 \.
 

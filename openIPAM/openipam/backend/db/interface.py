@@ -3408,7 +3408,7 @@ class DBInterface( DBBaseInterface ):
 		'''Disable a host for the given reason'''
 
 		# Check permissions
-		self.require_perms(perms.OWNER)
+		self.require_perms(perms.SECURITY)
 		
 		query = obj.disabled.insert( values={'mac' : mac,
 								'reason' : reason,
@@ -3420,7 +3420,7 @@ class DBInterface( DBBaseInterface ):
 		'''Disable a host for the given reason'''
 
 		# Check permissions
-		self.require_perms(perms.OWNER)
+		self.require_perms(perms.SECURITY)
 
 		return self._do_delete( table=obj.disabled, where=obj.disabled.c.mac==mac )
 
