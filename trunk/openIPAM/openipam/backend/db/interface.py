@@ -978,6 +978,7 @@ class DBBaseInterface(object):
 			hosts = hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
 
 		if uid:
+			# FIXME: we're ignoring additional_perms/required_perms here to make this make any sense
 			hosts = hosts.join(obj.hosts_to_groups, obj.hosts.c.mac == obj.hosts_to_groups.c.mac)
 			# Make sure to bitwise OR users_to_groups.host_permissions after finding the user's group permissions
 			hosts = hosts.join(obj.users_to_groups, and_(obj.users_to_groups.c.gid==obj.hosts_to_groups.c.gid,
@@ -996,19 +997,26 @@ class DBBaseInterface(object):
 				# Get our permissions over domains
 				dom_perms = obj.perm_query( self._uid, self._min_perms, domains = True, required_perms = required_perms, do_subquery=False ).alias('domain_perms')
 
-				hosts = hosts.outerjoin(host_perms, host_perms.c.mac == obj.hosts.c.mac)
-				hosts = hosts.outerjoin(net_perms, net_perms.c.nid == obj.addresses.c.network)
-				hosts = hosts.outerjoin(obj.domains, obj.hosts.c.hostname.like('%.' + obj.domains.c.name) )
-				hosts = hosts.outerjoin(dom_perms, obj.domains.c.id == dom_perms.c.did)
-				whereclause.append( or_( host_perms.c.permissions != None, or_( net_perms.c.permissions != None, dom_perms.c.permissions != None ) ) )
+				hosts = [hosts.join(host_perms, host_perms.c.mac == obj.hosts.c.mac),
+						hosts.join(net_perms, net_perms.c.nid == obj.addresses.c.network),
+						hosts.outerjoin(obj.domains, obj.hosts.c.hostname.like('%.' + obj.domains.c.name) ).join(dom_perms, obj.domains.c.id == dom_perms.c.did),
+					]
 
 				#columns.append( (sqlalchemy.sql.func.coalesce(net_perms.c.permissions,self._min_perms).op('|')(sqlalchemy.sql.func.coalesce(host_perms.c.permissions,self._min_perms))).label('effective_perms')
 
-		hosts = select(columns, from_obj=hosts, distinct=True)
 		# Finalize the WHERE clause
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
+		else:
+			whereclause = True
+
+		if type(hosts) == types.ListType:
+			hosts = [ select(columns, from_obj=i, distinct=True).where(whereclause) for i in hosts ]
+			hosts = union(*hosts)
+		else:
+			hosts = select(columns, from_obj=hosts, distinct=True)
 			hosts = hosts.where(whereclause)
+
 		if self.has_min_perms( required_perms ):
 			# Funky ordering to order by length ... fixes problems with guest registrations
 			# because, technically, 11 in ASCII is before 9 in ASCII ... think about it 	
