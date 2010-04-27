@@ -11,7 +11,7 @@ ipam_groups = ipam_interface.get_groups(name='ldap:%')
 ldap_interface = auth_sources.interfaces[auth_sources.auth.sources.LDAP]
 
 for group in ipam_groups:
-	print group
+	#print group
 	ldap_filter = '(memberof=cn=%s,ou=IT,ou=CustomGroups,ou=Banner,dc=auth,dc=usu,dc=edu)' % group['name'][len('ldap:'):]
 	ldap_users = ldap_interface._query( basedn='ou=banner,dc=auth,dc=usu,dc=edu', filter=ldap_filter, attrs=['sAMAccountName'] )
 	ldap_ids = set()
