@@ -1808,7 +1808,7 @@ class MainWebService(XMLRPCController):
 		
 		@return: a ticket string name
 		"""
-	
+		
 		vowels = ("a", "e", "i", "o", "u")
 		consonants = [a for a in string.ascii_lowercase if a not in vowels]
 		groups = ("th", "ch", "sh", "kl", "gr", "br")
@@ -1872,9 +1872,15 @@ class MainWebService(XMLRPCController):
 		if not args:
 			raise error.RequiredArgument("nothing passed to add_guest_ticket")
 		
-		ticket = self.__generate_ticket_name()
+		# FIXME: much of this wouldn't be an issue if we deleted (or lazily-deleted) expired guest tickets
+		for i in range(3):
+			# Try a few times to generate a unique ticket name that doesn't exist
+			ticket = self.__generate_ticket_name()
+			if not db.get_guest_tickets(ticket=ticket):
+				break
 		
-		query = db.add_guest_ticket(ticket=ticket, **args[0])
+		# Add the new ticket
+		db.add_guest_ticket(ticket=ticket, **args[0])
 		
 		return { 'ticket' : ticket, 'starts' : args[0]['starts'], 'ends' : args[0]['ends'], 'description' : args[0]['description'] }
 		
