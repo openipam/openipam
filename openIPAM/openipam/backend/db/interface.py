@@ -3260,13 +3260,23 @@ class DBInterface( DBBaseInterface ):
 			self._rollback()
 			raise
 
-	def set_owners_for_host(self, mac, owners):
+	def set_owners_for_host(self, mac, owner_ids=None, owner_names=None):
 		self._require_perms_on_host(mac=mac, permission=perms.OWNER)
 
-		new_owner_ids = set()
-		for owner in owners:
-			if owner:
-				new_owner_ids.add( int(self.get_groups(name=owner)[0]['id']) )
+		if ( (owner_ids == None and owner_names == None)
+				or not (owner_ids == None or owner_names == None) ):
+			raise error.InvalidArgument("Must specify exactly one of (owner_ids, owner_names) = (%s,%s)" % (owner_ids,owner_names)
+
+		if not owner_ids:
+			new_owner_ids = set()
+			for name in owner_names:
+				if name:
+					g = self.get_groups(name=name)
+					print g
+					new_owner_ids.add( int(g[0]['id']) )
+		else:
+			new_owner_ids = set(owner_ids)
+
 
 		# Find which owners have been deleted or added
 		old_owners = self.get_hosts_to_groups(mac=mac)
@@ -3275,11 +3285,14 @@ class DBInterface( DBBaseInterface ):
 		if not new_owner_ids:
 			raise error.InvalidArgument("Host must have at least one owner -- mac: %s owners: %s" % (mac,owners))
 
+		print new_owner_ids, old_owner_ids
 		# Wow, there's got to be a more pythonic way of doing this. Anyone?
 		for new_owner in new_owner_ids.difference(old_owner_ids):
+			print "adding %s" % new_owner
 			# Make sure it actually exists and is not ''
 			self.add_host_to_group(mac=mac, gid=new_owner)
 		for old_owner in old_owner_ids.difference(new_owner_ids):
+			print "deleting %s" % old_owner
 			self.del_host_to_group(mac=mac, gid=old_owner)
 
 	def update_dhcp_group( self, gid, name, description ):
@@ -3489,7 +3502,7 @@ class DBInterface( DBBaseInterface ):
 			for mac in hosts:
 				if not mac:
 					raise error.InvalidArgument('Invalid MAC address: %s in host list %s' % (mac,hosts) )
-				self.set_owners_for_host( mac=mac, owners=owners )
+				self.set_owners_for_host( mac=mac, owner_names=owners )
 			self._commit()
 		except:
 			self._rollback
