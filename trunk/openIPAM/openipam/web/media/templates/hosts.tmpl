@@ -1,5 +1,7 @@
-#set SEPERATOR = "-*-"
-#set full_group_list = $SEPERATOR.join([$group.name for $group in $groups]) 
+#if 'groups' in $template_keys:
+	#set SEPERATOR = "-*-"
+	#set full_group_list = $SEPERATOR.join([$group.name for $group in $groups]) 
+#end if
 
 <div id="searchHelp" class="hidden">
 	<p>Search for hostnames, IP addresses, MAC addresses, or networks (in

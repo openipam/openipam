@@ -1131,11 +1131,11 @@ class DBBaseInterface(object):
 		if alternate_perms_key:
 			query = query.group_by(alternate_perms_key)
 
-		debug = select( [primary_key, dom_u2g.c.permissions, dom_u2g.c.uid, dom_u2g.c.gid, obj.hosts.c.hostname, obj.domains.c.name], from_obj=fromobj )
-		print self._execute(debug)
+		#debug = select( [primary_key, dom_u2g.c.permissions, dom_u2g.c.uid, dom_u2g.c.gid, obj.hosts.c.hostname, obj.domains.c.name], from_obj=fromobj )
+		#print self._execute(debug)
 		
 		results = self._execute(query)
-		print results
+		#print results
 		
 		permissions = {}
 		
@@ -3263,20 +3263,24 @@ class DBInterface( DBBaseInterface ):
 	def set_owners_for_host(self, mac, owners):
 		self._require_perms_on_host(mac=mac, permission=perms.OWNER)
 
-		# Find which owners have been deleted or added
-		old_owners = self.find_owners_of_host(mac=mac)
-		old_owner_names = set([row['name'] for row in old_owners])
-		new_owner_names = set(owners) - set(['',None])
+		new_owner_ids = set()
+		for owner in owners:
+			if owner:
+				new_owner_ids.add( int(self.get_groups(name=owner)[0]['id']) )
 
-		if not new_owner_names:
+		# Find which owners have been deleted or added
+		old_owners = self.get_hosts_to_groups(mac=mac)
+		old_owner_ids = set([int(row['gid']) for row in old_owners])
+
+		if not new_owner_ids:
 			raise error.InvalidArgument("Host must have at least one owner -- mac: %s owners: %s" % (mac,owners))
 
 		# Wow, there's got to be a more pythonic way of doing this. Anyone?
-		for new_owner in new_owner_names.difference(old_owner_names):
+		for new_owner in new_owner_ids.difference(old_owner_ids):
 			# Make sure it actually exists and is not ''
-			self.add_host_to_group(mac=mac, group_name=new_owner)
-		for old_owner in old_owner_names.difference(new_owner_names):
-			self.del_host_to_group(mac=mac, group_name=old_owner)
+			self.add_host_to_group(mac=mac, gid=new_owner)
+		for old_owner in old_owner_ids.difference(new_owner_ids):
+			self.del_host_to_group(mac=mac, gid=old_owner)
 
 	def update_dhcp_group( self, gid, name, description ):
 		'''Update a DHCP Group's information
@@ -3479,15 +3483,12 @@ class DBInterface( DBBaseInterface ):
 		if not owners:
 			raise error.InvalidArgument('No owners specified.')
 
-		print hosts
-		print owners
 		# I hope you know what you are doing here...
 		self._begin_transaction()
 		try:
 			for mac in hosts:
 				if not mac:
 					raise error.InvalidArgument('Invalid MAC address: %s in host list %s' % (mac,hosts) )
-				print mac
 				self.set_owners_for_host( mac=mac, owners=owners )
 			self._commit()
 		except:
