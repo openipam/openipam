@@ -3125,8 +3125,9 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		required_perms = perms.MODIFY
 		# Require the ADMIN flag to change permissions
-		if owners:
-			required_perms = perms.OWNER
+		# FYI: handled by set_owners_for_host(...)
+		#if owners:
+		#	required_perms = perms.OWNER
 
 		if address and network:
 			network = openipam.iptypes.IP(network)
@@ -3249,26 +3250,33 @@ class DBInterface( DBBaseInterface ):
 				
 			# At this point, the MAC address has been updated if it's changed ... so let's set the variable for future use
 			mac = (mac if mac else old_mac)
+
 			
 			# Update owners in every state if it is specified
 			if owners:
-				# Find which owners have been deleted or added
-				old_owners = self.find_owners_of_host(mac=mac)
-				old_owner_names = [row['name'] for row in old_owners]
-
-				# Wow, there's got to be a more pythonic way of doing this. Anyone?
-				for new_owner in owners:
-					# Make sure it actually exists and is not ''
-					if new_owner and new_owner not in old_owner_names:
-						self.add_host_to_group(mac=mac, group_name=new_owner)
-				for old_owner in old_owners:
-					if old_owner['name'] not in owners:
-						self.del_host_to_group(mac=mac, gid=old_owner['id'])
-					 
+				self.set_owners_for_host(mac=mac, owners=owners)
 			self._commit()
 		except:
 			self._rollback()
 			raise
+
+	def set_owners_for_host(self, mac, owners):
+		self._require_perms_on_host(mac=mac, permission=perms.OWNER)
+
+		# Find which owners have been deleted or added
+		old_owners = self.find_owners_of_host(mac=mac)
+		old_owner_names = set([row['name'] for row in old_owners])
+		new_owner_names = set(owners) - set(['',None])
+
+		if not new_owner_names:
+			raise error.InvalidArgument("Host must have at least one owner -- mac: %s owners: %s" % (mac,owners))
+
+		# Wow, there's got to be a more pythonic way of doing this. Anyone?
+		for new_owner in new_owner_names.difference(old_owner_names):
+			# Make sure it actually exists and is not ''
+			self.add_host_to_group(mac=mac, group_name=new_owner)
+		for old_owner in old_owner_names.difference(new_owner_names):
+			self.del_host_to_group(mac=mac, group_name=old_owner)
 
 	def update_dhcp_group( self, gid, name, description ):
 		'''Update a DHCP Group's information
@@ -3459,6 +3467,28 @@ class DBInterface( DBBaseInterface ):
 				if not mac:
 					raise error.InvalidArgument('Invalid MAC address: %s in host list %s' % (mac,hosts) )
 				self.del_host( mac=mac )
+			self._commit()
+		except:
+			self._rollback
+			raise
+
+	def change_hosts(self, hosts, owners):
+		# Renew the given hosts until 1 year from now.
+		if not hosts:
+			raise error.InvalidArgument('No hosts specified.')
+		if not owners:
+			raise error.InvalidArgument('No owners specified.')
+
+		print hosts
+		print owners
+		# I hope you know what you are doing here...
+		self._begin_transaction()
+		try:
+			for mac in hosts:
+				if not mac:
+					raise error.InvalidArgument('Invalid MAC address: %s in host list %s' % (mac,hosts) )
+				print mac
+				self.set_owners_for_host( mac=mac, owners=owners )
 			self._commit()
 		except:
 			self._rollback
