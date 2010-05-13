@@ -628,8 +628,9 @@ class MainWebService(XMLRPCController):
 			del kw['owners_list']
 		
 		# If we're editing and no owners were specified, add in [] to satisify checks below
-		if kw['editing'] and not kw.has_key('owners'):
-			kw['owners'] = []
+		# FYI: code below assumes that if kw.has_key('owners'), we are changing ownership
+		#if kw['editing'] and not kw.has_key('owners'):
+		#	kw['owners'] = []
 		
 		if (not kw.has_key('mac')
 		or not kw.has_key('hostname')
@@ -736,13 +737,15 @@ class MainWebService(XMLRPCController):
 				# Am I in a group that has owner over this host?
 				# There is surely a more elegant and pythonic way to compare all elements of lists:
 				has_owner_group = False
-				for name in users_group_names:
-					if name in kw['owners']:
-						has_owner_group = True
-						break
-					
-				if (kw.has_key('owners') and (not has_owner_group and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : backend.db_service_group_id } ))):
-					messages.append("You are not allowed to remove yourself from ownership of this host. However, you can assign other owners and have them remove you from this host.")
+				if kw.has_key('owners'):
+					for name in users_group_names:
+						if name in kw['owners']:
+							has_owner_group = True
+							break
+				
+				# The backend doesn't enforce this, so why should the frontend?
+				#if (kw.has_key('owners') and (not has_owner_group and not self.get_users( { 'uid' : cherrypy.session['user']['uid'], 'gid' : backend.db_service_group_id } ))):
+				#	messages.append("You are not allowed to remove yourself from ownership of this host. However, you can assign other owners and have them remove you from this host (owners: %s)"%owners)
 		
 		# Verify that this host MAC and hostname don't exist already
 		if not kw['editing']:
@@ -841,6 +844,12 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		db.delete_hosts(**args[0])
+
+	@cherrypy.expose
+	def change_hosts(self, *args):
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		db.change_hosts(**args[0])
 
 	@cherrypy.expose
 	def is_dynamic_host(self, *args):

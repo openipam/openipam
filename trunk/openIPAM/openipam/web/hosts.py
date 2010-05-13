@@ -388,6 +388,8 @@ class Hosts(BasePage):
 		
 		values['url'] = cherrypy.url()
 
+ 		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
+
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'%frontend.static_dir, values=values)
 	
 	
@@ -413,8 +415,12 @@ class Hosts(BasePage):
 		elif multiaction == 'renew':
 			self.webservice.renew_hosts( {'hosts':multihosts} );
 		# need to get the owners...
-		#elif multiaction == 'owners':
-		#	self.webservice._hosts( hosts=multihosts )
+		elif multiaction == 'owners':
+			if kw.has_key('owners_list'):
+				owners = kw['owners_list'].split(',')
+				self.webservice.change_hosts( {'hosts':multihosts, 'owners':owners,} )
+			else:
+				raise error.InvalidArgument("owners_list not defined!")
 		else:
 			raise cherrypy.HTTPRedirect(ref)
 
