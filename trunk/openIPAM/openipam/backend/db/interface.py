@@ -3265,7 +3265,7 @@ class DBInterface( DBBaseInterface ):
 
 		if ( (owner_ids == None and owner_names == None)
 				or not (owner_ids == None or owner_names == None) ):
-			raise error.InvalidArgument("Must specify exactly one of (owner_ids, owner_names) = (%s,%s)" % (owner_ids,owner_names)
+			raise error.InvalidArgument("Must specify exactly one of (owner_ids, owner_names) = (%s,%s)" % (owner_ids,owner_names) )
 
 		if not owner_ids:
 			new_owner_ids = set()
