@@ -129,6 +129,7 @@ class Hosts(BasePage):
 		values['domains'] = self.webservice.get_domains( { 'additional_perms' : str(frontend.perms.ADD), 'show_reverse' : False, 'order_by' : 'name' } )
 		values['expirations'] = self.webservice.get_expiration_types()
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
+ 		values['dhcp_groups'] = self.webservice.get_dhcp_groups( {'order_by' : 'name' } )
 		
 		return values
 
@@ -151,7 +152,8 @@ class Hosts(BasePage):
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if kw.has_key('network') and kw['network'] else None),
 			'add_host_to_my_group' : False,
-			'address' : (kw['ip'] if kw.has_key('ip') else None)
+			'address' : (kw['ip'] if kw.has_key('ip') else None),
+			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
 			})
 		
 		raise cherrypy.HTTPRedirect('/hosts/search/?q=%s' % misc.fix_mac(mac))
@@ -175,7 +177,8 @@ class Hosts(BasePage):
 			'is_dynamic' : kw.has_key('dynamicIP'),
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw.has_key('dynamicIP')) else None),
-			'address' : (kw['ip'] if kw.has_key('did_change_ip') and kw.has_key('ip') else None)
+			'address' : (kw['ip'] if kw.has_key('did_change_ip') and kw.has_key('ip') else None),
+			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
 			})
 		
 		raise cherrypy.HTTPRedirect('/hosts/search/?q=%s' % misc.fix_mac(kw['mac'] if kw['mac'] else kw['old_mac']))
@@ -389,6 +392,10 @@ class Hosts(BasePage):
 		values['url'] = cherrypy.url()
 
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
+ 		values['dhcp_group_dict'] = {}
+		dhcp_groups = self.webservice.get_dhcp_groups( {'order_by' : 'name' } )
+		for g in dhcp_groups:
+			values['dhcp_group_dict'][g['id']] = dict(g)
 
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/hosts.tmpl'%frontend.static_dir, values=values)
 	

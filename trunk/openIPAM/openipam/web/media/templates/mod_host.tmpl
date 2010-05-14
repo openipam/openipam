@@ -74,13 +74,12 @@
 				<input type="text" class="text" id="hostname" name="hostname" value="$host.hostname" /> .
 				<select id="domains_for_hosts" name="domain">
 						<option value="">...</option>
-						#set selected = ''
 						#for $one_domain in $domains:
+							#set selected = ''
 							#if $editing and ($one_domain.id == int($domain)):
 								#set selected = ' selected=""'
 							#end if
 							<option value="$one_domain.id"$selected>$one_domain.name</option>
-							#set selected = ''
 						#end for
 				</select>
 			#end if
@@ -223,6 +222,22 @@
 	<div id="element">
 		<div id="label">Description:</div>
 		<div id="value"><textarea class="text" name="description" style="width: 350px;">$host.description</textarea></div>
+	</div>
+
+	<div id="element">
+		<div id="label">DHCP Group:</div>
+		<div id="value">
+			<select id="dhcp_group" name="dhcp_group">
+				<option value=''>(no group) -- leave this alone unless directed otherwise by an IPAM administrator</option>
+			#for dhcp_group in $dhcp_groups:
+				#set selected=""
+				#if host['dhcp_group'] == dhcp_group['id']:
+					#set selected=' selected="yes"'
+				#end if
+				<option value="$dhcp_group.id"$selected>$dhcp_group.name -- $dhcp_group.description</option>
+			#end for
+			</select>
+		</div>
 	</div>
 	
 	<div class="submit">
