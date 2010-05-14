@@ -3254,7 +3254,8 @@ class DBInterface( DBBaseInterface ):
 			
 			# Update owners in every state if it is specified
 			if owners:
-				self.set_owners_for_host(mac=mac, owners=owners)
+				self.set_owners_for_host(mac=mac, owner_names=owners)
+
 			self._commit()
 		except:
 			self._rollback()
