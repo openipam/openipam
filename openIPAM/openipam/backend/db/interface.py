@@ -373,14 +373,14 @@ class DBBaseInterface(object):
 		
 		# Make sure to OR users_to_groups.host_permissions after finding the user's group permissions
 		# Hosts to Groups --> Users to Groups
-		fromobject = fromobject.join(obj.users_to_groups, obj.users_to_groups.c.gid == obj.hosts_to_groups.c.gid )
+		fromobject = fromobject.outerjoin(obj.users_to_groups, obj.users_to_groups.c.gid == obj.hosts_to_groups.c.gid )
 		whereobject = obj.users_to_groups.c.permissions.op('|')(obj.users_to_groups.c.host_permissions).op('&')(str(perms.OWNER)) == str(perms.OWNER)
+		# Handle groups with no owners :/
+		whereobject = or_(whereobject, obj.users_to_groups.c.id == None)
 		
 		if get_users:
 			# Users to Groups --> Users
 			fromobject = fromobject.join(obj.users, obj.users.c.id == obj.users_to_groups.c.uid)
-		
-		if get_users:
 			query = select([obj.users], whereobject, from_obj=fromobject, distinct=True)
 		else:
 			query = select([obj.groups], whereobject, from_obj=fromobject, distinct=True)
