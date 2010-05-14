@@ -231,7 +231,7 @@
 				<option value=''>(no group) -- leave this alone unless directed otherwise by an IPAM administrator</option>
 			#for dhcp_group in $dhcp_groups:
 				#set selected=""
-				#if host['dhcp_group'] == dhcp_group['id']:
+				#if host and host.has_key('dhcp_group') and host['dhcp_group'] == dhcp_group['id']:
 					#set selected=' selected="yes"'
 				#end if
 				<option value="$dhcp_group.id"$selected>$dhcp_group.name -- $dhcp_group.description</option>
