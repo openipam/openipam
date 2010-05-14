@@ -100,6 +100,12 @@
 							<input type="hidden" class="isLoaded" name="False" />
 							<div class="innerHostInfo" style="padding: 10px;">
 								<strong>Description:</strong> $host.description<br />
+							#if $host.dhcp_group:
+								#set dhcp_gid=$host.dhcp_group
+								#set dhcp_gi=$dhcp_group_dict[$dhcp_gid]
+								#set dhcp_str = "%(name)s -- %(description)s" % dhcp_gi
+								<strong>DHCP Group:</strong> $dhcp_str<br />
+							#end if
 							</div>
 						</div>
 					</td>

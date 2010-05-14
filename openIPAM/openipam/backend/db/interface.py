@@ -2089,6 +2089,11 @@ class DBInterface( DBBaseInterface ):
 		if self.is_disabled(mac=mac):
 			raise error.InvalidArgument('This host is disabled (mac: %s)' % mac)
 
+		if dhcp_group:
+			dhcp_group = int(dhcp_group)
+		else:
+			dhcp_group = None
+
 		self._begin_transaction()
 		try:
 			# Check permissions
@@ -3062,7 +3067,7 @@ class DBInterface( DBBaseInterface ):
 				self.add_notification_to_host(notify_type['id'], mac)
 	
 	# FIXME: this function should require and id from expiration_types instead of an expiration date
-	def update_host( self, old_mac, mac=None, hostname=None, description=None, expires=None, expiration_format=None ):
+	def update_host( self, old_mac, mac=None, hostname=None, description=None, expires=None, dhcp_group=None, expiration_format=None ):
 		"""
 		Update a host record ... just a host record.
 		No arguments are required except for old_mac ... whatever is passed in
@@ -3080,6 +3085,12 @@ class DBInterface( DBBaseInterface ):
 
 		if not old_mac:
 			raise error.InvalidArgument('Invalid MAC address for old_mac: %s' % old_mac)
+
+		if dhcp_group:
+			dhcp_group = int(dhcp_group)
+		else:
+			dhcp_group = None
+
 		
 		# Require MODIFY permissions if not DEITY
 		if not self.has_min_perms(perms.DEITY):
@@ -3091,10 +3102,10 @@ class DBInterface( DBBaseInterface ):
 		# Doing a for loop instead of if mac: values['mac'] = ..., if hostname: values['hostname'] = ... for every one
 		# Because Python is just cool like that
 		args = locals()
-		for arg in args:
-			if arg in ('mac', 'hostname', 'description', 'expires') and args[arg] != None:
+		for arg in ('mac', 'hostname', 'dhcp_group', 'description', 'expires'):
+			if args.has_key(arg) and args[arg] != None:
 				values[arg] = args[arg]
-				
+		
 		values['changed'] = sqlalchemy.sql.func.now()
 		values['changed_by'] = self._uid
 		
@@ -3111,7 +3122,9 @@ class DBInterface( DBBaseInterface ):
 	
 	# FIXME: this function should require and id from expiration_types instead of an expiration date
 	# FIXME: trash this function and replace it with smaller ones.
-	def change_registration( self, old_mac, mac=None, hostname=None, description=None, expires=None, expiration_format=None, is_dynamic=True, network=None, address=None, owners=None ):
+	def change_registration( self, old_mac, mac=None, hostname=None, description=None,
+			expires=None, expiration_format=None, is_dynamic=True, network=None,
+			address=None, owners=None, dhcp_group=None ):
 		"""
 		The continuation of register_host ... this is a smart function that will update
 		everything required if a registration needs to change.
@@ -3180,7 +3193,7 @@ class DBInterface( DBBaseInterface ):
 				# STAYING DYNAMIC REGISTRATION
 				
 				# Update the host row information
-				self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
+				self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format, dhcp_group=dhcp_group)
 				
 			elif not is_dynamic and was_dynamic:
 				# FIXME: Deleting the host is not an expected behavior.
@@ -3231,14 +3244,14 @@ class DBInterface( DBBaseInterface ):
 					hostname = hostname if hostname else old_host['hostname']
 					
 					# Update the host row information
-					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
+					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format, dhcp_group=dhcp_group)
 					
 					# Done changing IP address
 				else:
 					# Not changing the IP address
 					
 					# Update the host row information
-					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format)
+					self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format, dhcp_group=dhcp_group)
 					
 				if hostname:
 					# FIXME: does this fix any PTRs that might exist?
