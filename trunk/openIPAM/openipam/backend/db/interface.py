@@ -484,7 +484,7 @@ class DBBaseInterface(object):
 		
 		self.require_perms(perms.READ)
 		
-		if not address and not mac and not pool:
+		if not address and not mac and not pool and not network:
 			self.require_perms(perms.OWNER)
 		
 		query = select( [obj.addresses] )
