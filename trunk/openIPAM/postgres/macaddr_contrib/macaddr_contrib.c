@@ -12,6 +12,12 @@ PG_MODULE_MAGIC;
 Datum macaddr_add( PG_FUNCTION_ARGS );
 PG_FUNCTION_INFO_V1( macaddr_add );
 
+Datum macaddr_toint64( PG_FUNCTION_ARGS );
+PG_FUNCTION_INFO_V1( macaddr_toint64 );
+
+Datum int64_tomacaddr( PG_FUNCTION_ARGS );
+PG_FUNCTION_INFO_V1( int64_tomacaddr );
+
 int64 internal_macaddr_toint64( macaddr *mac );
 macaddr* internal_int64_tomacaddr( int64 mac );
 
@@ -38,6 +44,22 @@ macaddr_add( PG_FUNCTION_ARGS )
 	}
 
 	PG_RETURN_MACADDR_P( internal_int64_tomacaddr(sum) );
+}
+
+Datum
+macaddr_toint64( PG_FUNCTION_ARGS )
+{
+	macaddr *addr = PG_GETARG_MACADDR_P(0);
+
+	PG_RETURN_INT64( internal_macaddr_toint64(addr) );
+}
+
+Datum
+int64_tomacaddr( PG_FUNCTION_ARGS )
+{
+	int64 addr_int64 = PG_GETARG_INT64(0);
+
+	PG_RETURN_MACADDR_P( internal_int64_tomacaddr(addr_int64) );
 }
 
 int64 internal_macaddr_toint64( macaddr *mac )
