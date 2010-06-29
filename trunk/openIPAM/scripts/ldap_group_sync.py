@@ -12,8 +12,18 @@ ldap_interface = auth_sources.interfaces[auth_sources.auth.sources.LDAP]
 
 for group in ipam_groups:
 	#print group
-	ldap_filter = '(memberof=cn=%s,ou=IT,ou=CustomGroups,ou=Banner,dc=auth,dc=usu,dc=edu)' % group['name'][len('ldap:'):]
-	ldap_users = ldap_interface._query( basedn='ou=banner,dc=auth,dc=usu,dc=edu', filter=ldap_filter, attrs=['sAMAccountName'] )
+	ldap_users = []
+	grouplist = [group['name'][len('ldap:'):]]
+	for groupname in grouplist:
+		ldap_filter = '(memberof=%s)' % groupname
+		ldap_data = ldap_interface._query( basedn='ou=banner,dc=auth,dc=usu,dc=edu', filter=ldap_filter, attrs=['sAMAccountName','objectClass','dn'] )
+		for user in ldap_data:
+			print user
+			if 'group' in user[1]['objectClass']: # this is a sub-group, keep looking stuff up
+				grouplist.append(user[0])
+			if 'user' in user[1]['objectClass']:
+				ldap_users.append(user)
+
 	ldap_ids = set()
 	for u in ldap_users:
 		name = u[1]['sAMAccountName'][0]
