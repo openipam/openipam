@@ -18,7 +18,7 @@ for group in ipam_groups:
 		ldap_filter = '(memberof=%s)' % groupname
 		ldap_data = ldap_interface._query( basedn='ou=banner,dc=auth,dc=usu,dc=edu', filter=ldap_filter, attrs=['sAMAccountName','objectClass','dn'] )
 		for user in ldap_data:
-			print user
+			#print user
 			if 'group' in user[1]['objectClass']: # this is a sub-group, keep looking stuff up
 				grouplist.append(user[0])
 			if 'user' in user[1]['objectClass']:
