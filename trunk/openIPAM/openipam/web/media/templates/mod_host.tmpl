@@ -126,11 +126,11 @@
 					<div id="label">Current IP Address:</div>
 					<div id="value">
 						#if len( $ips ) == 1:
-							$ips[0].ip_content
+							$ips[0].address
 						#else:
 							Multiple IPs:
 							#for ip in $ips:
-								$ip.ip_content
+								$ip.address
 							#end for
 						#end if
 						#if $networks and (not $editing or ($editing and $has_domain_access)):
