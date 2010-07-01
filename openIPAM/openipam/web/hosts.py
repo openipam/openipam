@@ -278,7 +278,7 @@ class Hosts(BasePage):
 		owners = self.webservice.find_owners_of_host( { 'mac' : macaddr } )
 		is_dynamic = self.webservice.is_dynamic_host( { 'mac' : macaddr } )
 		domain = self.webservice.get_domains( { 'contains' : str(host['hostname']), 'additional_perms' : str(frontend.perms.ADD) } )
-		ips = self.webservice.get_addresses( { 'mac' : macaddr, 'tid': 1 } )
+		ips = self.webservice.get_addresses( { 'mac' : macaddr } )
 
 		values['has_domain_access'] = bool(domain)
 		if domain:
