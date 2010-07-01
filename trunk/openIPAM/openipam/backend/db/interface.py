@@ -2218,7 +2218,7 @@ class DBInterface( DBBaseInterface ):
 		try:
 			if not self.has_min_perms(perms.ADD):
 				if address:
-					andwhere = obj.networks_to_groups.c.nid.op('<<=')(str(address))
+					andwhere = obj.networks_to_groups.c.nid.op('>>=')(str(address))
 				else:
 					andwhere = obj.networks_to_groups.c.nid == str(network)
 				net_perms = obj.perm_query( self._uid, self._min_perms, networks = True, required_perms = perms.ADD, do_subquery=False,
@@ -2226,7 +2226,7 @@ class DBInterface( DBBaseInterface ):
 				net_perms = self._execute(net_perms)
 			
 				if not net_perms:
-					raise error.InsufficientPermissions("Insufficient permissions to add a host to the %s network." % network)
+					raise error.InsufficientPermissions("Insufficient permissions to add a host to the %s network (address: %s)." % (network,address))
 			
 			query = select([obj.addresses.c.address], and_(and_(obj.addresses.c.mac == None, obj.addresses.c.pool == None), obj.addresses.c.reserved == False))
 
