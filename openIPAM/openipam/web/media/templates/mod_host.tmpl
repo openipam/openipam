@@ -128,7 +128,10 @@
 						#if len( $ips ) == 1:
 							$ips[0].ip_content
 						#else:
-							Multiple IPs
+							Multiple IPs:
+							#for ip in $ips:
+								$ip.ip_content
+							#end for
 						#end if
 						#if $networks and (not $editing or ($editing and $has_domain_access)):
 							<a href="javascript:;" id="changeIPLink">[ change IP address ]</a>
