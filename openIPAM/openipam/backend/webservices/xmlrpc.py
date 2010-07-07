@@ -1009,7 +1009,7 @@ class MainWebService(XMLRPCController):
 		db = self.__check_session()
 
 		addr = db.release_static_address( **args[0] )
-		return addr
+		return None
 
 	#----------------------	   NETWORKS	   ---------------------------
 	
