@@ -999,6 +999,18 @@ class MainWebService(XMLRPCController):
 		addr = db.assign_static_address( **args[0] )
 		return addr
 
+	@cherrypy.expose
+	def release_static_address(self, *args):
+		"""
+		Release a static address from a host
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+
+		addr = db.release_static_address( **args[0] )
+		return addr
+
 	#----------------------	   NETWORKS	   ---------------------------
 	
 	@cherrypy.expose
