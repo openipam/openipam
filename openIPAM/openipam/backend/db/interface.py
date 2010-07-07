@@ -2326,9 +2326,10 @@ class DBInterface( DBBaseInterface ):
 		if not addresses:
 			raise error.NotFound("No addresses returned in release_static_address for address %s" % address)
 		
+		# The MAC address associated with this IP address
+		mac = addresses[0]['mac']
+
 		if not self.has_min_perms(perms.DEITY):
-			# The MAC address associated with this IP address
-			mac = addresses[0]['mac']
 			
 			host = self.get_hosts(mac=mac)
 			
