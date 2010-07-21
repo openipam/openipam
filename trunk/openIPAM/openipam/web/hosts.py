@@ -429,7 +429,7 @@ class Hosts(BasePage):
 			else:
 				raise error.InvalidArgument("owners_list not defined!")
 		else:
-			raise cherrypy.HTTPRedirect(ref)
+			raise error.InvalidArgument("Invalid action: '%s'" % multiaction)
 
 		# FIXME: We should have the calling page include its URL in the form
 		# Gahh....evill....re-write me....
