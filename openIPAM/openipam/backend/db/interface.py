@@ -2562,15 +2562,8 @@ class DBInterface( DBBaseInterface ):
 									'changed_by' : self._uid } )
 			result = self._execute_set( query )
 			
-			if ipv4:
-				invalid = [ net[0], net[backend.default_gateway_address_index], net.broadcast(), ] # mark gateways as reserved, although we should assign the mac of the router
-			else: #ipv6
-				router_index = 1
-				if hasattr(backend,"devault_gateway_address_index_v6"):
-					router_index = backend.devault_gateway_address_index_v6
-				invalid = [ net[0], net[router_index], ]
-
 			if ip4:
+				invalid = [ net[0], net[backend.default_gateway_address_index], net.broadcast(), ] # mark gateways as reserved, although we should assign the mac of the router
 				for address in net:
 					if (address not in invalid) or (net.prefixlen() >= 31):
 						# If address is not invalid or in a /31 or /32, add the address as unreserved
@@ -2583,6 +2576,11 @@ class DBInterface( DBBaseInterface ):
 					else:
 						self.add_address( address = str( address ), network=network, pool = None, reserved=True )
 			else: #ipv6
+				router_index = 1
+				if hasattr(backend,"devault_gateway_address_index_v6"):
+					router_index = backend.devault_gateway_address_index_v6
+				invalid = [ net[0], net[router_index], ]
+
 				# FIXME: IPv6: reserve our router/network addresses here
 				for address in invalid: # we do sparse addressing for ipv6.  This is very important.
 					self.add_address(address=address, network=network, reserved=True)
