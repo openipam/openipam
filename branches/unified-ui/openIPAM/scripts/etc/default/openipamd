@@ -1,0 +1,9 @@
+# Mmm... ipam fun
+
+ULIMIT_NOFILE='32768'
+
+OPENIPAM_USER='openipam'
+OPENIPAM_GROUP='openipam'
+
+OPENIPAM_PATH='/usr/local/openipam/openIPAM'
+

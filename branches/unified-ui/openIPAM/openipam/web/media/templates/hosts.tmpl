@@ -1,0 +1,210 @@
+#if 'groups' in $template_keys:
+	#set SEPERATOR = "-*-"
+	#set full_group_list = $SEPERATOR.join([$group.name for $group in $groups]) 
+#end if
+
+<div id="searchHelp" class="hidden">
+	<p>Search for hostnames, IP addresses, MAC addresses, or networks (in
+	CIDR notation).  Wildcards are allowed in hostnames.  Hostnames without a '.'
+	are assumed to be *name*.</p>
+	<strong>For advanced searches...</strong>
+	<p>Multiple search terms may be included, space separated, but no more
+	than one of each type.  Many combinations do not make sense, but you can try
+	them anyway.</p>
+	<p>Try these special query types:<p>
+	<pre>user:<em>username here</em></pre>
+	<pre>name:<em>hostname</em></pre>
+	<pre>ip:<em>IP address</em></pre>
+	<pre>net:<em>network (CIDR notation)</em></pre>
+	<pre>mac:<em>MAC address</em></pre>
+</div>
+
+<div style="float: right; width: 320px;">
+	<img src="/images/interface/loader.gif" id="loaderIcon" style="float:left; padding-top:8px; display: none" />
+	<form name="search" class="search" method="get" action="/hosts/search/">
+			<div class="submit">
+				<a href="javascript:;" id="searchHelpIcon"><img src="/images/interface/question.gif" /></a>
+				<input type="text" class="text" id="searchBox" name="q" style="width: 200px" value="" />
+				<input type="submit" id="submitSearch" value="Search" />
+			</div>
+	</form>
+</div>
+
+<h1>Hosts</h1>
+#echo '<a href="/hosts/search/?q=user%%3A%s&expiring=60" />Show my hosts expiring within 60 days</a><br /><br />' % $username
+
+#if 'message' in $template_keys:
+	<div id="localMessage" class="message">
+		$message
+	</div>
+#end if
+
+#if 'show_search_here' in $template_keys:
+	<img style="float: right; margin-right: 350px; margin-top: 6px" src="/images/interface/search_here.png" />
+	<div class="goodMessage">
+		What hosts would you like to see?
+	</div>
+#end if
+
+#if 'hosts' in $template_keys:
+	#if $hosts:
+		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/">
+		<table class="infoTable">
+			<thead>
+				<tr>
+					<th style="width: 20px">&nbsp;</th>
+					#set class_foo='' if 'hostname' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=hostname%s">Hostname</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'hostname' else '')
+					#set class_foo='' if 'mac' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=mac%s">Ethernet Address</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'mac' else '')
+					#set class_foo='' if 'expires' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=expires%s">Expires</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'expires' else '')
+					<th style="text-align: right">
+						<input type="checkbox" name="selectAll" id="selectAll" />
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+		#for $host in $hosts:
+				#if $host.disabled:
+					<tr class="disabledinfo" id="hostRow_$host.clean_mac">
+				#elif $host.expired:
+					<tr class="expiredinfo" id="hostRow_$host.clean_mac">
+				#else:
+					<tr class="info" id="hostRow_$host.clean_mac">
+				#end if
+					<td>
+						<a class="toggleHostFlyout" name="$host.clean_mac" href="javascript:;">
+						<img id="arrow$host.clean_mac" width="19px" height="19px" src="/images/interface/transparent.png" class="expand" />
+					</td>
+					<td><a href="javascript:;" id="hostLink" class="toggleHostFlyout" name="$host.clean_mac">$host.hostname</a></td>
+					<td>$host.mac</td>
+					<td class="expires">$host.expires</td>
+					<td class="actions">
+					#if $host.disabled:
+						host is disabled
+					#elif $host.has_permissions:
+						<a href="/dns/search/?q=$host.hostname">Manage DNS</a> | 
+						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
+						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> |
+						<input type="checkbox" name="multihosts" value="$host.clean_mac"/>
+					#elif $host.expired:
+						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
+						<input type="checkbox" name="multihosts" value="$host.clean_mac"/>
+					#end if
+					</td>
+				</tr>
+				<tr class="infoExpand">
+					<td colspan="5">
+						<div id="hostInfo$host.clean_mac" class="hiddenInfo">
+							<input type="hidden" class="isLoaded" name="False" />
+							<div class="innerHostInfo" style="padding: 10px;">
+								<strong>Description:</strong> $host.description<br />
+							#if $host.dhcp_group:
+								#set dhcp_gid=$host.dhcp_group
+								#set dhcp_gi=$dhcp_group_dict[$dhcp_gid]
+								#set dhcp_str = "%(name)s -- %(description)s" % dhcp_gi
+								<strong>DHCP Group:</strong> $dhcp_str<br />
+							#end if
+							</div>
+						</div>
+					</td>
+				</tr>
+		#end for 
+			</tbody>
+		</table>
+		
+		<div class="pageLinks">
+			#set temp_text = []
+			#set search_str = '/?'
+			#if 'search' in $template_keys:
+				#set search_str = $search if not $order_by else '%sorder_by=%s&' % ($search,$order_by)
+			#end if
+			#if $page == 0:
+				#silent	temp_text.append("&#171; Previous page &nbsp;&nbsp;")
+			#else:
+				#silent temp_text.append('<a href="/hosts%spage=%s">&#171; Previous page</a> &nbsp;&nbsp;' % ($search_str, $page - 1))
+			#end if
+			#silent temp_text.append(' Page %s of %s &nbsp;&nbsp;' % ($page + 1, $num_pages))
+			#if $page < ($num_pages - 1):
+				#silent temp_text.append('<a href="/hosts%spage=%s">Next page &raquo;</a>' % ($search_str, $page + 1))
+			#else:
+				#silent temp_text.append('Next page &raquo;')
+			#end if
+			
+			#echo ''.join(temp_text)
+			<br />
+			<div class="pageLinksInfo">
+				Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
+			</div>
+		</div>
+
+<div id="group_dialog" class="dialog">
+	<h4>Current group owners</h4>
+	<table class="infoTable" style="margin-bottom: 0pt">
+		<thead>
+			<tr>
+				<th>Group name</th>
+				<th>&nbsp;</th>
+			</tr>
+		</thead>
+	</table>
+	<div style="height: 100px; overflow: auto; border: 1px solid black;">
+		<table class="infoTable" style="border: none;">
+			<tbody id="currentOwners"> 
+			</tbody>
+		</table>
+	</div>
+	
+	<h4 style="padding-top: 5pt">Add group owners</h4>
+	
+	<form action="" method="post">
+		<div style="float: left">
+			<p><span>Search by username: </span><input type="text" id="username" name="username" value="" /><input type="submit" id="usernameSearch" name="usernameSearch"  class="button" value="Search" /></p>
+		</div>
+		<div style="float: right;">
+			<a href="javascript:;" id="showGroupsAgain" class="hidden">Show groups again</a>
+		</div>
+	</form>
+	
+	<div class="clear"><!-- --></div>
+	
+	<div id="searchMessage" class="message hidden">
+	</div>
+	
+	<table class="infoTable" style="margin-bottom: 0pt">
+		<thead>
+			<tr>
+				<th>Group name</th>
+				<th>&nbsp;</th>
+			</tr>
+		</thead>
+	</table>
+	<div style="height: 150px; overflow: auto; border: 1px solid black;">
+		<table class="infoTable" style="border: none;">
+				<tbody id="ownersToAdd"> 
+				</tbody>
+		</table>
+	</div>
+</div>
+
+		<input type="hidden" id="owners_list" name="owners_list" value="user_$username," />
+		<input type="hidden" id="full_group_list" value="$full_group_list" />
+		<select name="multiaction" id="multiaction">
+			<option value="">Choose an action...</option>
+			<option value="delete">Delete selected hosts</option>
+			<option value="owners">Set owners on selected hosts</option>
+			<option value="renew">Renew selected hosts</option>
+		</select>
+		<input type="hidden" name="multiurl" value="$url" />
+		<input type="submit" id="submitMultiAction" value="Go" />
+	</form>
+	#else:
+		<p class="noResults">
+			No hosts found.<br />
+			#if 'show_all_hosts' in $template_keys and not $show_all_hosts:
+				You are only searching your hosts, would you like to <a href="/hosts/?show_all">show all hosts</a> and search again?
+			#end if
+		</p>
+	#end if
+#end if
