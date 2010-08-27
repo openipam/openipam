@@ -358,7 +358,11 @@ def db_consumer( dbq, send_packet ):
 		def assign_dhcp_options(self, options, requested, packet):
 			opt_vals = {}
 			for o in options:
-				opt_vals[ int(o['oid']) ] = o['value']
+				if o['value'] is None: # unset this option, plz
+					if opt_vals.has_key(int(o['oid'])):
+						del opt_vals[ int(o['oid']) ]
+				else:
+					opt_vals[ int(o['oid']) ] = o['value']
 
 			preferred = []
 			for oid in requested:
