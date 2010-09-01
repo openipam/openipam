@@ -2082,6 +2082,9 @@ class DBInterface( DBBaseInterface ):
 		"""
 
 		hostname = hostname.lower()
+
+		if re.search(r'\.arpa$',hostname):
+			raise error.InvalidArgument("hostname (%s) appears to be in a reverse-lookup domain")
 		
 		if not validation.is_mac(mac):
 			mac = self.__find_next_mac(mac)

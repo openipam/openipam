@@ -50,7 +50,7 @@ def get_logger():
 			syslog_handler.setLevel( syslog_level )
 			syslog_handler.setFormatter( syslog_fmt )
 			logger.addHandler( syslog_handler )
-		print logger.level
-		print logger.handlers[0].level
+		#print logger.level
+		#print logger.handlers[0].level
 	return logger
 
