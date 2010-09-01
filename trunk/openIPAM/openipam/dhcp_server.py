@@ -158,7 +158,7 @@ class Server():
 					log_packet(packet, prefix='SND/HACK:')
 					dest = ( '255.255.255.255', self.bootpc_port )
 		else:
-			log_packet(packet, prefix='IGN/SNDFAIL:')
+			log_packet(packet, prefix='IGN/SNDFAIL:', level=dhcp.logging.ERROR)
 			raise Exception('Cannot send packet without one of ciaddr, giaddr, or yiaddr.')
 
 		self.dhcp_socket.sendto( packet.EncodePacket(), dest )
@@ -226,7 +226,7 @@ class Server():
 		seen = self.do_seen_cleanup( mac, min_timestamp )
 
 		if len(seen) > MAX_REQUESTS:
-				log_packet( packet, prefix='IGN/LIMIT:' )
+				log_packet( packet, prefix='IGN/LIMIT:', level=dhcp.logging.WARNING )
 				print "ignoring request type %s from mac %s because we have seen %s requests in %s" % (pkttype, mac, len(seen), str(TIME_PERIOD))
 				return
 		
@@ -235,7 +235,7 @@ class Server():
 			self.__dbq.put_nowait( (pkttype, packet) )
 		except Full, e:
 			# The queue is full, try again later.
-			log_packet( packet, prefix='IGN/FULL:' )
+			log_packet( packet, prefix='IGN/FULL:', level=dhcp.logging.ERROR )
 			print "ignoring request type %s from mac %s because the queue is full ... be afraid" % (pkttype,mac)
 			return
 		
@@ -270,7 +270,7 @@ def parse_packet( packet ):
 
 types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
 
-def log_packet( packet, prefix=''):
+def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 	# This should be called for every incoming or outgoing packet.
 	pkttype,mac,xid,client,giaddr,recvd_from,req_opts = parse_packet(packet)
 
@@ -281,7 +281,7 @@ def log_packet( packet, prefix=''):
 	else:
 		client_foo = str(client)
 
-	dhcp.get_logger().info("%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
+	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 
 def db_consumer( dbq, send_packet ):
 	class dhcp_packet_handler:
@@ -582,7 +582,7 @@ def db_consumer( dbq, send_packet ):
 		except error.NotFound, e:
 			#print_exception( e, traceback=False )
 			print 'sorry, no lease found'
-			log_packet( pkt, prefix='IGN/UNAVAIL:' )
+			log_packet( pkt, prefix='IGN/UNAVAIL:', level=dhcp.logging.ERROR )
 			print str(e)
 		except Exception,e:
 			print_exception( e )
