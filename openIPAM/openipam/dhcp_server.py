@@ -511,7 +511,7 @@ def db_consumer( dbq, send_packet ):
 
 			if router == '0.0.0.0':
 				# This is traffic directly to our server -- quite possibly a windows client
-				router = requested_ip # we only use the router to find the network this device belongs to, so ciaddr should work as well
+				router = packet.get_recv_interface()
 
 			giaddr = '.'.join(map(str, packet.GetOption('giaddr')))
 
