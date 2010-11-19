@@ -31,7 +31,7 @@
 </div>
 
 <h1>Hosts</h1>
-#echo '<a href="/hosts/search/?q=user%%3A%s&expiring=60" />Show my hosts expiring within 60 days</a><br /><br />' % $username
+#echo '<a href="/hosts/search/?username=%s&expiring=60" />Show my hosts expiring within 60 days</a><br /><br />' % $username
 
 #if 'message' in $template_keys:
 	<div id="localMessage" class="message">

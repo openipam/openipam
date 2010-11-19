@@ -209,7 +209,7 @@ class Hosts(BasePage):
 			values['show_search_here'] = True
 		else:
 			#values['num_hosts'],values['hosts'] = self.get_hosts( page=page, count=True )
-			raise cherrypy.HTTPRedirect('/hosts/search/?q=user%%3a%s' % cherrypy.session['username'])
+			raise cherrypy.HTTPRedirect('/hosts/search/?username=%s' % cherrypy.session['username'])
 			
 		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
 
@@ -312,7 +312,7 @@ class Hosts(BasePage):
 			if not expiring:
 				raise cherrypy.InternalRedirect('/hosts')
 			else:
-				q = "user:%s" % cherrypy.session['username']
+				kw['username'] = cherrypy.session['username']
 
 		if success:
 			values['global_success'] = 'Hosts Updated Successfully'
