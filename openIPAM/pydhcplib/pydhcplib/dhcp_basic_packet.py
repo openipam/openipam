@@ -209,7 +209,7 @@ class DhcpBasicPacket:
         for each in self.options_data.keys() :
             options.append(DhcpOptions[each])
             options.append(len(self.options_data[each]))
-	    options.extend(self.options_data[each])
+            options.extend(self.options_data[each])
             if DhcpOptions[each] == 67:
                 # we have a bunch of crap that reuse buffers they shouldn't,
                 #   so add a null for them here
@@ -217,12 +217,14 @@ class DhcpBasicPacket:
 
         packet = self.packet_data[:240] + options
         packet.append(255) # add end option
+        packet.append(0) # in case of a poorly-behaved client
 
         packet = map(chr,packet)
 
         if len(packet) < 342:
             packet += '\0' * ( 300 - len(packet) )
-        delta = len(packet) % 4
+        #delta = len(packet) % 4
+        delta = len(packet) % 32
         if delta:
             packet += '\0' * delta
 
