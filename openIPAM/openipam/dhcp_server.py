@@ -510,8 +510,10 @@ def db_consumer( dbq, send_packet ):
 					raise Exception("This really needs fixed...")
 
 			if router == '0.0.0.0':
-				# This is traffic directly to our server -- quite possibly a windows client
-				router = packet.get_recv_interface()
+				# This could either be traffic directly to our server or a local broadcast
+				# FIXME: if src_address == requested_ip: router = requested_ip
+				# elif dst_address == 255.255.255.255: router = packet.get_recv_interface()
+				router = requested_ip
 
 			giaddr = '.'.join(map(str, packet.GetOption('giaddr')))
 
