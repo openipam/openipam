@@ -217,16 +217,11 @@ class DhcpBasicPacket:
 
         packet = self.packet_data[:240] + options
         packet.append(255) # add end option
-        packet.append(0) # in case of a poorly-behaved client
+	pktlen = len(packet)
+	if pktlen < 300:
+		packet.extend([0] * (300-pktlen)) # RFC says min packet size is 300
 
         packet = map(chr,packet)
-
-        if len(packet) < 342:
-            packet += '\0' * ( 300 - len(packet) )
-        #delta = len(packet) % 4
-        delta = len(packet) % 32
-        if delta:
-            packet += '\0' * delta
 
         pack_fmt = str(len(packet))+"c"
         
