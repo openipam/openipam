@@ -1556,6 +1556,9 @@ class MainWebService(XMLRPCController):
 				elif row['tid'] == 33:
 					if not validation.is_srv_content(row['text_content']): 
 						temp_messages.append("Invalid SRV content: %s" % row['text_content'])
+				elif row['tid'] == 44:
+					if not re.match('^[12] 1 [0-9A-F]{40}',row['text_content']):
+						temp_messages.append("Invalid SSHFP content: %s" % row['text_content'])
 				else:
 					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
 			
