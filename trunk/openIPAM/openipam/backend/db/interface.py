@@ -618,13 +618,13 @@ class DBBaseInterface(object):
 			# FIXME: is there a better way to do this?
 			if type(content) == types.ListType:
 				if validation.is_ip(content[0]): 
-					raise InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
+					raise error.InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
 				else:
 					whereclause.append( obj.dns_records.c.text_content.in_( content ) )
 				
 			else:
 				if validation.is_ip(content): 
-					raise InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
+					raise error.InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
 				else:
 					if '%' in content:
 						# Use a LIKE condition
