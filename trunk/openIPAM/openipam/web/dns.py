@@ -150,6 +150,15 @@ class DNS(BasePage):
 		if success:
 			values['global_success'] = 'Records Updated Successfully!'
 		
+		def startswith(s,m):
+			l = len(m)
+			if s[:l] = m:
+				return True
+			return False
+
+		def strip(s,m):
+			return s[len(m):]
+		
 		if q:
 			# Strip the query string and make sure it's a string
 			q = str(q).strip().split('|')
