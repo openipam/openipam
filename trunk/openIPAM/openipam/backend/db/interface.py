@@ -660,6 +660,8 @@ class DBBaseInterface(object):
 				if a_record_names:
 					other_records = self._get_dns_records( content = a_record_names ).distinct()
 					union_foo.append(other_records.where(whereclause))
+					other_records = self._get_dns_records( name = a_record_names ).distinct()
+					union_foo.append(other_records.where(whereclause))
 
 			if len(union_foo) > 2:
 				query = union( *union_foo )

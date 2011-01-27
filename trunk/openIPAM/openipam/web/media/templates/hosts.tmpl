@@ -84,7 +84,7 @@
 					#if $host.disabled:
 						host is disabled
 					#elif $host.has_permissions:
-						<a href="/dns/search/?q=$host.hostname">Manage DNS</a> | 
+						<a href="/dns/search/?mac=$host.clean_mac">Manage DNS</a> | 
 						<a href="javascript:;" class="delHost" name="$host.clean_mac">Delete</a> | 
 						<a href="/hosts/edit/?macaddr=$host.clean_mac">Edit</a> |
 						<input type="checkbox" name="multihosts" value="$host.clean_mac"/>
