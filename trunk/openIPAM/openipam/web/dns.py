@@ -46,9 +46,9 @@ class DNS(BasePage):
 		'''
 		
 		# Replace any wildcard stars with DB capable wildcards
-		if name:
+		if type(name) == types.StringType:
 			name = name.replace("*", "%")
-		if content:
+		if type(content) == types.StringType:
 			content = content.replace("*", "%")
 
 		# Initialization
@@ -176,7 +176,7 @@ class DNS(BasePage):
 				elif startswith(i,'ip:'):
 					address = strip(i,'ip:')
 				else:
-					name_or_content = q
+					name_or_content = i
 
 			
 		query_string = []
