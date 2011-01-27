@@ -80,21 +80,24 @@ class DNS(BasePage):
 			record['has_delete_perm'] = ((Perms(permissions[0][str(record['id'])]) & frontend.perms.DELETE) == frontend.perms.DELETE)
 		
 		# filtering based on selected options
-		count = 0
-		dns_results = []
-		for record in dns_records:
-			if (cherrypy.session['show_a_records'] and record['tid'] == 1):
-				dns_results.append(record)
-			elif (cherrypy.session['show_ns'] and record['tid'] == 2):
-				dns_results.append(record)
-			elif (cherrypy.session['show_cnames'] and record['tid'] == 5):
-				dns_results.append(record)
-				
-			if (not cherrypy.session['show_a_records'] and not cherrypy.session['show_ns'] and not cherrypy.session['show_cnames']):
-				return dns_records
-			count += 1
-		
-		return dns_results
+		#count = 0
+		#dns_results = []
+		#for record in dns_records:
+		#	if (cherrypy.session['show_a_records'] and record['tid'] == 1):
+		#		dns_results.append(record)
+		#	elif (cherrypy.session['show_ns'] and record['tid'] == 2):
+		#		dns_results.append(record)
+		#	elif (cherrypy.session['show_cnames'] and record['tid'] == 5):
+		#		dns_results.append(record)
+		#		
+		#	if (not cherrypy.session['show_a_records'] and not cherrypy.session['show_ns'] and not cherrypy.session['show_cnames']):
+		#		return dns_records
+		#	count += 1
+		#
+		#return dns_results
+
+		# don't filter
+		return dns_records
 	
 	#------------------------  Public Functions  ------------------------
 	
