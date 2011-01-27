@@ -131,7 +131,7 @@ class DNS(BasePage):
 		return self.__template.wrap(leftcontent=self.get_leftnav(), filename='%s/templates/dns.tmpl'%frontend.static_dir, values=values)
 
 	@cherrypy.expose
-	def search(self, q=None, mac=None, name=None, content=None, success=False, **kw):
+	def search(self, q=None, mac=None, name=None, address=None, content=None, success=False, **kw):
 		'''
 		The search page where the search form POSTs
 		'''
