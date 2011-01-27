@@ -5,6 +5,8 @@ from openipam.utilities.perms import Perms
 from openipam.web.resource.utils import redirect_to_referer
 from openipam.config import frontend
 
+import types
+
 import cherrypy
 import framework
 from resource.submenu import submenu
