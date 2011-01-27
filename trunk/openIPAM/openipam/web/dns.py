@@ -179,7 +179,7 @@ class DNS(BasePage):
 					name_or_content = q
 
 			
-		values['query_string'] = []
+		query_string = []
 		if name:
 			query_string.append('name:%s' % name)
 		if mac:
@@ -191,7 +191,7 @@ class DNS(BasePage):
 		if name_or_content:
 			query_string.append('%s' % name)
 
-		values['query_string'] = '|'.join(values['query_string'])
+		values['query_string'] = '|'.join(query_string)
 		values['dns_types_dropdown'] = self.webservice.get_dns_types({ 'only_useable' : True, 'order_by' : 'name' })
 		
 		# Search by MAC if query is a MAC address
