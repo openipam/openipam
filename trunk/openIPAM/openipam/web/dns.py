@@ -152,7 +152,7 @@ class DNS(BasePage):
 		
 		def startswith(s,m):
 			l = len(m)
-			if s[:l] = m:
+			if s[:l] == m:
 				return True
 			return False
 
