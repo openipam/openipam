@@ -674,7 +674,7 @@ class DBBaseInterface(object):
 			from_object = obj.dns_records
 			query = select( [obj.dns_records], from_obj = from_object )
 
-			if whereclause:
+			if whereclause is not True:
 				query = query.where( whereclause )
 			else:
 				raise error.InvalidArgument("You're trying to retrieve all DNS records ... why?")
