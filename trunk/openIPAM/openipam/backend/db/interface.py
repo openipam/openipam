@@ -1644,7 +1644,7 @@ class DBInterface( DBBaseInterface ):
 		return expires
 	
 	def _do_delete(self, table, where):
-		if not where:
+		if where is None or where is True:
 			raise error.InvalidArgument('You just tried to delete everything in the "%s" table.  where=%s' % (str(table.name), str(where)))
 		values = {}
 		if table.name == 'disabled':
