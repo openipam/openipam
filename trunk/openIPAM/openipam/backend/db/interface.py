@@ -1071,7 +1071,7 @@ class DBBaseInterface(object):
 
 		columns = [primary_key, permissions_col.label('permissions') ]
 
-		if alternate_perms_key is non None:
+		if alternate_perms_key is not None:
 			columns.append(alternate_perms_key)
 		
 		query = select(columns, from_obj=fromobj).group_by(primary_key)
