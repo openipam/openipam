@@ -1071,11 +1071,11 @@ class DBBaseInterface(object):
 
 		columns = [primary_key, permissions_col.label('permissions') ]
 
-		if alternate_perms_key:
+		if alternate_perms_key is non None:
 			columns.append(alternate_perms_key)
 		
 		query = select(columns, from_obj=fromobj).group_by(primary_key)
-		if alternate_perms_key:
+		if alternate_perms_key is not None:
 			query = query.group_by(alternate_perms_key)
 		
 		results = self._execute(query)
@@ -1083,7 +1083,7 @@ class DBBaseInterface(object):
 		permissions = {}
 		
 		# If the alternate_perms_key is specified, use that for our permissions object
-		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key.name
+		perms_key_name = alternate_perms_key.name if alternate_perms_key is not None else primary_key.name
 		
 		for row in results:
 			permissions[row[perms_key_name]] = row['permissions']
