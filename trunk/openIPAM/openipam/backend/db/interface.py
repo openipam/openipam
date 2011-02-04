@@ -648,8 +648,7 @@ class DBBaseInterface(object):
 
 			if addresses:
 				a_records = self._get_dns_records( address = addresses ).distinct()
-				if a_records:
-					union_foo.append(a_records.where(whereclause))
+				union_foo.append(a_records.where(whereclause))
 
 				ptr_names = [ openipam.iptypes.IP(i).reverseName()[:-1] for i in addresses ]
 				if ptr_names:
@@ -2363,9 +2362,8 @@ class DBInterface( DBBaseInterface ):
 			# Delete the A records
 			a_records = self.get_dns_records(address=address)
 			
-			if a_records:
-				for rr in a_records:
-					self.del_dns_record(rid=rr['id'], mac=mac)
+			for rr in a_records:
+				self.del_dns_record(rid=rr['id'], mac=mac)
 
 			result = self.update_address( address=address, pool=pool )
 			
