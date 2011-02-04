@@ -1106,7 +1106,7 @@ class DBBaseInterface(object):
 		primary_key=obj.hosts.c.mac
 
 		permissions_col, fromobj = self._find_permissions_for_objects_query(objects=hosts, primary_table=obj.hosts, primary_key=primary_key, bridge_table=obj.hosts_to_groups, foreign_key=obj.hosts_to_groups.c.mac, alternate_perms_key=alternate_perms_key)
-		if not permissions_col or not fromobj:
+		if permissions_col is None or fromobj is None:
 			return [{}]
 
 		dom_u2g = obj.users_to_groups.alias('domain_users_to_groups')
