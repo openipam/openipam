@@ -1068,8 +1068,6 @@ class DBBaseInterface(object):
 		'''
 		
 		permissions_col, fromobj = self._find_permissions_for_objects_query( objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key )
-		if not permissions_col or not fromobj:
-			return [{}]
 
 		columns = [primary_key, permissions_col.label('permissions') ]
 
