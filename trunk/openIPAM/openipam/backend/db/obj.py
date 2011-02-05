@@ -108,7 +108,7 @@ def perm_query( uid, min_perms, hosts=False, networks=False, domains=False, gid=
 	if gid:
 		whereclause = and_( whereclause, users_to_groups.c.gid == gid)
 
-	if andwhere:
+	if andwhere is not None:
 		whereclause = and_( whereclause, andwhere )
 
 	if do_subquery:
