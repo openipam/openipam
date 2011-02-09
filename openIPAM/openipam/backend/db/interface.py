@@ -2721,7 +2721,7 @@ class DBInterface( DBBaseInterface ):
 		"""Delete a DHCP group"""
 		pass
 		
-	def del_dns_record( self, rid, mac=None ):
+	def del_dns_record( self, rid, did, mac=None ):
 		"""
 		Delete a DNS record
 		
@@ -2731,31 +2731,39 @@ class DBInterface( DBBaseInterface ):
 		# TODO: now that we have find_permissions_for_dns_records, re-write this function
 		# to not accept a mac address (and find all the places that are calling this)
 		
-		records = self.get_dns_records(id=rid)
+		records = self.get_dns_records(id=rid, did=did)
 		
 		if not records:
 			raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
 		
 		record = records[0]
 		
-		# If MAC is not specified, require DEITY
-		if not mac:
-			id_perms = self.find_permissions_for_dns_records(records)[0]
-			
-			if Perms(id_perms[rid]) & perms.DELETE != perms.DELETE:
-				raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, record['name']))
-		else:
-			# Require DELETE permissions if MAC is specified
-			self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
-		
-		where = obj.dns_records.c.id==rid
+		if rid is not None and did is not None:
+			raise error.InvalidArgument('del_dns_records only accepts one of (did=%s, rid=%s)' % (did,rid))
 
-		# If it was an A Record, delete the associated PTR (without permissions checking)
-		if record['tid'] == 1:
-			ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
+		if did is not None:
+			self.require_perms(perms.DEITY)
+			where=obj.dns_records.c.did == int(did)
+
+		else:
+			# If MAC is not specified, require DEITY
+			if not mac:
+				id_perms = self.find_permissions_for_dns_records(records)[0]
+				
+				if Perms(id_perms[rid]) & perms.DELETE != perms.DELETE:
+					raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, record['name']))
+			else:
+				# Require DELETE permissions if MAC is specified
+				self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
 			
-			if ptr:
-				where = or_(where, (obj.dns_records.c.id==ptr[0]['id']))
+			where = obj.dns_records.c.id==rid
+
+			# If it was an A Record, delete the associated PTR (without permissions checking)
+			if record['tid'] == 1:
+				ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
+				
+				if ptr:
+					where = or_(where, (obj.dns_records.c.id==ptr[0]['id']))
 
 		return self._do_delete( obj.dns_records, where=where )
 	
