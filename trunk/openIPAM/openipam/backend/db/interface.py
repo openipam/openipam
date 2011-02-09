@@ -558,7 +558,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None ):
+	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None, did=None ):
 		"""
 		Get DNS Records
 		
@@ -632,6 +632,10 @@ class DBBaseInterface(object):
 					else:
 						# content = 'exact string' OR content like '% exact string'
 						whereclause.append( or_(obj.dns_records.c.text_content == content, obj.dns_records.c.text_content.like( '%% %s' % content )  ) )
+
+		if did is not None:
+			whereclause.append( obj.dns_records.c.did == int(did) )
+
 		if changed:
 			whereclause.append( obj.dns_records.c.changed >= changed )
 		
@@ -2764,7 +2768,9 @@ class DBInterface( DBBaseInterface ):
 	
 	def del_domain( self ):
 		"""domain"""
-		pass
+		self.require_perms(perms.DEITY)
+		where = obj.domains_to_groups.c.id == int(did)
+		return self._do_delete( table=obj.domains, where=where )
 	
 	def del_domain_to_group( self, did, gid ):
 		"""Remove a domain from a group
