@@ -247,6 +247,16 @@ class IPMCmdInterface( cmd.Cmd ):
 		else:
 			print "No host records found."
 	
+	def do_show_domain( self, arg ):
+		filter = self.mkdict( arg )
+
+		result = self.iface.get_domains( **filter )
+		if result:
+			print "Domains:"
+			self.show_dicts( result )
+		else:
+			print "No domains found."
+	
 	def do_show_dns( self, arg ):
 		filter = self.mkdict( arg )
 		if filter.has_key( 'type' ):
@@ -496,7 +506,28 @@ class IPMCmdInterface( cmd.Cmd ):
 			for i in failed:
 				self.onecmd( 'show_dns id %s' % id )
 
-	
+	def do_del_domain( self, arg ):
+		domain_name = arg.strip()
+		domain = self.iface.get_domains(name=domain_name)
+		if len(domain) > 1:
+			print "Non-unique match!"
+			return
+		elif len(domain) == 0:
+			print "No match!"
+			return
+
+		domain = domain[0]
+		
+		self.onecmd('show_dns did %s' % int(domain['id']))
+		self.onecmd('show_domain did %s' % int(domain['id']))
+
+		if self.get_bool_from_user( 'permanently delete entire domain?', default=False ):
+			print "Deleting DNS records"
+			self.iface.del_dns_record( did=domain['id'] )
+			print "Deleting domain"
+			self.iface.del_domain( did=domain['id'] )
+			print "Success."
+
 	def do_del_network( self, arg ):
 		net = arg.strip()
 		self.onecmd( 'show_network %s' % net )
