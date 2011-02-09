@@ -2731,13 +2731,6 @@ class DBInterface( DBBaseInterface ):
 		# TODO: now that we have find_permissions_for_dns_records, re-write this function
 		# to not accept a mac address (and find all the places that are calling this)
 		
-		records = self.get_dns_records(id=rid, did=did)
-		
-		if not records:
-			raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
-		
-		record = records[0]
-		
 		if rid is not None and did is not None:
 			raise error.InvalidArgument('del_dns_records only accepts one of (did=%s, rid=%s)' % (did,rid))
 
@@ -2746,6 +2739,13 @@ class DBInterface( DBBaseInterface ):
 			where=obj.dns_records.c.did == int(did)
 
 		else:
+			records = self.get_dns_records(id=rid, did=did)
+			
+			if not records:
+				raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
+		
+			record = records[0]
+		
 			# If MAC is not specified, require DEITY
 			if not mac:
 				id_perms = self.find_permissions_for_dns_records(records)[0]
@@ -2777,7 +2777,7 @@ class DBInterface( DBBaseInterface ):
 	def del_domain( self ):
 		"""domain"""
 		self.require_perms(perms.DEITY)
-		where = obj.domains_to_groups.c.id == int(did)
+		where = obj.domains.c.id == int(did)
 		return self._do_delete( table=obj.domains, where=where )
 	
 	def del_domain_to_group( self, did, gid ):
