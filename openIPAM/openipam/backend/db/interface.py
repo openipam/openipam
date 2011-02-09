@@ -2774,7 +2774,7 @@ class DBInterface( DBBaseInterface ):
 	def del_dns_view( self ):
 		pass
 	
-	def del_domain( self ):
+	def del_domain( self, did ):
 		"""domain"""
 		self.require_perms(perms.DEITY)
 		where = obj.domains.c.id == int(did)
