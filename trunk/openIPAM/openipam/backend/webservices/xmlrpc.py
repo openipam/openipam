@@ -1158,7 +1158,7 @@ class MainWebService(XMLRPCController):
 		db = self.__check_session()
 		
 		# TODO: how should this affect all associated hosts?
-		pass
+		db.del_domain(**args[0])
 	
 	@cherrypy.expose
 	def get_domains(self, *args):
