@@ -2721,7 +2721,7 @@ class DBInterface( DBBaseInterface ):
 		"""Delete a DHCP group"""
 		pass
 		
-	def del_dns_record( self, rid, did, mac=None ):
+	def del_dns_record( self, rid=None, did=None, mac=None ):
 		"""
 		Delete a DNS record
 		
