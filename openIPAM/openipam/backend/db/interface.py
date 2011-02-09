@@ -333,7 +333,8 @@ class DBBaseInterface(object):
 
 			addr_where = obj.hosts.c.mac == addr_record['mac']
 			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = permission, do_subquery=False, andwhere=addr_where )
-		
+			host_perms = self._execute(host_perms)
+			
 			if host_perms is None or len(host_perms) == 0:
 				if not error_msg:
 					error_msg = "need %s or greater network containing %s or host with mac %s" % (perms,address,addr_record['mac'])
