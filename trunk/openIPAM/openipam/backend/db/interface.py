@@ -1235,6 +1235,8 @@ class DBBaseInterface(object):
 		
 		# Get the domains who have those names, then get the permissions for those domains
 		domains = self.get_domains( contains=names )
+		if len(domains) == 0:
+			return []
 
 		# FIXME: Holy inefficiency, batman!  These are never used!
 		#domain_perms = self.find_permissions_for_domains( domains )
