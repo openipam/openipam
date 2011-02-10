@@ -578,6 +578,8 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.add_domain( name=name, typename=typename, description=desc, master=master )
 		self.iface.add_dns_record( name=name, tid=6, text_content='root1.usu.edu hostmaster@usu.edu 0 10800 3600 604800 3600', vid=None )
 		self.iface.add_dns_record( name=name, tid=1, ip_content=address, add_ptr=False, vid=None )
+		self.iface.add_dns_record( name=name, tid=2, text_content='root1.usu.edu', vid=None )
+		self.iface.add_dns_record( name=name, tid=2, text_content='root2.usu.edu', vid=None )
 		self.iface.add_dns_record( name='www.'+name, tid=5, text_content=name, vid=None )
 
 	def do_create_user( self, arg ):
