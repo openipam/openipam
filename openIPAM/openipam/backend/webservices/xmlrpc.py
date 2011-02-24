@@ -165,7 +165,9 @@ class MainWebService(XMLRPCController):
 		"""
 		
 		try:
-			if not username or not password:
+			if (not (type(username) == string and len(username) > 0)
+					or not (type(password) == string and
+						len(password) > 0)):
 				raise Exception()
 			
 			user = auth_sources.authenticate(username, password)
