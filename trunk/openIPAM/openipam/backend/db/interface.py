@@ -3005,6 +3005,8 @@ class DBInterface( DBBaseInterface ):
 		# FIXME: do we need to do this if here? or just the require permissions
 		if not self.has_min_perms(perms.DEITY) and mac and self.get_hosts_to_groups(mac=mac):
 			self._require_perms_on_host(permission=perms.ADMIN, mac=mac)
+
+		where = None
 					
 		if id:
 			if type(id) == types.ListType:
