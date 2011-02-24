@@ -165,10 +165,8 @@ class MainWebService(XMLRPCController):
 		"""
 		
 		try:
-			if (not (type(username) == string and len(username) > 0)
-					or not (type(password) == string and
-						len(password) > 0)):
-				raise Exception()
+			if len(username) == 0 or len(password) == 0:
+				raise Exception("Invalid input!")
 			
 			user = auth_sources.authenticate(username, password)
 	
