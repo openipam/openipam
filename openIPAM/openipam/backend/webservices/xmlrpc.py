@@ -1679,7 +1679,7 @@ class MainWebService(XMLRPCController):
 				else:
 					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
 
-				if not (have_perm & perms.ADD == perms.ADD)
+				if not ((have_perm & perms.ADD == perms.ADD)
 				and (dns_type_perms.has_key(str(form_row['tid'])))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 					
