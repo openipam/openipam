@@ -1673,7 +1673,13 @@ class MainWebService(XMLRPCController):
 				
 				new.append(form_row)
 				
-				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
+				have_perm = Perms(cherrypy.session['user']['min_permissions'])
+				if fqdn_perms.has_key(form_row['name']):
+					have_perm |= fqdn_perms[form_row['name']]
+				else:
+					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
+
+				if not (have_perm & perms.ADD == perms.ADD)
 				and (dns_type_perms.has_key(str(form_row['tid'])))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 					
