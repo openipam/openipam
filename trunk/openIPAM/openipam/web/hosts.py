@@ -424,7 +424,7 @@ class Hosts(BasePage):
 		# need to get the owners...
 		elif multiaction == 'owners':
 			if kw.has_key('owners_list'):
-				owners = kw['owners_list'].split(',')
+				owners = kw['owners_list'].split('|')
 				self.webservice.change_hosts( {'hosts':multihosts, 'owners':owners,} )
 			else:
 				raise error.InvalidArgument("owners_list not defined!")
