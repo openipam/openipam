@@ -1361,7 +1361,7 @@ class DBBaseInterface(object):
 			if exact:
 				query = query.where(obj.networks.c.network==network)
 			else:
-				query = query.where(obj.networks.c.network.op('<<=')(network)
+				query = query.where(obj.networks.c.network.op('<<=')(network))
 		if address:
 			query = query.where(obj.networks.c.network.op('>>=')(address))
 		
