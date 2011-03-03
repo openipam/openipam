@@ -1329,7 +1329,7 @@ class DBBaseInterface(object):
 		
 		return select( [obj.internal_auth], obj.internal_auth.c.id == uid )
 
-	def _get_networks( self, nid=None, network=None, gid=None, address=None, additional_perms='00000000' ):
+	def _get_networks( self, nid=None, network=None, gid=None, address=None, additional_perms='00000000', exact=True ):
 		'''
 		Return networks
 		@param nid: the database network id, returns one network
@@ -1358,9 +1358,12 @@ class DBBaseInterface(object):
 		if nid:
 			query = query.where(obj.networks.c.network == nid)
 		if network:
-			query = query.where(obj.networks.c.network==network)
+			if exact:
+				query = query.where(obj.networks.c.network==network)
+			else:
+				query = query.where(obj.networks.c.network.op('<<=')(network)
 		if address:
-			query = query.where(obj.networks.c.network.op('>>')(address))
+			query = query.where(obj.networks.c.network.op('>>=')(address))
 		
 		return query 
 					
