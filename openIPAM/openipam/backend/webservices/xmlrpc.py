@@ -624,7 +624,7 @@ class MainWebService(XMLRPCController):
 		# Make the owners argument if owners_list was specified
 		if kw.has_key('owners_list'):
 			# If given an owners CSV string, make it a list
-			kw['owners'] = kw['owners_list'].split(',')
+			kw['owners'] = kw['owners_list'].split('|')
 			del kw['owners_list']
 		
 		# If we're editing and no owners were specified, add in [] to satisify checks below
