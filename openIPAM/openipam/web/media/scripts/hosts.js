@@ -188,7 +188,7 @@ function toggleHostFlyout( mac ){
  */
  
 function addOwner(ownerName) {
-	$('#owners_list').val($('#owners_list').val()+ownerName+',');
+	$('#owners_list').val($('#owners_list').val()+ownerName+'|');
 
 	addOwnerToRow(ownerName);	
 }
@@ -201,14 +201,14 @@ function addOwnerToRow(ownerName) {
 }
 			
 function removeOwner(ownerName) {
-	$('#owners_list').text($('#owners').text().replace(ownerName+',', ''));
+	$('#owners_list').text($('#owners').text().replace(ownerName+'|', ''));
 	$('#currentOwners tr[id="'+ownerName+'"]').remove();
-	$('#owners_list').val($('#owners_list').val().replace(ownerName+',', ''));
+	$('#owners_list').val($('#owners_list').val().replace(ownerName+'|', ''));
 }
 
 function updateOwnersList() {
 	var owner = null;
-	var owners_list = $('#owners_list').val().split(',');
+	var owners_list = $('#owners_list').val().split('|');
 	
 	for ( i in owners_list ) {
 		if (owners_list[i] != '') {
