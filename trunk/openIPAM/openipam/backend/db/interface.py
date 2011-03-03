@@ -3316,7 +3316,10 @@ class DBInterface( DBBaseInterface ):
 				if name:
 					g = self.get_groups(name=name)
 					print g
-					new_owner_ids.add( int(g[0]['id']) )
+					try:
+						new_owner_ids.add( int(g[0]['id']) )
+					except:
+						raise Exception("No match for %s (owner_names: %s)" % (name, ', '.join(owner_names)))
 		else:
 			new_owner_ids = set(owner_ids)
 
