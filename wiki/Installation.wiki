@@ -114,6 +114,8 @@ $ logout
 
 Make sure there are no ERROR: messages in the output. If not, then the database schema was created successfully.
 
+In our installation, we use table_log (http://pgfoundry.org/projects/tablelog/) to keep track of changes.
+
 == !CherryPy Patch until 3.1.0 ==
 
 Until the next release of !CherryPy, you'll need to apply [http://www.cherrypy.org/changeset/2015 this patch] manually:
@@ -161,7 +163,43 @@ VALUES (1, 'b109f3bbbc244eb82441917ed06d618b9008dd09b3befd1b5e07394c706a8bb980b1
 
 = Starting the server =
 
-== For development, in a shell session ==
+== apache + mod_wsgi ==
+
+{{{
+apt-get install apache2 libapache2-mod-wsgi
+}}}
+
+Here is what looks pertinent from the VirtualHost entries:
+{{{
+        # For the backend, we use https://...:8443
+        WSGIDaemonProcess ssl.xmlrpc.ipam.usu.edu user=openipam processes=2 threads=6 python-path=/usr/local/openipam/openIPAM display-name=%{GROUP}
+        WSGIProcessGroup ssl.xmlrpc.ipam.usu.edu
+
+        WSGIScriptAlias /api /usr/local/openipam/openIPAM/scripts/wsgi/openipamd.wsgi
+
+}}}
+
+{{{
+        # For the web frontend, we use https://...:443
+        Alias /images/ /usr/local/openipam/openIPAM/openipam/web/media/images/
+        Alias /styles/ /usr/local/openipam/openIPAM/openipam/web/media/styles/
+        Alias /scripts/ /usr/local/openipam/openIPAM/openipam/web/media/scripts/
+        Alias /yaml/ /usr/local/openipam/openIPAM/openipam/web/media/styles/yaml/
+
+        # Be sure the user you choose here exists and has read access to
+        # $OPENIPAM_HOME and read/write to the necessary directories listed
+        # in the config (default locations are /var/log/openipam and
+        # /var/lib/openipam/*
+        WSGIDaemonProcess openipam_web user=openipam processes=2 threads=15 python-path=/usr/local/openipam/openIPAM display-name=%{GROUP}
+        WSGIProcessGroup openipam_web
+
+        WSGIScriptAlias / /usr/local/openipam/openIPAM/scripts/wsgi/openipam.wsgi
+
+}}}
+
+== The openipamd/openipam_webd scripts are deprecated no longer tested ==
+
+This may be useful for testing, however we do not use them anymore.
 
 To run the backend server, run this as the `openipam` user:
 {{{
@@ -173,9 +211,17 @@ To run the web interface server, run this as the `openipam` user:
 $ ./openIPAM/openipam_webd
 }}}
 
-WRITEME: DHCP
 
 == As a startup script ==
+Copy the openipam_dhcpd init script to /etc/init.d and make the proper symlinks.
+
+The script also expects to find /etc/default/openipam_dhcpd.
+
+Example files:
+openipam/trunk/openIPAM/scripts/etc/default/openipam_dhcpd
+openipam/trunk/openIPAM/scripts/etc/init.d/openipam_dhcpd
+
+Be sure to edit $OPENIPAM_HOME/openipam_config/dhcp.py to suit your needs.
 
 WRITEME
 
