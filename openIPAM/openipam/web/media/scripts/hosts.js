@@ -236,18 +236,6 @@ function showGroups() {
 	bindAddAsOwner();
 }
 
-function MultiActionSubmit() {
-	var actionDropdown = document.getElementsByName("multiaction");
-	var actionName = actionDropdown[0].value;
-	if (actionName == "delete") {
-		if (confirm("Are you sure you want to DELETE ALL of the selected hosts?") && confirm("This will also delete all associated DNS records, and possibly eat your homework.  Also, if you have selected a lot of hosts, it could take a minute.  Are you SURE you're sure?")) {
-			return true;
-		}
-		return false;
-	}
-	return true;
-}
-
 /*
  * Global
  */
@@ -372,11 +360,7 @@ $(function() {
 		});
 	}
 	
-	$("#multiActionForm").submit(function () {
-		return MultiActionSubmit();
-	});
-
-	/*$("#submitMultiAction").click(function () {
+	$("#submitMultiAction").click(function () {
 		var actionDropdown = document.getElementsByName("multiaction");
 		var actionName = actionDropdown[0].value;
 		if (actionName == "delete") {
@@ -386,7 +370,7 @@ $(function() {
 			return false;
 		}
 		return true;
-	});*/
+	});
 
 	$("#multiaction").change(function () {
 		var actionDropdown = document.getElementsByName("multiaction");
