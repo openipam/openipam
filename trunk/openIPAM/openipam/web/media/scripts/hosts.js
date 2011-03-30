@@ -372,6 +372,10 @@ $(function() {
 		});
 	}
 	
+	$("#multiActionForm").submit(function () {
+		return MultiActionSubmit();
+	});
+
 	/*$("#submitMultiAction").click(function () {
 		var actionDropdown = document.getElementsByName("multiaction");
 		var actionName = actionDropdown[0].value;
