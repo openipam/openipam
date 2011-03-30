@@ -48,7 +48,7 @@
 
 #if 'hosts' in $template_keys:
 	#if $hosts:
-		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/">
+		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/" onSubmit="MultiActionSubmit();">
 		<table class="infoTable">
 			<thead>
 				<tr>
