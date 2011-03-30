@@ -139,6 +139,18 @@
 			</div>
 		</div>
 
+		<input type="hidden" id="owners_list" name="owners_list" value="user_$username|" />
+		<input type="hidden" id="full_group_list" value="$full_group_list" />
+		<select name="multiaction" id="multiaction">
+			<option value="">Choose an action...</option>
+			<option value="delete">Delete selected hosts</option>
+			<option value="owners">Set owners on selected hosts</option>
+			<option value="renew">Renew selected hosts</option>
+		</select>
+		<input type="hidden" name="multiurl" value="$url" />
+		<input type="submit" id="submitMultiAction" value="Go" />
+	</form>
+
 <div id="group_dialog" class="dialog">
 	<h4>Current group owners</h4>
 	<table class="infoTable" style="margin-bottom: 0pt">
@@ -188,17 +200,6 @@
 	</div>
 </div>
 
-		<input type="hidden" id="owners_list" name="owners_list" value="user_$username|" />
-		<input type="hidden" id="full_group_list" value="$full_group_list" />
-		<select name="multiaction" id="multiaction">
-			<option value="">Choose an action...</option>
-			<option value="delete">Delete selected hosts</option>
-			<option value="owners">Set owners on selected hosts</option>
-			<option value="renew">Renew selected hosts</option>
-		</select>
-		<input type="hidden" name="multiurl" value="$url" />
-		<input type="submit" id="submitMultiAction" value="Go" />
-	</form>
 	#else:
 		<p class="noResults">
 			No hosts found.<br />
