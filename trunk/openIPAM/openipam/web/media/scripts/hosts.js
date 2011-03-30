@@ -258,6 +258,12 @@ $(function() {
 		$(this).blur()
 	});
 	
+	// For the initial groups that are shown
+	if ($("#group_dialog").length) {
+		full_group_list = $('#full_group_list').val().split("-*-");
+		showGroups();
+	}
+	
 	$("#group_dialog").show().dialog({ 
 				    modal: true,
 				    autoOpen : false,
@@ -274,12 +280,8 @@ $(function() {
 			    		}
 				    },
 				    title : 'Manage contact groups',
-				    height: 500,
-				    width: 700, 
-				    overlay: { 
-				        opacity: 0.5, 
-				        background: "black" 
-				    	}
+				    height: 525,
+				    width: 700 
     });
 
 	$('#currentOwners tr td #removeOwner').click(function () {
@@ -324,12 +326,6 @@ $(function() {
 		$('#showGroupsAgain').hide();
 		showGroups();
 	});
-	
-	// For the initial groups that are shown
-	if ($("#group_dialog").length) {
-		full_group_list = $('#full_group_list').val().split("-*-");
-		showGroups();
-	}
 	
 	if ($('input[name="old_mac"]').length) {
 		// We're editing a host

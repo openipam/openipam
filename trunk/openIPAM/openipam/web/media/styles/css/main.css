@@ -15,6 +15,8 @@
  * @lastmodified    $Date: 2007-08-18 16:03:42 +0200 (Sa, 18 Aug 2007) $
  */
 
+@import url(/styles/css/smoothness/jquery-ui-current.custom.css);
+
 /* import core styles | Basis-Stylesheets einbinden */
 @import url(/yaml/core/base.css);
 
@@ -26,3 +28,9 @@
   
 /* import print layout | Druck-Layout einbinden */
 /* @import url(/css/print/print_003.css); */
+
+
+  .ui-widget {
+	  font-size: 1em;
+  }
+
