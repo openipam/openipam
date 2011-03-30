@@ -246,7 +246,7 @@ function MultiActionSubmit() {
 		return false;
 	}
 	return true;
-});
+}
 
 /*
  * Global
