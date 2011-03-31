@@ -46,6 +46,31 @@
 	</div>
 #end if
 
+<div class="pageLinks">
+	#set temp_text = []
+	#set search_str = '/?'
+	#if 'search' in $template_keys:
+		#set search_str = $search if not $order_by else '%sorder_by=%s&' % ($search,$order_by)
+	#end if
+	#if $page == 0:
+		#silent	temp_text.append("&#171; Previous page &nbsp;&nbsp;")
+	#else:
+		#silent temp_text.append('<a href="/hosts%spage=%s">&#171; Previous page</a> &nbsp;&nbsp;' % ($search_str, $page - 1))
+	#end if
+	#silent temp_text.append(' Page %s of %s &nbsp;&nbsp;' % ($page + 1, $num_pages))
+	#if $page < ($num_pages - 1):
+		#silent temp_text.append('<a href="/hosts%spage=%s">Next page &raquo;</a>' % ($search_str, $page + 1))
+	#else:
+		#silent temp_text.append('Next page &raquo;')
+	#end if
+	
+	#echo ''.join(temp_text)
+	<br />
+	<div class="pageLinksInfo">
+		Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
+	</div>
+</div>
+
 #if 'hosts' in $template_keys:
 	#if $hosts:
 		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/">
