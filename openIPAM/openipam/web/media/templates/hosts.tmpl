@@ -31,7 +31,7 @@
 </div>
 
 <h1>Hosts</h1>
-#echo '<a href="/hosts/search/?username=%s&expiring=60" />Show my hosts expiring within 60 days</a><br /><br />' % $username
+#echo '<a href="/hosts/search/?username=%s&expiring=60" />Show my hosts expiring within 60 days</a>' % $username
 
 #if 'message' in $template_keys:
 	<div id="localMessage" class="message">
@@ -72,6 +72,7 @@
 				Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
 			</div>
 		</div>
+		<br/><br/>
 
 		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/">
 		<table class="infoTable">
