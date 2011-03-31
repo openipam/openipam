@@ -49,9 +49,6 @@
 #if 'hosts' in $template_keys:
 	#if $hosts:
 		<div class="pageLinks">
-			<span class="pageLinksInfo">
-				Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
-			</span>
 			#set temp_text = []
 			#set search_str = '/?'
 			#if 'search' in $template_keys:
@@ -70,6 +67,10 @@
 			#end if
 			
 			#echo ''.join(temp_text)
+			<br />
+			<div class="pageLinksInfo">
+				Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
+			</div>
 		</div>
 		<br/><br/>
 
