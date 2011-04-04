@@ -167,7 +167,7 @@ class LDAPInterface(BaseAuthInterface):
 		self.__username_attribute = auth.ldap_username_attribute # 'sAMAccountName'
 		self.__mail_attribute = auth.ldap_mail_attribute # 'mail'
 		self.__name_attribute = auth.ldap_realname_attribute # 'displayName'
-		self.__timeout = 10 # seconds
+		self.__timeout = auth.ldap_timeout
 		self.__scope = ldap.SCOPE_SUBTREE
 		self.__filter = auth.ldap_filter
 		self.__debuglevel = auth.ldap_debug_level
@@ -218,6 +218,12 @@ class LDAPInterface(BaseAuthInterface):
 		self.__conn.set_option( ldap.OPT_REFERRALS, 0 )
 		self.__conn.set_option( ldap.OPT_NETWORK_TIMEOUT, self.__timeout)
 		self.__conn.set_option( ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND )
+
+		# Die!!
+		self.__conn.timelimit = self.__timeout
+		self.__conn.timeout = self.__timeout
+		self.__conn.network_timeout = self.__timeout
+
 		#if auth.ldap_tls_cacertfile:
 		#	self.__conn.set_option( ldap.OPT_X_TLS_CACERTFILE, local_config['ldap_tls_cacertfile'])
 		#if auth.ldap_tls_cacertdir:
