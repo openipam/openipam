@@ -192,7 +192,7 @@ class MainWebService(XMLRPCController):
 			cherrypy.log('Failed Login (type %s): %s %s' % (type(e), username, e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
 			if do_traceback():
 				import traceback
-				cherrypy.log(traceback.format_exc(), context='', severity=logging.DEBUG
+				cherrypy.log(traceback.format_exc(), context='', severity=logging.DEBUG)
 			
 			# Just don't do: "Invalid password: %s" % password    ;)
 			raise error.InvalidCredentials("Invalid credentials; username: %s" % username)
