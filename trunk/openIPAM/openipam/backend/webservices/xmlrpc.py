@@ -181,18 +181,21 @@ class MainWebService(XMLRPCController):
 			# FIXME: it looks like the except below could be made to catch this one, so maybe we should get rid of this
 			cherrypy.log('Failed Login: User does not have Email address: %s' % username, context='', severity=logging.DEBUG, traceback=False) 
 			raise
-#		except Exception, e:
-#			# Failed login!
-#
-#			do_traceback = True
-#			# Add other error types to this condition if you don't want a traceback when the error is raised
-#			if type(e) in (error.NotImplemented, error.InvalidCredentials, ldap.INVALID_CREDENTIALS, ldap.OPERATIONS_ERROR):
-#				do_traceback = False
-#			
-#			cherrypy.log('Failed Login (type %s): %s %s' % (type(e), username, e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
-#			
-#			# Just don't do: "Invalid password: %s" % password    ;)
-#			raise error.InvalidCredentials("Invalid credentials; username: %s" % username)
+		except Exception, e:
+			# Failed login!
+
+			do_traceback = True
+			# Add other error types to this condition if you don't want a traceback when the error is raised
+			if type(e) in (error.NotImplemented, error.InvalidCredentials, ldap.INVALID_CREDENTIALS, ldap.OPERATIONS_ERROR):
+				do_traceback = False
+			
+			cherrypy.log('Failed Login (type %s): %s %s' % (type(e), username, e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
+			if do_traceback():
+				import traceback
+				cherrypy.log(traceback.format_exc(), context='', severity=logging.DEBUG
+			
+			# Just don't do: "Invalid password: %s" % password    ;)
+			raise error.InvalidCredentials("Invalid credentials; username: %s" % username)
 		
 		# We should never get here
 		raise error.FatalException()
