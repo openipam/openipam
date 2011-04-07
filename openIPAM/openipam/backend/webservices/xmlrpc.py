@@ -190,7 +190,7 @@ class MainWebService(XMLRPCController):
 				do_traceback = False
 			
 			cherrypy.log('Failed Login (type %s): %s %s' % (type(e), username, e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
-			if do_traceback():
+			if do_traceback:
 				import traceback
 				cherrypy.log(traceback.format_exc(), context='', severity=logging.DEBUG)
 			
