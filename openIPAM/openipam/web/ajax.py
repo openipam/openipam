@@ -102,7 +102,10 @@ class AjaxTransport(BasePage, XMLRPCController):
 		except Exception, e:
 			print e
 			for i in result:
-				print repr(i)
+				for k in i:
+					print repr(k), repr(i[k])
+				print ""
+			raise e
 
 	@cherrypy.expose
 	def index(self, *args):
