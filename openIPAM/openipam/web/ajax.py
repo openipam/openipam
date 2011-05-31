@@ -97,7 +97,12 @@ class AjaxTransport(BasePage, XMLRPCController):
 						
 						row[column] = jsonhax.datetime2json(row[column])
 		
-		return cjson.encode(result)
+		try:
+			return cjson.encode(result)
+		except Exception, e:
+			print e
+			for i in result:
+				print i
 
 	@cherrypy.expose
 	def index(self, *args):
