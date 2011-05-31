@@ -39,7 +39,7 @@ class AjaxTransport(BasePage, XMLRPCController):
 		
 		# FIXME: see above note about datetimes
 		# These are all the database columns names that have the potential to be datetimes
-		self.__datetime_columns = ('changed', 'starts', 'ends', 'disabled')
+		self.__datetime_columns = ('changed', 'starts', 'ends', 'disabled', 'expires')
 		
 		BasePage.__init__(self)
 		XMLRPCController.__init__(self)
@@ -100,12 +100,8 @@ class AjaxTransport(BasePage, XMLRPCController):
 		try:
 			return cjson.encode(result)
 		except Exception, e:
-			print e
-			for i in result:
-				for k in i:
-					print repr(k), repr(i[k])
-				print ""
-			raise e
+			print e, result
+			raise
 
 	@cherrypy.expose
 	def index(self, *args):
