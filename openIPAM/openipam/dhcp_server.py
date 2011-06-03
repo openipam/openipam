@@ -347,8 +347,10 @@ def db_consumer( dbq, send_packet ):
 			mac = decode_mac( packet.GetOption('chaddr') )
 			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
 			if requested_ip != '0.0.0.0':
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL:', requested_ip )
 				self.__db.mark_abandoned_lease( mac=mac, address=requested_ip )
 			else:
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL2:', mac )
 				self.__db.mark_abandoned_lease( mac=mac )
 
 		def dhcp_release(self, packet):
@@ -443,6 +445,7 @@ def db_consumer( dbq, send_packet ):
 
 			while self.address_in_use( lease['address'] ):
 				print 'Address %s in use, marking lease %s as abandoned' % ( lease['address'], lease )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s", 'ERR/IN_USE:', lease['address'] )
 				self.__db.mark_abandoned_lease( address=lease['address'] )
 				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True)
 				print 'Got new lease %s from database' % lease
@@ -482,12 +485,11 @@ def db_consumer( dbq, send_packet ):
 			if lease['hostname'] and DhcpOptions['host_name'] in requested_options:
 				offer.SetOption("host_name", map(ord,lease['hostname']))
 
-			if requested_options:
-				# get option/value pairs from database
-				opt_vals = self.__db.retrieve_dhcp_options( mac=mac, address=requested_ip, option_ids = requested_options )
-				print "opt_vals: %s" % str(opt_vals)
+			# get option/value pairs from database
+			opt_vals = self.__db.retrieve_dhcp_options( mac=mac, address=requested_ip, option_ids = requested_options )
+			print "opt_vals: %s" % str(opt_vals)
 
-				self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=offer )
+			self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=offer )
 
 			# send an offer
 			print "  > sending offer"
