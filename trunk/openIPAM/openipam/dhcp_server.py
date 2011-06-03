@@ -361,9 +361,9 @@ def db_consumer( dbq, send_packet ):
 			opt_vals = {}
 			for o in options:
 				if o['value'] is None: # unset this option, plz
+					packet.DeleteOption(DhcpRevOptions[o['oid']])
 					if opt_vals.has_key(int(o['oid'])):
 						del opt_vals[ int(o['oid']) ]
-						packet.DeleteOption(DhcpRevOptions[o['oid']])
 				else:
 					opt_vals[ int(o['oid']) ] = o['value']
 
