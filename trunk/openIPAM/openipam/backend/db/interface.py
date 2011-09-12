@@ -865,7 +865,7 @@ class DBBaseInterface(object):
 			
 		return query
 	
-	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
+	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, descriptionsearch=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
 		"""
 		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
@@ -897,7 +897,7 @@ class DBBaseInterface(object):
 				hostname = [name.lower() for name in hostname]
 			else:
 				hostname = hostname.lower()
-		
+
 		if (only_dynamics and only_statics):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
 		
@@ -947,6 +947,8 @@ class DBBaseInterface(object):
 				whereclause.append(obj.hosts.c.hostname.like( hostname ))
 			else:
 				whereclause.append(obj.hosts.c.hostname == hostname)
+		if descriptionsearch != None:
+			whereclause.append(obj.hosts.c.description.op('~*')(descriptionsearch))
 		if network != None:
 			whereclause.append(obj.addresses.c.address.op('<<')(network))
 		if not show_expired:
