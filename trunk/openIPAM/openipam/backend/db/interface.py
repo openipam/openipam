@@ -947,7 +947,7 @@ class DBBaseInterface(object):
 			whereclause.append(obj.addresses.c.mac == obj.hosts.c.mac)
 		if mac is not None:
 			if endmac is not None:
-				whereclause.append(obj.hosts.c.mac >= mac).append(obj.hosts.c.mac <= endmac)
+				whereclause.append(and_(obj.hosts.c.mac >= mac, obj.hosts.c.mac <= endmac))
 			else:
 				whereclause.append(obj.hosts.c.mac==mac)
 		if hostname != None:
