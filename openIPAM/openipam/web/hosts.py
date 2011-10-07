@@ -74,7 +74,7 @@ class Hosts(BasePage):
 				tmpmac = re.sub('[:.-]','',mac[:-1])
 				if not re.match(r"[0-9a-fA-F]{6,11}", tmpmac):
 					raise Exception("Must give between 6 and 11 hex digits of valid MAC address for wildcarding: %s (%s)" % (mac,tmpmac))
-				padding = 12-len(mac)
+				padding = 12-len(tmpmac)
 				mac = tmpmac + padding*'0'
 				endmac = tmpmac + padding*'f'
 		
@@ -360,7 +360,7 @@ class Hosts(BasePage):
 					kw[special_search[stype]] = value
 				else:
 					raise error.InvalidArgument('Unrecognized special search type: %s (value: %s)' % (stype, value))
-				if stype == 'mac' and '*' not in value and len(value) >= 24
+				if stype == 'mac' and '*' not in value and len(value) >= 24:
 						# range specified
 						rawmacs = re.sub(r':.-','',value).strip()
 						if not re.match(r"([0-9a-fA-F]{6})[0-9a-fA-F]{6}\1[0-9a-fA-F]{6}", rawmac):
