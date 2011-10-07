@@ -362,9 +362,9 @@ class Hosts(BasePage):
 					raise error.InvalidArgument('Unrecognized special search type: %s (value: %s)' % (stype, value))
 				if stype == 'mac' and '*' not in value and len(value) >= 24:
 						# range specified
-						rawmacs = re.sub(r':.-','',value).strip()
+						rawmacs = re.sub(r'[:.-]','',value.strip())
 						if not re.match(r"([0-9a-fA-F]{6})[0-9a-fA-F]{6}\1[0-9a-fA-F]{6}", rawmacs):
-							raise Exception("Invalid mac range: %s (%s)" % (value, rawmacs))
+							raise error.InvalidArgument("Invalid mac range: %s (%s)" % (value, rawmacs))
 						kw['mac'] = rawmacs[:12]
 						kw['endmac'] = rawmacs[12:]
 						
