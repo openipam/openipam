@@ -45,7 +45,7 @@ class Hosts(BasePage):
 	def get_leftnav(self, action="", show_options=True):
 		return '%s%s' % (self.leftnav_actions(action), (self.leftnav_options() if show_options else ''))
 	
-	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, descriptionsearch=None, namesearch=None, network=None, uid=None, username=None, gid=None, groupname=None, expiring=False, count=False, order_by='hostname'):
+	def get_hosts(self, page=0, ip=None, mac=None, endmac=None, hostname=None, descriptionsearch=None, namesearch=None, network=None, uid=None, username=None, gid=None, groupname=None, expiring=False, count=False, order_by='hostname'):
 		"""
 		@param page: the current page the user is viewing
 		@param show_all_hosts: default false, will only show hosts that the current user has OWNER over
@@ -63,6 +63,20 @@ class Hosts(BasePage):
 		
 		if namesearch:
 			namesearch = namesearch.replace('*','%').lower()
+
+		if mac:
+			if '*' in mac:
+				if endmac:
+					raise Exception("Cannot mix wildcards and ranges on MAC addresses")
+				mac=mac.strip()
+				if mac[-1] != '*':
+					raise Exception("Wildcard must appear at the end of mac: %s" % mac)
+				tmpmac = re.sub('[:.-]','',mac[:-1])
+				if not re.match(r"[0-9a-fA-F]{6,11}", tmpmac):
+					raise Exception("Must give between 6 and 11 hex digits of valid MAC address for wildcarding: %s (%s)" % (mac,tmpmac))
+				padding = 12-len(mac)
+				mac = tmpmac + padding*'0'
+				endmac = tmpmac + padding*'f'
 		
 		values = {
 			'additional_perms' : str(additional_perms),
@@ -71,6 +85,7 @@ class Hosts(BasePage):
 			'show_expired' : cherrypy.session['show_expired_hosts'],
 			'ip' : ip,
 			'mac' : mac,
+			'endmac': endmac,
 			'count' : count,
 			'uid' : uid,
 			'username' : username,
@@ -345,6 +360,14 @@ class Hosts(BasePage):
 					kw[special_search[stype]] = value
 				else:
 					raise error.InvalidArgument('Unrecognized special search type: %s (value: %s)' % (stype, value))
+				if stype == 'mac' and '*' not in value and len(value) >= 24
+						# range specified
+						rawmacs = re.sub(r':.-','',value).strip()
+						if not re.match(r"([0-9a-fA-F]{6})[0-9a-fA-F]{6}\1[0-9a-fA-F]{6}", rawmac):
+							raise Exception("Invalid mac range: %s (%s)" % (value, rawmacs))
+						kw['mac'] = rawmacs[:12]
+						kw['endmac'] = rawmacs[12:]
+						
 			else:
 				# Let's assume it's a hostname.
 				if '.' in element or '*' in element or '%' in element:

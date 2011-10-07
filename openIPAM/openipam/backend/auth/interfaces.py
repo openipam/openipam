@@ -144,14 +144,10 @@ class LockingWrapper(object):
 		# call fcn
 		try:
 			ret = self.obj_fcn( *args, **kw )
-		except:
+		finally:
+			# unlock
 			self.obj_fcn = None
 			self.obj_lock.release()
-			raise
-		# unlock
-		self.obj_fcn = None
-		self.obj_lock.release()
-
 		return ret
 
 class LDAPInterface(BaseAuthInterface):
