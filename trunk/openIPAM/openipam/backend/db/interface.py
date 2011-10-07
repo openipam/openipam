@@ -902,8 +902,8 @@ class DBBaseInterface(object):
 		if endmac and not mac:
 			raise error.RequiredArgument("Beginning of range not specified: mac: %s endmac: %s" % (mac,endmac))
 
-		if endmac and only_statistics:
-			raise error.InvalidArgument("Specifying endmac and only_statistics not supported")
+		if endmac and only_statics:
+			raise error.InvalidArgument("Specifying endmac and only_statics not supported")
 
 		if (only_dynamics and only_statics):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
