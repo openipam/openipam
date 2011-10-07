@@ -932,9 +932,10 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('mac'):
-			if args[0]['mac'] and not validation.is_mac(args[0]['mac']):
-				raise error.InvalidMACAddress()
+		if args[0].has_key('mac') and args[0]['mac'] and not validation.is_mac(args[0]['mac']):
+			raise error.InvalidMACAddress()
+		if args[0].has_key('endmac') and args[0]['endmac'] and not validation.is_mac(args[0]['endmac']):
+			raise error.InvalidMACAddress()
 		
 		return self.__sanitize(db.get_hosts( **args[0] ))
 	

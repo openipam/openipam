@@ -865,10 +865,11 @@ class DBBaseInterface(object):
 			
 		return query
 	
-	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, descriptionsearch=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
+	def _get_hosts( self, mac=None, endmac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, descriptionsearch=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
 		"""
 		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
+		@param endmac: with mac, specify a range of MAC addresses
 		@param hostname: hostname (allowing wildcards) on which to filter
 		@param ip: return host associated (statically) with this IP
 		@param network: network on which to filter
@@ -897,6 +898,12 @@ class DBBaseInterface(object):
 				hostname = [name.lower() for name in hostname]
 			else:
 				hostname = hostname.lower()
+
+		if endmac and not mac:
+			raise error.RequiredArgument("Beginning of range not specified: mac: %s endmac: %s" % (mac,endmac))
+
+		if endmac and only_statistics:
+			raise error.InvalidArgument("Specifying endmac and only_statistics not supported")
 
 		if (only_dynamics and only_statics):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
@@ -938,8 +945,11 @@ class DBBaseInterface(object):
 				whereclause.append(or_(obj.addresses.c.address==ip, obj.leases.c.address==ip))
 		if only_statics:
 			whereclause.append(obj.addresses.c.mac == obj.hosts.c.mac)
-		if mac != None:
-			whereclause.append(obj.hosts.c.mac==mac)
+		if mac is not None:
+			if endmac is not None:
+				whereclause.append(obj.hosts.c.mac >= mac).append(obj.hosts.c.mac <= endmac)
+			else:
+				whereclause.append(obj.hosts.c.mac==mac)
 		if hostname != None:
 			if type(hostname) is types.ListType or type(hostname) is types.TupleType:
 				whereclause.append(obj.hosts.c.hostname.in_( hostname ))
