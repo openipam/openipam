@@ -181,6 +181,8 @@ class Hosts(BasePage):
 		
 		# Confirm user authentication
 		self.check_session()
+
+		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw.has_key('dynamicIP'))
 		
 		self.webservice.change_registration(
 			{
@@ -192,8 +194,8 @@ class Hosts(BasePage):
 			'expiration' : (int(kw['expiration']) if kw.has_key('did_renew_host') else None),
 			'is_dynamic' : kw.has_key('dynamicIP'),
 			'owners_list' : kw['owners_list'], 
-			'network' : (kw['network'] if kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw.has_key('dynamicIP')) else None),
-			'address' : (kw['ip'] if kw.has_key('did_change_ip') and kw.has_key('ip') else None),
+			'network' : (kw['network'] if changed_to_static else None),
+			'address' : (kw['ip'] if changed_to_static else None),
 			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
 			})
 		
