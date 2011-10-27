@@ -450,29 +450,45 @@ class DBBaseInterface(object):
 				
 		return final_whereclause
 	
-	def _get_host_attributes( self ):
-		"""Get host attributes
-		@param filter: keyword args on which to filter"""
-		pass
-		
-	def _get_host_attribute_values( self, aid ):
-		"""Returns all values for a host attribute
-		@param aid: the database attribute ID"""
-		pass
+	def _get_attributes( self, aid=None, name=None, ):
+		"""Get possible host attributes
+		"""
+		query = select( [obj.attributes] )
+		if aid:
+			query=query.where(obj.attributes.c.id == aid)
+		if name:
+			query=query.where(obj.attributes.c.name == name)
 
-	def _get_attribute_to_host( self ):
-		"""attribute_to_host"""
-		# Write later
-#		if self._min_perms & perms.READ is perms.READ:
-#			relation = select( [obj.attributes_to_hosts] )
-#			if mac:
-#				relation = relation.where(obj.hosts_to_groups.c.mac == mac)
-#			elif gid:
-#				relation = relation.where(obj.hosts_to_groups.c.gid == gid)
-#		else:
-			# TODO: v2: write getting a HTG relation for user's without at least READ permissions
-		pass
-	
+		return query
+		
+	def _get_attributes_to_hosts( self, aid=None, mac=None ):
+		a2h = obj.structured_attributes_to_hosts
+		if not has_min_perms( perms.READ ):
+			if not mac:
+				raise error.InsufficientPermissions("Must have global read perms to look up all attributes: aid=%s mac=%s" % (aid,mac))
+			self._require_perms_on_host(permission=perms.READ, mac=mac)
+
+		query = select([a2h],)
+		if aid:
+			query = query.where(a2h.c.id == aid)
+		if mac:
+			query = query.where(a2h.c.mac == mac)
+
+		return query
+
+	def _get_structured_attribute_values( self, svid=None, aid=None ):
+		"""Get possible values for structured attributes"""
+		sav = obj.structured_attribute_values
+		if svid is None and aid is None:
+			raise error.RequiredArgument("Must specify either svid or aid")
+		query = select([sav])
+		if svid:
+			query = query.where(sav.c.id == svid)
+		if aid:
+			query = query.where(sav.c.aid == aid)
+
+		return query
+
 	def _get_addresses(self, address=None, network=None, mac=None, pool=None):
 		"""
 		Return rows from the addresses table
@@ -1806,40 +1822,61 @@ class DBInterface( DBBaseInterface ):
 		
 		return self._execute_set( query )
 
-	def add_host_attribute( self,  name, description=None, use_values=False, is_required=False ):
+	def add_attribute( self, name, description=None, structured=False, required=False, validation=None ):
 		"""
-		Add a host attribute
-		@param name: the attribute name
-		@param description: a description of the host attribute
-		@param use_value: boolean of if this attribute uses selectable items from attribute_values
-		@param is_required: boolean of if this attribute is required or not
 		"""
-		pass
-				
-	def update_host_attribute( self, aid, name, description=None, use_values=False, is_required=False ):
-		"""
-		Update a host attribute
-		@param aid: the database attribute id
-		@param name: the attribute name
-		@param description: a description of the host attribute
-		@param use_value: boolean of if this attribute uses selectable items from attribute_values
-		@param is_required: boolean of if this attribute is required or not
-		"""
-		pass
-	
-	def update_host_attribute_values( self, aid, values ):
-		"""
-		Adds values tied to a custom host attribute (deletes all old values and adds the new ones)
-		@param aid: the database attribute id
-		@param values: a tuple or list of values for this attribute
-		"""
-		pass
+		self.require_perms(perms.DEITY)
 
-	def add_attribute_to_host( self ):
-		"""attribute_to_host"""
-		pass
-		
-		
+		query = obj.attributes.insert( values={'name':name, 'description':description, 'structured': structured,
+			'required': required, 'validation': validation } )
+
+		return self._execute_set(query)
+
+	def add_strucutured_attribute_value( self, aid, value, is_default=False ):
+		"""
+		"""
+		self.require_perms(perms.DEITY)
+
+		attr = self.get_attribute(aid=aid)
+		if len(attr) != 1:
+			raise error.InvalidArgument("aid not unique or non-existent: %s" % attr)
+		attr=attr[0]
+		if not attr['structured']:
+			raise error.InvalidArgument("aid specified is not a structured attribute: %s" % attr)
+
+		query = obj.strucutured_attribute_values.insert( values={'aid':aid, 'value':value, 'is_default': is_default} )
+
+		return self._execute_set(query)
+
+	def add_structured_attribute_to_host( self, mac, avid ):
+		"""
+		"""
+		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
+
+		attr_value = self.get_structured_attribute_value(avid=avid)
+		if len(attr_value) != 1:
+			raise error.InvalidArgument("Structured attribute value non-existent or not unique: %s" % attr_value)
+
+		query = obj.structured_attribute_to_hosts.insert( values={'mac':mac, 'avid': avid} )
+
+		return self._execute_set(query)
+
+	def add_freeform_attribute_to_host( self, mac, aid, value ):
+		"""
+		"""
+		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
+
+		attr = self.get_attribute(aid=aid)
+		if len(attr) != 1:
+			raise error.InvalidArgument("aid not unique or non-existent: %s" % attr)
+		attr=attr[0]
+		if attr['structured']:
+			raise error.InvalidArgument("aid specified is not a freeform attribute: %s" % attr)
+
+		query = obj.freeform_attributes_to_hosts.insert( values={'mac':mac, 'aid':aid, 'value':value} )
+
+		return self._execute_set(query)
+
 	def add_auth_source( self ):
 		"""auth_source"""
 		pass
