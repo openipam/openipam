@@ -165,8 +165,8 @@ class MainWebService(XMLRPCController):
 		"""
 		
 		try:
-			if len(username) == 0 or len(password) == 0:
-				raise Exception("Invalid input!")
+			if not username or not password:
+				raise Exception()
 			
 			user = auth_sources.authenticate(username, password)
 	
@@ -190,9 +190,6 @@ class MainWebService(XMLRPCController):
 				do_traceback = False
 			
 			cherrypy.log('Failed Login (type %s): %s %s' % (type(e), username, e.message), context='', severity=logging.DEBUG, traceback=do_traceback)
-			if do_traceback:
-				import traceback
-				cherrypy.log(traceback.format_exc(), context='', severity=logging.DEBUG)
 			
 			# Just don't do: "Invalid password: %s" % password    ;)
 			raise error.InvalidCredentials("Invalid credentials; username: %s" % username)
@@ -627,7 +624,7 @@ class MainWebService(XMLRPCController):
 		# Make the owners argument if owners_list was specified
 		if kw.has_key('owners_list'):
 			# If given an owners CSV string, make it a list
-			kw['owners'] = kw['owners_list'].split('|')
+			kw['owners'] = kw['owners_list'].split(',')
 			del kw['owners_list']
 		
 		# If we're editing and no owners were specified, add in [] to satisify checks below
@@ -932,10 +929,9 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('mac') and args[0]['mac'] and not validation.is_mac(args[0]['mac']):
-			raise error.InvalidMACAddress()
-		if args[0].has_key('endmac') and args[0]['endmac'] and not validation.is_mac(args[0]['endmac']):
-			raise error.InvalidMACAddress()
+		if args[0].has_key('mac'):
+			if args[0]['mac'] and not validation.is_mac(args[0]['mac']):
+				raise error.InvalidMACAddress()
 		
 		return self.__sanitize(db.get_hosts( **args[0] ))
 	
@@ -1162,7 +1158,7 @@ class MainWebService(XMLRPCController):
 		db = self.__check_session()
 		
 		# TODO: how should this affect all associated hosts?
-		db.del_domain(**args[0])
+		pass
 	
 	@cherrypy.expose
 	def get_domains(self, *args):
@@ -1677,13 +1673,7 @@ class MainWebService(XMLRPCController):
 				
 				new.append(form_row)
 				
-				have_perm = Perms(cherrypy.session['user']['min_permissions'])
-				if fqdn_perms.has_key(form_row['name']):
-					have_perm |= fqdn_perms[form_row['name']]
-				else:
-					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
-
-				if not ((have_perm & perms.ADD == perms.ADD)
+				if not ((Perms(fqdn_perms[form_row['name']]) & perms.ADD == perms.ADD)
 				and (dns_type_perms.has_key(str(form_row['tid'])))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 					

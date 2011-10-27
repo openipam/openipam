@@ -9,7 +9,6 @@ ldap_uri = None
 ldap_binddn = None
 ldap_bindpw = None
 ldap_debug_level = 0
-ldap_timeout = 5 # seconds
 ldap_username_attribute = 'sAMAccountName'
 ldap_mail_attribute = 'mail'
 ldap_realname_attribute = 'displayName'

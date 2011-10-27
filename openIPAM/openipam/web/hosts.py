@@ -45,7 +45,7 @@ class Hosts(BasePage):
 	def get_leftnav(self, action="", show_options=True):
 		return '%s%s' % (self.leftnav_actions(action), (self.leftnav_options() if show_options else ''))
 	
-	def get_hosts(self, page=0, ip=None, mac=None, endmac=None, hostname=None, descriptionsearch=None, namesearch=None, network=None, uid=None, username=None, gid=None, groupname=None, expiring=False, count=False, order_by='hostname'):
+	def get_hosts(self, page=0, ip=None, mac=None, hostname=None, namesearch=None, network=None, uid=None, username=None, gid=None, groupname=None, expiring=False, count=False, order_by='hostname'):
 		"""
 		@param page: the current page the user is viewing
 		@param show_all_hosts: default false, will only show hosts that the current user has OWNER over
@@ -63,20 +63,6 @@ class Hosts(BasePage):
 		
 		if namesearch:
 			namesearch = namesearch.replace('*','%').lower()
-
-		if mac:
-			if '*' in mac:
-				if endmac:
-					raise Exception("Cannot mix wildcards and ranges on MAC addresses")
-				mac=mac.strip()
-				if mac[-1] != '*':
-					raise Exception("Wildcard must appear at the end of mac: %s" % mac)
-				tmpmac = re.sub('[:.-]','',mac[:-1])
-				if not re.match(r"[0-9a-fA-F]{6,11}", tmpmac):
-					raise Exception("Must give between 6 and 11 hex digits of valid MAC address for wildcarding: %s (%s)" % (mac,tmpmac))
-				padding = 12-len(tmpmac)
-				mac = tmpmac + padding*'0'
-				endmac = tmpmac + padding*'f'
 		
 		values = {
 			'additional_perms' : str(additional_perms),
@@ -85,11 +71,9 @@ class Hosts(BasePage):
 			'show_expired' : cherrypy.session['show_expired_hosts'],
 			'ip' : ip,
 			'mac' : mac,
-			'endmac': endmac,
 			'count' : count,
 			'uid' : uid,
 			'username' : username,
-			'descriptionsearch': descriptionsearch,
 			'gid' : gid,
 			'groupname' : groupname,
 			'hostname' : hostname,
@@ -181,8 +165,6 @@ class Hosts(BasePage):
 		
 		# Confirm user authentication
 		self.check_session()
-
-		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw.has_key('dynamicIP'))
 		
 		self.webservice.change_registration(
 			{
@@ -194,8 +176,8 @@ class Hosts(BasePage):
 			'expiration' : (int(kw['expiration']) if kw.has_key('did_renew_host') else None),
 			'is_dynamic' : kw.has_key('dynamicIP'),
 			'owners_list' : kw['owners_list'], 
-			'network' : (kw['network'] if changed_to_static else None),
-			'address' : (kw['ip'] if changed_to_static else None),
+			'network' : (kw['network'] if kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw.has_key('dynamicIP')) else None),
+			'address' : (kw['ip'] if kw.has_key('did_change_ip') and kw.has_key('ip') else None),
 			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
 			})
 		
@@ -344,7 +326,6 @@ class Hosts(BasePage):
 				'ip':'ip', 'mac':'mac', 'user':'username',
 				'username':'username', 'net':'network',
 				'network':'network', 'hostname':'namesearch',
-				'desc':'descriptionsearch','description':'descriptionsearch',
 				'name':'namesearch', 'group':'groupname',
 				}
 
@@ -362,14 +343,6 @@ class Hosts(BasePage):
 					kw[special_search[stype]] = value
 				else:
 					raise error.InvalidArgument('Unrecognized special search type: %s (value: %s)' % (stype, value))
-				if stype == 'mac' and '*' not in value and len(value) >= 24:
-						# range specified
-						rawmacs = re.sub(r'[:.-]','',value.strip())
-						if not re.match(r"([0-9a-fA-F]{6})[0-9a-fA-F]{6}\1[0-9a-fA-F]{6}", rawmacs):
-							raise error.InvalidArgument("Invalid mac range: %s (%s)" % (value, rawmacs))
-						kw['mac'] = rawmacs[:12]
-						kw['endmac'] = rawmacs[12:]
-						
 			else:
 				# Let's assume it's a hostname.
 				if '.' in element or '*' in element or '%' in element:
@@ -451,7 +424,7 @@ class Hosts(BasePage):
 		# need to get the owners...
 		elif multiaction == 'owners':
 			if kw.has_key('owners_list'):
-				owners = kw['owners_list'].split('|')
+				owners = kw['owners_list'].split(',')
 				self.webservice.change_hosts( {'hosts':multihosts, 'owners':owners,} )
 			else:
 				raise error.InvalidArgument("owners_list not defined!")

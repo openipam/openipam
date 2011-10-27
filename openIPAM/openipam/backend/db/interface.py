@@ -333,9 +333,8 @@ class DBBaseInterface(object):
 
 			addr_where = obj.hosts.c.mac == addr_record['mac']
 			host_perms = obj.perm_query( self._uid, self._min_perms, hosts = True, required_perms = permission, do_subquery=False, andwhere=addr_where )
-			host_perms = self._execute(host_perms)
-			
-			if host_perms is None or len(host_perms) == 0:
+		
+			if not host_perms:
 				if not error_msg:
 					error_msg = "need %s or greater network containing %s or host with mac %s" % (perms,address,addr_record['mac'])
 				raise error.InsufficientPermissions(error_msg)
@@ -559,7 +558,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None, did=None ):
+	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None ):
 		"""
 		Get DNS Records
 		
@@ -633,10 +632,6 @@ class DBBaseInterface(object):
 					else:
 						# content = 'exact string' OR content like '% exact string'
 						whereclause.append( or_(obj.dns_records.c.text_content == content, obj.dns_records.c.text_content.like( '%% %s' % content )  ) )
-
-		if did is not None:
-			whereclause.append( obj.dns_records.c.did == int(did) )
-
 		if changed:
 			whereclause.append( obj.dns_records.c.changed >= changed )
 		
@@ -653,7 +648,8 @@ class DBBaseInterface(object):
 
 			if addresses:
 				a_records = self._get_dns_records( address = addresses ).distinct()
-				union_foo.append(a_records.where(whereclause))
+				if a_records:
+					union_foo.append(a_records.where(whereclause))
 
 				ptr_names = [ openipam.iptypes.IP(i).reverseName()[:-1] for i in addresses ]
 				if ptr_names:
@@ -678,7 +674,7 @@ class DBBaseInterface(object):
 			from_object = obj.dns_records
 			query = select( [obj.dns_records], from_obj = from_object )
 
-			if whereclause is not True:
+			if whereclause:
 				query = query.where( whereclause )
 			else:
 				raise error.InvalidArgument("You're trying to retrieve all DNS records ... why?")
@@ -865,11 +861,10 @@ class DBBaseInterface(object):
 			
 		return query
 	
-	def _get_hosts( self, mac=None, endmac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, descriptionsearch=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
+	def _get_hosts( self, mac=None, hostname=None, ip=None, network=None, uid=None, username=None, gid=None, groupname=None, columns=None, additional_perms=None, expiring=False, namesearch=None, show_expired=True, show_active=True, only_dynamics=False, only_statics=False, funky_ordering=False ):
 		"""
 		Get hosts and DNS records from the DB
 		@param mac: return a list containing the host with this mac
-		@param endmac: with mac, specify a range of MAC addresses
 		@param hostname: hostname (allowing wildcards) on which to filter
 		@param ip: return host associated (statically) with this IP
 		@param network: network on which to filter
@@ -898,13 +893,7 @@ class DBBaseInterface(object):
 				hostname = [name.lower() for name in hostname]
 			else:
 				hostname = hostname.lower()
-
-		if endmac and not mac:
-			raise error.RequiredArgument("Beginning of range not specified: mac: %s endmac: %s" % (mac,endmac))
-
-		if endmac and only_statics:
-			raise error.InvalidArgument("Specifying endmac and only_statics not supported")
-
+		
 		if (only_dynamics and only_statics):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
 		
@@ -945,11 +934,8 @@ class DBBaseInterface(object):
 				whereclause.append(or_(obj.addresses.c.address==ip, obj.leases.c.address==ip))
 		if only_statics:
 			whereclause.append(obj.addresses.c.mac == obj.hosts.c.mac)
-		if mac is not None:
-			if endmac is not None:
-				whereclause.append(and_(obj.hosts.c.mac >= mac, obj.hosts.c.mac <= endmac))
-			else:
-				whereclause.append(obj.hosts.c.mac==mac)
+		if mac != None:
+			whereclause.append(obj.hosts.c.mac==mac)
 		if hostname != None:
 			if type(hostname) is types.ListType or type(hostname) is types.TupleType:
 				whereclause.append(obj.hosts.c.hostname.in_( hostname ))
@@ -957,8 +943,6 @@ class DBBaseInterface(object):
 				whereclause.append(obj.hosts.c.hostname.like( hostname ))
 			else:
 				whereclause.append(obj.hosts.c.hostname == hostname)
-		if descriptionsearch != None:
-			whereclause.append(obj.hosts.c.description.op('~*')(descriptionsearch))
 		if network != None:
 			whereclause.append(obj.addresses.c.address.op('<<')(network))
 		if not show_expired:
@@ -1053,7 +1037,7 @@ class DBBaseInterface(object):
 		else:
 			objects_list = objects
 			
-		if objects_list is None or len(objects_list) == 0:
+		if not objects_list:
 			return None, None
 		
 		# Query for the objects, LEFT joining permissions
@@ -1085,14 +1069,16 @@ class DBBaseInterface(object):
 		'''
 		
 		permissions_col, fromobj = self._find_permissions_for_objects_query( objects, primary_table, primary_key, bridge_table, foreign_key, alternate_perms_key )
+		if not permissions_col or not fromobj:
+			return [{}]
 
 		columns = [primary_key, permissions_col.label('permissions') ]
 
-		if alternate_perms_key is not None:
+		if alternate_perms_key:
 			columns.append(alternate_perms_key)
 		
 		query = select(columns, from_obj=fromobj).group_by(primary_key)
-		if alternate_perms_key is not None:
+		if alternate_perms_key:
 			query = query.group_by(alternate_perms_key)
 		
 		results = self._execute(query)
@@ -1100,7 +1086,7 @@ class DBBaseInterface(object):
 		permissions = {}
 		
 		# If the alternate_perms_key is specified, use that for our permissions object
-		perms_key_name = alternate_perms_key.name if alternate_perms_key is not None else primary_key.name
+		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key.name
 		
 		for row in results:
 			permissions[row[perms_key_name]] = row['permissions']
@@ -1120,7 +1106,7 @@ class DBBaseInterface(object):
 		primary_key=obj.hosts.c.mac
 
 		permissions_col, fromobj = self._find_permissions_for_objects_query(objects=hosts, primary_table=obj.hosts, primary_key=primary_key, bridge_table=obj.hosts_to_groups, foreign_key=obj.hosts_to_groups.c.mac, alternate_perms_key=alternate_perms_key)
-		if permissions_col is None or fromobj is None:
+		if not permissions_col or not fromobj:
 			return [{}]
 
 		dom_u2g = obj.users_to_groups.alias('domain_users_to_groups')
@@ -1140,11 +1126,11 @@ class DBBaseInterface(object):
 
 		columns = [primary_key, permissions_col.label('permissions'), dom_permissions_col.label('meh') ]
 
-		if alternate_perms_key is not None:
+		if alternate_perms_key:
 			columns.append(alternate_perms_key)
 		
 		query = select(columns, from_obj=fromobj).group_by(primary_key)
-		if alternate_perms_key is not None:
+		if alternate_perms_key:
 			query = query.group_by(alternate_perms_key)
 
 		#debug = select( [primary_key, dom_u2g.c.permissions, dom_u2g.c.uid, dom_u2g.c.gid, obj.hosts.c.hostname, obj.domains.c.name], from_obj=fromobj )
@@ -1156,7 +1142,7 @@ class DBBaseInterface(object):
 		permissions = {}
 		
 		# If the alternate_perms_key is specified, use that for our permissions object
-		perms_key_name = alternate_perms_key.name if alternate_perms_key is not None else primary_key.name
+		perms_key_name = alternate_perms_key.name if alternate_perms_key else primary_key.name
 		
 		for row in results:
 			permissions[row[perms_key_name]] = row['permissions']
@@ -1247,8 +1233,6 @@ class DBBaseInterface(object):
 		
 		# Get the domains who have those names, then get the permissions for those domains
 		domains = self.get_domains( contains=names )
-		if len(domains) == 0:
-			return []
 
 		# FIXME: Holy inefficiency, batman!  These are never used!
 		#domain_perms = self.find_permissions_for_domains( domains )
@@ -1341,7 +1325,7 @@ class DBBaseInterface(object):
 		
 		return select( [obj.internal_auth], obj.internal_auth.c.id == uid )
 
-	def _get_networks( self, nid=None, network=None, gid=None, address=None, additional_perms='00000000', exact=True ):
+	def _get_networks( self, nid=None, network=None, gid=None, address=None, additional_perms='00000000' ):
 		'''
 		Return networks
 		@param nid: the database network id, returns one network
@@ -1370,12 +1354,9 @@ class DBBaseInterface(object):
 		if nid:
 			query = query.where(obj.networks.c.network == nid)
 		if network:
-			if exact:
-				query = query.where(obj.networks.c.network==network)
-			else:
-				query = query.where(obj.networks.c.network.op('<<=')(network))
+			query = query.where(obj.networks.c.network==network)
 		if address:
-			query = query.where(obj.networks.c.network.op('>>=')(address))
+			query = query.where(obj.networks.c.network.op('>>')(address))
 		
 		return query 
 					
@@ -1621,23 +1602,6 @@ class DBInterface( DBBaseInterface ):
 		
 		return result
 
-#	def __increment_soa_serial(self, domain_id, view_id = None):
-#		soa_q = select( [obj.dns_records.c.id,obj.dns_records.c.vid,obj.dns_records.c.text_content,],
-#				from_obj=obj.dns_records.join(obj.domains, obj.domains.c.id == obj.dns_records.c.did )
-#				).where( obj.domains.c.name == obj.dns_records.c.name ).where( obj.dns_records.c.did == domain_id ).where(obj.dns_records.c.vid == view_id).where(obj.dns_records.c.tid == )
-#		soa = self._execute(soa_q)
-#		if len(soa) > 1:
-#			raise error.NotUnique('There is more than one SOA in this view and domain by this name.  You should go and rethink your life.')
-#		if soa:
-#			soa=soa[0]
-#			values = soa['text_content'].split(' ')
-#			values[2] = str(int(values[2])+1)
-#			update_q = obj.dns_records.update( obj.dns_records.id == soa['id'], values={'text_content':' '.join(values)} )
-#			self._execute_set( update_q )
-#		else:
-#			# FIXME: no SOA?
-#			pass
-
 	def _finalize_expires(self, expires, expiration_format=None):
 		"""
 		Makes expires a SQL-Alchemy capable datetime, whether it already is or is a string with an expiration format
@@ -1661,10 +1625,52 @@ class DBInterface( DBBaseInterface ):
 				except ValueError, e:
 					raise error.RequiredArgument("Could not convert expires to datetime object (from %s %s) -- expiration_format must be specified for strings" % (repr(expires),type(expires)))
 		return expires
+
+	def _do_insert(self, table, values):
+		if table.name == 'disabled':
+			values['disabled'] = sqlalchemy.sql.func.now()
+			values['disabled_by'] = self._uid
+		# auditing
+		if 'changed' in table.c:
+			values['changed'] = sqlalchemy.sql.func.now()
+		if 'changed_by' in table.c:
+			values['changed_by'] = self._uid
+		self._begin_transaction()
+		try:
+			# Let's do some auditing :)
+			self._execute_set( table.insert( values=values ) )
+			# Commit the transaction
+			self._commit()
+		except:
+			self._rollback()
+			raise
+		return result
+	
+	def _do_update(self, table, values, where):
+		if not where:
+			raise error.InvalidArgument('You just tried to update everything in the "%s" table.  You are fired.' % str(table.name))
+		if table.name == 'disabled':
+			values['disabled'] = sqlalchemy.sql.func.now()
+			values['disabled_by'] = self._uid
+		# auditing
+		if 'changed' in table.c:
+			values['changed'] = sqlalchemy.sql.func.now()
+		if 'changed_by' in table.c:
+			values['changed_by'] = self._uid
+		self._begin_transaction()
+		try:
+			# Let's do some auditing :)
+			result = self._execute_set( table.update( where, values=values ) )
+			# Commit the transaction
+			self._commit()
+		except:
+			self._rollback()
+			raise
+		return result
 	
 	def _do_delete(self, table, where):
-		if where is None or where is True:
-			raise error.InvalidArgument('You just tried to delete everything in the "%s" table.  where=%s' % (str(table.name), str(where)))
+		if not where:
+			raise error.InvalidArgument('You just tried to delete everything in the "%s" table.  You are fired.' % str(table.name))
 		values = {}
 		if table.name == 'disabled':
 			values['disabled'] = sqlalchemy.sql.func.now()
@@ -1706,12 +1712,17 @@ class DBInterface( DBBaseInterface ):
 
 		self.require_perms( perms.DEITY )
 
-		query = obj.addresses.insert( values={'address':str(address),
+		#query = obj.addresses.insert( values={'address':str(address),
+		#							'network':str(network),
+		#							'mac':mac,
+		#							'pool':pool,
+		#							'reserved': reserved } )
+		#return self._execute_set(query)
+		return self._do_insert(table=obj.addresses, values={'address':str(address),
 									'network':str(network),
 									'mac':mac,
 									'pool':pool,
 									'reserved': reserved } )
-		return self._execute_set(query)
 	
 	def update_address(self, address, mac=None, pool=None):
 		"""
@@ -1760,9 +1771,10 @@ class DBInterface( DBBaseInterface ):
 			self._do_delete( table=obj.leases, where=obj.leases.c.address == address )
 		
 		# FIXME: take care of "reserved" ... right now just doesn't change whatever it is set to and has DB constraints
-		query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : pool })
+		#query = obj.addresses.update(obj.addresses.c.address == address, values = { 'mac' : mac, 'pool' : pool })
 		
-		return self._execute_set(query)
+		return self._do_update(table=obj.addresses, where=obj.addresses.c.address == address,
+				values= { 'mac' : mac, 'pool' : pool })
 
 	def add_pool( self, name, description = None, allow_unknown=False, allow_known=True, lease_time=None, dhcp_group=None ): 
 		"""
@@ -1771,14 +1783,19 @@ class DBInterface( DBBaseInterface ):
 		
 		self.require_perms( perms.DEITY )
 
-		query = obj.pools.insert( values={'name' : name,
+		#query = obj.pools.insert( values={'name' : name,
+		#							'description' : description,
+		#							'allow_unknown' : allow_unknown,
+		#							'lease_time' : lease_time,
+		#							'allow_known': allow_known,
+		#							'dhcp_group' : dhcp_group } )
+		#return self._execute_set(query)
+		return self._do_insert( table = obj.pools.insert, values={'name' : name,
 									'description' : description,
 									'allow_unknown' : allow_unknown,
 									'lease_time' : lease_time,
 									'allow_known': allow_known,
 									'dhcp_group' : dhcp_group } )
-
-		return self._execute_set(query)
 	
 	def add_pool_to_group( self, pool, gid ):
 		"""
@@ -1787,8 +1804,9 @@ class DBInterface( DBBaseInterface ):
 		
 		self.require_perms(perms.DEITY)
 		
-		query = obj.pools_to_groups.insert( values={ 'pool' : pool, 'gid' : gid } )
-		return self._execute_set( query )
+		#query = obj.pools_to_groups.insert( values={ 'pool' : pool, 'gid' : gid } )
+		#return self._execute_set( query )
+		return self._do_insert( table=obj.pools_to_groups, values={ 'pool' : pool, 'gid' : gid })
 		
 
 	def add_host_to_pool( self, mac, pool_id ):
@@ -1802,9 +1820,9 @@ class DBInterface( DBBaseInterface ):
 			if not pools:
 				raise error.InsufficientPermissions('ADD permission required over pool id %s' % pool_id)
 		
-		query = obj.hosts_to_pools.insert( values={ 'mac' : mac, 'pool_id' : pool_id } )
-		
-		return self._execute_set( query )
+		#query = obj.hosts_to_pools.insert( values={ 'mac' : mac, 'pool_id' : pool_id } )
+		#return self._execute_set( query )
+		return self._do_insert(table=obj.hosts_to_pools, values={ 'mac' : mac, 'pool_id' : pool_id } )
 
 	def add_host_attribute( self,  name, description=None, use_values=False, is_required=False ):
 		"""
@@ -1943,7 +1961,8 @@ class DBInterface( DBBaseInterface ):
 			
 			# We want to add the PTR after here in case we decide to do extra checking in the db at some point
 			#  (ie. ensure there is a valid fwd lookup associated with each ptr)
-			result = self._execute_set( obj.dns_records.insert( values=values ) )
+			#result = self._execute_set( obj.dns_records.insert( values=values ) )
+			result = self._do_insert(table=obj.dns_records, values=values )
 			
 			if tid == 1 or tid == 28:
 				# FIXME: Be sure we have owner perms or so over this address
@@ -1981,9 +2000,10 @@ class DBInterface( DBBaseInterface ):
 		
 		name = name.lower()
 		
-		query = obj.domains.insert( values={'name':name, 'master':master, 'type':typename, 'description':description, 'changed_by' : self._uid })
-		
-		return self._execute_set(query)
+		#query = obj.domains.insert( values={'name':name, 'master':master, 'type':typename, 'description':description, 'changed_by' : self._uid })
+		#return self._execute_set(query)
+		return self._do_insert(table=obj.domains, values={'name':name, 'master':master, 'type':typename,
+			'description':description, 'changed_by' : self._uid })
 		
 	def add_dns_view( self):
 		pass
@@ -2013,7 +2033,8 @@ class DBInterface( DBBaseInterface ):
 
 		values = { 'oid':oid, 'gid':gid, 'value':value }
 
-		return self._execute_set( obj.dhcp_options_to_dhcp_groups.insert( values=values ) )
+		#return self._execute_set( obj.dhcp_options_to_dhcp_groups.insert( values=values ) )
+		return self._do_insert(table=obj.dhcp_options_to_dhcp_groups, values=values )
 
 		
 	def add_domain_to_group( self, did, gid):
@@ -2026,11 +2047,12 @@ class DBInterface( DBBaseInterface ):
 		# FIXME: more granular permissions?
 		self.require_perms(perms.DEITY)
 		
-		query = obj.domains_to_groups.insert( values={'did' : did,
-									'gid' : gid,
-									'changed_by' : self._uid } )
-
-		return self._execute_set(query)
+		#query = obj.domains_to_groups.insert( values={'did' : did,
+		#							'gid' : gid,
+		#							'changed_by' : self._uid } )
+		#return self._execute_set(query)
+		return self._do_insert(table=obj.domains_to_groups, values={'did' : did,
+			'gid' : gid, 'changed_by' : self._uid } )
 		
 	
 	def add_guest_ticket( self, ticket, starts, ends, description=None ):
@@ -2045,13 +2067,18 @@ class DBInterface( DBBaseInterface ):
 		# Permissions, non-restrictive at all
 		# No permissions for guest tickets, free game
 		
-		query = obj.guest_tickets.insert( values={'uid' : self._uid,
+		#query = obj.guest_tickets.insert( values={'uid' : self._uid,
+		#							'ticket' : ticket,
+		#							'starts' : starts,
+		#							'ends' : ends,
+		#							'description' : description } )
+		#return self._execute_set(query)
+		return self._do_insert(table=obj.guest_tickets, values={'uid' : self._uid,
 									'ticket' : ticket,
 									'starts' : starts,
 									'ends' : ends,
 									'description' : description } )
 
-		return self._execute_set(query)
 			
 	
 	def add_group( self, name, description=None ):
@@ -2066,10 +2093,10 @@ class DBInterface( DBBaseInterface ):
 			self.require_perms( perms.DEITY, "Only super admins can add new groups" )
 
 		# Do this INSERT no matter what authentication source
-		query = obj.groups.insert( values={'name' : name,
-								'description' : description } )
-		
-		return self._execute_set(query)
+		#query = obj.groups.insert( values={'name' : name,
+		#						'description' : description } )
+		#return self._execute_set(query)
+		return self._do_insert(table=obj.groups, values={'name' : name, 'description' : description } )
 		
 	def __find_next_mac(self, mac):
 		if mac.lower() == 'vmware':
@@ -2149,7 +2176,16 @@ class DBInterface( DBBaseInterface ):
 			if dns:
 				raise error.AlreadyExists("DNS record(s) with name %s already exist(s).  Please delete first." % hostname, hostname = hostname)
 			
-			query = obj.hosts.insert( values={
+			#query = obj.hosts.insert( values={
+			#						'mac' : mac,
+			#						'hostname' : hostname,
+			#						'description' : description,
+			#						'dhcp_group' : dhcp_group,
+			#						'expires' : expires,
+			#						'changed_by' : self._uid
+			#						} )
+			#result = self._execute_set( query )
+			result = self._do_insert(table=obj.hosts, values={
 									'mac' : mac,
 									'hostname' : hostname,
 									'description' : description,
@@ -2157,8 +2193,6 @@ class DBInterface( DBBaseInterface ):
 									'expires' : expires,
 									'changed_by' : self._uid
 									} )
-		
-			result = self._execute_set( query )
 			
 			self.add_host_to_group(mac, group_name="user_%s" % self._username)
 				
@@ -2197,11 +2231,11 @@ class DBInterface( DBBaseInterface ):
 				self._require_perms_on_host(permission=perms.ADMIN, mac=mac, error_msg="Couldn't add host %s to group %s, %s" % (mac, gid, group_name))
 			
 			# They have permission ... do the insert
-			query = obj.hosts_to_groups.insert( values={'mac' : mac,
-									'gid' : gid,
-									'changed_by' : self._uid } )
-			
-			result = self._execute_set( query )
+			#query = obj.hosts_to_groups.insert( values={'mac' : mac,
+			#						'gid' : gid,
+			#						'changed_by' : self._uid } )
+			#result = self._execute_set( query )
+			result = self._do_insert(table=obj.hosts_to_groups, values={'mac' : mac, 'gid' : gid, 'changed_by' : self._uid } )
 			
 			# Commit the transaction
 			self._commit()
@@ -2382,8 +2416,9 @@ class DBInterface( DBBaseInterface ):
 			# Delete the A records
 			a_records = self.get_dns_records(address=address)
 			
-			for rr in a_records:
-				self.del_dns_record(rid=rr['id'], mac=mac)
+			if a_records:
+				for rr in a_records:
+					self.del_dns_record(rid=rr['id'], mac=mac)
 
 			result = self.update_address( address=address, pool=pool )
 			
@@ -2502,8 +2537,9 @@ class DBInterface( DBBaseInterface ):
 				if not old_net in net:
 					raise Exception("Cannot change network %s to %s.  Network must be a strict subset of new_network." % (network, new_network))
 				
-			query = obj.networks.update( values=kw ).where( obj.networks.c.network == network )
-			result = self._execute_set( query )
+			#query = obj.networks.update( values=kw ).where( obj.networks.c.network == network )
+			#result = self._execute_set( query )
+			result = self._do_update(obj.networks, values=kw, where=obj.networks.c.network == network)
 
 			# new network must contain old network
 			if new_network:
@@ -2575,15 +2611,22 @@ class DBInterface( DBBaseInterface ):
 			if not gateway:
 				gateway = str( net[backend.default_gateway_address_index] )
 			
-			query = obj.networks.insert( values={'network' : network,
+			#query = obj.networks.insert( values={'network' : network,
+			#						'name' : name,
+			#						'gateway' : gateway,
+			#						'description' : description,
+			#						'dhcp_group' : dhcp_group,
+			#						'shared_network' : shared_network,
+			#						#'broadcast' : broadcast,
+			#						'changed_by' : self._uid } )
+			#result = self._execute_set( query )
+			result = self._do_insert( obj.networks, values={'network' : network,
 									'name' : name,
 									'gateway' : gateway,
 									'description' : description,
 									'dhcp_group' : dhcp_group,
 									'shared_network' : shared_network,
-									#'broadcast' : broadcast,
 									'changed_by' : self._uid } )
-			result = self._execute_set( query )
 			
 			if ip4:
 				invalid = [ net[0], net[backend.default_gateway_address_index], net.broadcast(), ] # mark gateways as reserved, although we should assign the mac of the router
@@ -2623,11 +2666,13 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		query = obj.networks_to_groups.insert( values={'nid' : nid,
+		#query = obj.networks_to_groups.insert( values={'nid' : nid,
+		#						'gid' : gid,
+		#						'changed_by' : self._uid } )
+		#return self._execute_set(query)
+		return self._do_insert(obj.networks_to_groups, values={'nid' : nid,
 								'gid' : gid,
 								'changed_by' : self._uid } )
-
-		return self._execute_set(query)
 	
 	def add_notification_to_host( self, nid, mac ):
 		"""
@@ -2643,13 +2688,13 @@ class DBInterface( DBBaseInterface ):
 				self._require_perms_on_host(permission=perms.ADMIN, mac=mac)
 			
 			# They have permission ... do the insert
-			query = obj.notifications_to_hosts.insert( values=
-											{
-											'nid' : nid,
-											'mac' : mac
-											} )
-			
-			result = self._execute_set( query )
+			#query = obj.notifications_to_hosts.insert( values=
+			#								{
+			#								'nid' : nid,
+			#								'mac' : mac
+			#								} )
+			#result = self._execute_set( query )
+			result = self._do_insert(table=obj.notifications_to_hosts, values={ 'nid':nid, 'mac':mac })
 			
 			# Commit the transaction
 			self._commit()
@@ -2673,10 +2718,11 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		query = obj.shared_networks.insert( values={'name' : name,
+		#query = obj.shared_networks.insert( values={'name' : name,
+		#						'description' : description } )
+		#return self._execute_set( query )
+		return self._do_insert( table=obj.shared_networks, values={'name' : name,
 								'description' : description } )
-		
-		return self._execute_set( query )
 		
 	
 	def add_supermaster( self ):
@@ -2703,9 +2749,9 @@ class DBInterface( DBBaseInterface ):
 		if host_permissions is not None:
 			values['host_permissions'] = str(host_permissions)
 		
-		query = obj.users_to_groups.insert( values )
-
-		return self._execute_set(query)
+		#query = obj.users_to_groups.insert( values )
+		#return self._execute_set(query)
+		return self._do_insert(table=obj.users_to_groups, values=values)
 	
 	def add_vlan( self ):
 		"""vlan"""
@@ -2739,7 +2785,7 @@ class DBInterface( DBBaseInterface ):
 		"""Delete a DHCP group"""
 		pass
 		
-	def del_dns_record( self, rid=None, did=None, mac=None ):
+	def del_dns_record( self, rid, mac=None ):
 		"""
 		Delete a DNS record
 		
@@ -2749,39 +2795,31 @@ class DBInterface( DBBaseInterface ):
 		# TODO: now that we have find_permissions_for_dns_records, re-write this function
 		# to not accept a mac address (and find all the places that are calling this)
 		
-		if rid is not None and did is not None:
-			raise error.InvalidArgument('del_dns_records only accepts one of (did=%s, rid=%s)' % (did,rid))
-
-		if did is not None:
-			self.require_perms(perms.DEITY)
-			where=obj.dns_records.c.did == int(did)
-
+		records = self.get_dns_records(id=rid)
+		
+		if not records:
+			raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
+		
+		record = records[0]
+		
+		# If MAC is not specified, require DEITY
+		if not mac:
+			id_perms = self.find_permissions_for_dns_records(records)[0]
+			
+			if Perms(id_perms[rid]) & perms.DELETE != perms.DELETE:
+				raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, record['name']))
 		else:
-			records = self.get_dns_records(id=rid, did=did)
-			
-			if not records:
-				raise error.NotFound("Couldn't delete DNS record id %s because it could not be found." % rid)
+			# Require DELETE permissions if MAC is specified
+			self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
 		
-			record = records[0]
-		
-			# If MAC is not specified, require DEITY
-			if not mac:
-				id_perms = self.find_permissions_for_dns_records(records)[0]
-				
-				if Perms(id_perms[rid]) & perms.DELETE != perms.DELETE:
-					raise error.InsufficientPermissions("Insufficient permissions to delete DNS record %s %s" % (rid, record['name']))
-			else:
-				# Require DELETE permissions if MAC is specified
-				self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete DNS records for MAC %s" % mac)
-			
-			where = obj.dns_records.c.id==rid
+		where = obj.dns_records.c.id==rid
 
-			# If it was an A Record, delete the associated PTR (without permissions checking)
-			if record['tid'] == 1:
-				ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
-				
-				if ptr:
-					where = or_(where, (obj.dns_records.c.id==ptr[0]['id']))
+		# If it was an A Record, delete the associated PTR (without permissions checking)
+		if record['tid'] == 1:
+			ptr = self.get_dns_records(name=openipam.iptypes.IP(record['ip_content']).reverseName()[:-1], content=record['name'])
+			
+			if ptr:
+				where = or_(where, (obj.dns_records.c.id==ptr[0]['id']))
 
 		return self._do_delete( obj.dns_records, where=where )
 	
@@ -2792,11 +2830,9 @@ class DBInterface( DBBaseInterface ):
 	def del_dns_view( self ):
 		pass
 	
-	def del_domain( self, did ):
+	def del_domain( self ):
 		"""domain"""
-		self.require_perms(perms.DEITY)
-		where = obj.domains.c.id == int(did)
-		return self._do_delete( table=obj.domains, where=where )
+		pass
 	
 	def del_domain_to_group( self, did, gid ):
 		"""Remove a domain from a group
@@ -3003,9 +3039,9 @@ class DBInterface( DBBaseInterface ):
 		self.require_perms(perms.DEITY)
 
 		where = and_(obj.networks_to_groups.c.nid==nid, obj.networks_to_groups.c.gid==gid)
-		s = obj.networks_to_groups.delete( whereclause=where )
-
-		return self._execute_set( s )
+		#s = obj.networks_to_groups.delete( whereclause=where )
+		#return self._execute_set( s )
+		return self._do_delete( table=obj.networks_to_groups( where=where )
 	
 	def del_notification_to_host( self, id=None, mac=None ):
 		"""
@@ -3020,8 +3056,6 @@ class DBInterface( DBBaseInterface ):
 		# FIXME: do we need to do this if here? or just the require permissions
 		if not self.has_min_perms(perms.DEITY) and mac and self.get_hosts_to_groups(mac=mac):
 			self._require_perms_on_host(permission=perms.ADMIN, mac=mac)
-
-		where = None
 					
 		if id:
 			if type(id) == types.ListType:
@@ -3151,9 +3185,9 @@ class DBInterface( DBBaseInterface ):
 		values['changed_by'] = self._uid
 		
 		# Update the host
-		query = obj.hosts.update(obj.hosts.c.mac == old_mac, values=values )
-		
-		results = self._execute_set(query)
+		#query = obj.hosts.update(obj.hosts.c.mac == old_mac, values=values )
+		#results = self._execute_set(query)
+		results = self._do_update(table=obj.hosts, values=values, where=obj.hosts.c.mac == old_mac)
 			
 		# If we change expires, make sure notifications on the host are up-to-date
 		if expires:
@@ -3328,10 +3362,7 @@ class DBInterface( DBBaseInterface ):
 				if name:
 					g = self.get_groups(name=name)
 					print g
-					try:
-						new_owner_ids.add( int(g[0]['id']) )
-					except:
-						raise Exception("No match for %s (owner_names: %s)" % (name, ', '.join(owner_names)))
+					new_owner_ids.add( int(g[0]['id']) )
 		else:
 			new_owner_ids = set(owner_ids)
 
@@ -3380,8 +3411,9 @@ class DBInterface( DBBaseInterface ):
 
 			# UPDATE dns_records SET ip_content=new_address WHERE ip_content=old_address;
 			values = { 'ip_content':new_address, }
-			query=obj.dns_records.update(obj.dns_records.c.ip_content == old_address, values=values)
-			self._execute_set(query)
+			#query=obj.dns_records.update(obj.dns_records.c.ip_content == old_address, values=values)
+			#self._execute_set(query)
+			self._do_update(table=obj.dns_records, where=obj.dns_records.c.ip_content == old_address, values=values)
 			
 			# FIXME: Find the old PTR, add an equivalent one
 			old_ptr = self.get_dns_records( name = openipam.iptypes.IP(old_address).reverseName()[:-1], typename='PTR')
@@ -3436,13 +3468,18 @@ class DBInterface( DBBaseInterface ):
 				if name:
 					values['name'] = name
 				
-				query = obj.dns_records.update( values=values )
-				query = obj.dns_records.update(and_(obj.dns_records.c.ip_content == old_address, obj.dns_records.c.name==old_name), values=values )
-
+				#query = obj.dns_records.update( values=values )
+				#query = obj.dns_records.update(and_(obj.dns_records.c.ip_content == old_address, obj.dns_records.c.name==old_name), values=values )
+				#if address:
+				#	query = query.where(obj.dns_records.c.ip_content == old_address)
+				#self._execute_set(query)
+				whereclause = and_(obj.dns_records.c.ip_content == old_address, obj.dns_records.c.name==old_name)
 				if address:
-					query = query.where(obj.dns_records.c.ip_content == old_address)
+					where = and_(where, obj.dns_records.c.ip_content == old_address)
+				self._do_update(table=obj.dns_records, where=whereclause, values=values)
 		
-				self._execute_set(query)
+
+
 				
 				# PTR record
 				values = {}
@@ -3456,9 +3493,11 @@ class DBInterface( DBBaseInterface ):
 				
 				ptrname = openipam.iptypes.IP(old_address).reverseName()[:-1]
 				
-				query = obj.dns_records.update(obj.dns_records.c.name == ptrname, values=values )
-		
-				result = self._execute_set(query)
+				#query = obj.dns_records.update(obj.dns_records.c.name == ptrname, values=values )
+				#result = self._execute_set(query)
+
+				result = self._do_update(table=obj.dns_records, where=obj.dns_records.c.name == ptrname, values=values)
+
 			else:
 				raise error.NotImplemented()
 				
@@ -3491,9 +3530,9 @@ class DBInterface( DBBaseInterface ):
 		if description:
 			values['description'] = description
 			
-		query = obj.groups.update(obj.groups.c.id == gid, values = values)
-		
-		return self._execute_set(query)
+		#query = obj.groups.update(obj.groups.c.id == gid, values = values)
+		#return self._execute_set(query)
+		return self._do_update(obj.groups, obj.groups.c.id == gid, values = values)
 
 	def disable_host( self, mac, reason=None):
 		'''Disable a host for the given reason'''
@@ -3501,11 +3540,11 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.SECURITY)
 		
-		query = obj.disabled.insert( values={'mac' : mac,
-								'reason' : reason,
-								'disabled_by' : self._uid } )
-
-		return self._execute_set(query)
+		#query = obj.disabled.insert( values={'mac' : mac,
+		#						'reason' : reason,
+		#						'disabled_by' : self._uid } )
+		#return self._execute_set(query)
+		return self._do_insert( table=obj.disabled, values={'mac' : mac, 'reason' : reason, 'disabled_by' : self._uid } )
 
 	def enable_host( self, mac, reason=None ):
 		'''Disable a host for the given reason'''
@@ -3571,17 +3610,6 @@ class DBInterface( DBBaseInterface ):
 class DBAuthInterface( DBInterface ):
 	def __init__(self):
 		DBInterface.__init__( self, username=backend.auth_user )
-	#def __getattr__(self, name ):
-	#	"""
-	#	FIXME: no it doesn't
-	#	This only lets the DBAuthInterface call a small subset of DBInterface functions. 
-	#	"""
-	#	if name in ('get_users', 'get_auth_sources', 'get_internal_auth','_execute_set'):
-	#		return DBInterface.__getattr__(self, name)
-	#	raise AttributeError(name)
-	def change_internal_password(self, id, hash):
-		query = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.id == id)
-		self._execute_set(query)
 	def add_user( self, username, source, min_perms=None ):
 		"""
 		Add a user to the database
@@ -3606,8 +3634,9 @@ class DBAuthInterface( DBInterface ):
 		try:
 			# Do this INSERT no matter what authentication source
 			vals = {'username' : username, 'source' : source, 'min_permissions' : min_perms, }
-			q = obj.users.insert( values = vals )
-			query = self._execute_set(q)
+			#q = obj.users.insert( values = vals )
+			#query = self._execute_set(q)
+			query = self._do_insert(obj.users, values=vals)
 
 			uid = query.last_inserted_ids()[0]
 			
@@ -3643,7 +3672,12 @@ class DBAuthInterface( DBInterface ):
 		try:
 			s_id = self.get_auth_sources(name='INTERNAL')[0]['id']
 			uid, gid = self.add_user( username=username, source=s_id )
-			query = obj.internal_auth.insert( values={'id' : uid,
+			#query = obj.internal_auth.insert( values={'id' : uid,
+			#						'hash' : hash,
+			#						'name' : name,
+			#						'email' : email } )
+			#self._execute_set( query )
+			self._do_insert( table=obj.internal_auth, values={'id' : uid,
 									'hash' : hash,
 									'name' : name,
 									'email' : email } )
@@ -3652,15 +3686,15 @@ class DBAuthInterface( DBInterface ):
 			self._rollback()
 			raise
 
-		self._execute_set( query )
 		return uid,gid
 	
 	def change_internal_password (self, id, hash ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 		
-		q = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.c.id == id)
-		self._execute_set(q)
+		#q = obj.internal_auth.update( values={'hash':hash} ).where(obj.internal_auth.c.id == id)
+		#self._execute_set(q)
+		self._do_update(table=obj.internal_auth, where=obj.internal_auth.c.id == id, values={'hash':hash})
 	
 def ago( sec ):
 	return sqlalchemy.sql.func.now() - text("interval '%s sec'" % sec)
@@ -3736,9 +3770,11 @@ class DBDHCPInterface(DBInterface):
 						print "Longer existing lease found (requested %s): %s" % (expires,str(result))
 					self._commit()
 					return result
-				query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age) ),
-									values=values )
-				result = self._execute_set(query)
+				#query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age) ),
+				#					values=values )
+				#result = self._execute_set(query)
+				result = self._do_update( table=obj.leases, where=and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age) ),
+						values=values )
 			else:
 				values['mac'] = mac
 				values['starts'] = sqlalchemy.sql.func.now()
@@ -4045,7 +4081,8 @@ class DBDHCPInterface(DBInterface):
 		else:
 			raise error.RequiredArgument("Must specify MAC or address.")
 		values = { 'abandoned': True, 'mac': None, 'starts': sqlalchemy.sql.func.now(), 'ends':sqlalchemy.sql.func.now() + text("interval '3600 s'", ) }
-		self._execute_set( obj.leases.update( whereclause, values=values ) )
+		#self._execute_set( obj.leases.update( whereclause, values=values ) )
+		self._do_update(table=obj.leases, where=whereclause, values=values)
 		# FIXME: what if no lease exists?  Currently, this is only called after 1) getting a lease and 2) finding it used
 
 	def retrieve_dhcp_options(self, mac, address, option_ids):

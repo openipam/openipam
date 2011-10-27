@@ -188,7 +188,7 @@ function toggleHostFlyout( mac ){
  */
  
 function addOwner(ownerName) {
-	$('#owners_list').val($('#owners_list').val()+ownerName+'|');
+	$('#owners_list').val($('#owners_list').val()+ownerName+',');
 
 	addOwnerToRow(ownerName);	
 }
@@ -201,14 +201,14 @@ function addOwnerToRow(ownerName) {
 }
 			
 function removeOwner(ownerName) {
-	$('#owners_list').text($('#owners').text().replace(ownerName+'|', ''));
+	$('#owners_list').text($('#owners').text().replace(ownerName+',', ''));
 	$('#currentOwners tr[id="'+ownerName+'"]').remove();
-	$('#owners_list').val($('#owners_list').val().replace(ownerName+'|', ''));
+	$('#owners_list').val($('#owners_list').val().replace(ownerName+',', ''));
 }
 
 function updateOwnersList() {
 	var owner = null;
-	var owners_list = $('#owners_list').val().split('|');
+	var owners_list = $('#owners_list').val().split(',');
 	
 	for ( i in owners_list ) {
 		if (owners_list[i] != '') {
@@ -258,12 +258,6 @@ $(function() {
 		$(this).blur()
 	});
 	
-	// For the initial groups that are shown
-	if ($("#group_dialog").length) {
-		full_group_list = $('#full_group_list').val().split("-*-");
-		showGroups();
-	}
-	
 	$("#group_dialog").show().dialog({ 
 				    modal: true,
 				    autoOpen : false,
@@ -280,8 +274,12 @@ $(function() {
 			    		}
 				    },
 				    title : 'Manage contact groups',
-				    height: 525,
-				    width: 700 
+				    height: 500,
+				    width: 700, 
+				    overlay: { 
+				        opacity: 0.5, 
+				        background: "black" 
+				    	}
     });
 
 	$('#currentOwners tr td #removeOwner').click(function () {
@@ -326,6 +324,12 @@ $(function() {
 		$('#showGroupsAgain').hide();
 		showGroups();
 	});
+	
+	// For the initial groups that are shown
+	if ($("#group_dialog").length) {
+		full_group_list = $('#full_group_list').val().split("-*-");
+		showGroups();
+	}
 	
 	if ($('input[name="old_mac"]').length) {
 		// We're editing a host

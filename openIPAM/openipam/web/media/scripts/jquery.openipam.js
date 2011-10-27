@@ -9,8 +9,6 @@
 	 * Display the error message.
 	 */
 
-	jQuery.ajaxSettings.traditional = true;
-
 	openipam = {
 		error: function(event, XMLHttpRequest, ajaxOptions, thrownError) {
 			if (XMLHttpRequest.responseXML && fault.indexOf("<Fault 1: '[ListXMLRPCFault] ") != -1) {

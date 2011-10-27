@@ -35,7 +35,33 @@ syslog_connect='/dev/log'
 
 logger=None
 
+bind_interfaces=None
+
 from openipam_config.dhcp import *
+
+address_mapping = None
+
+def get_address_from_interface(name):
+	import socket
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	addr = socket.inet_ntoa(
+			fcntl.ioctl( s.fileno(),
+				0x8915,  # SIOCGIFADDR
+				struct.pack('256s', ifname[:15])
+				)[20:24])
+
+
+if bind_interfaces is not None:
+	address_mapping = []
+	for interface in bind_interfaces():
+		if type(interface) == str:
+			addr = get_address_from_interface(interface)
+		else:
+			addr = interface[1]
+			interface = interface[0]
+		address_mapping.append(	(interface,
+					map(int,addr.split('.')),
+					address) )
 
 server_ip_lst=map(int,server_ip.split('.'))
 

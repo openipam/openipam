@@ -14,12 +14,9 @@
 	<p>Try these special query types:<p>
 	<pre>user:<em>username here</em></pre>
 	<pre>name:<em>hostname</em></pre>
-	<pre>desc:<em>descriptionword</em></pre>
 	<pre>ip:<em>IP address</em></pre>
 	<pre>net:<em>network (CIDR notation)</em></pre>
 	<pre>mac:<em>MAC address</em></pre>
-	<pre>mac:<em>Partial MAC address*</em></pre>
-	<pre>mac:<em>MAC address-MAC address</em></pre>
 </div>
 
 <div style="float: right; width: 320px;">
@@ -34,7 +31,7 @@
 </div>
 
 <h1>Hosts</h1>
-#echo '<a href="/hosts/search/?username=%s&expiring=60" />Show my hosts expiring within 60 days</a>' % $username
+#echo '<a href="/hosts/search/?username=%s&expiring=60" />Show my hosts expiring within 60 days</a><br /><br />' % $username
 
 #if 'message' in $template_keys:
 	<div id="localMessage" class="message">
@@ -51,32 +48,6 @@
 
 #if 'hosts' in $template_keys:
 	#if $hosts:
-		<div class="pageLinks">
-			#set temp_text = []
-			#set search_str = '/?'
-			#if 'search' in $template_keys:
-				#set search_str = $search if not $order_by else '%sorder_by=%s&' % ($search,$order_by)
-			#end if
-			#if $page == 0:
-				#silent	temp_text.append("&#171; Previous page &nbsp;&nbsp;")
-			#else:
-				#silent temp_text.append('<a href="/hosts%spage=%s">&#171; Previous page</a> &nbsp;&nbsp;' % ($search_str, $page - 1))
-			#end if
-			#silent temp_text.append(' Page %s of %s &nbsp;&nbsp;' % ($page + 1, $num_pages))
-			#if $page < ($num_pages - 1):
-				#silent temp_text.append('<a href="/hosts%spage=%s">Next page &raquo;</a>' % ($search_str, $page + 1))
-			#else:
-				#silent temp_text.append('Next page &raquo;')
-			#end if
-			
-			#echo ''.join(temp_text)
-			<br />
-			<div class="pageLinksInfo">
-				Showing hosts $first_host thru $last_host of $num_hosts	($limit hosts per page)
-			</div>
-		</div>
-		<br/><br/>
-
 		<form id="multiActionForm" name="multiactionForm" method="post" action="/hosts/multiaction/">
 		<table class="infoTable">
 			<thead>
@@ -168,18 +139,6 @@
 			</div>
 		</div>
 
-		<input type="hidden" id="owners_list" name="owners_list" value="user_$username|" />
-		<input type="hidden" id="full_group_list" value="$full_group_list" />
-		<select name="multiaction" id="multiaction">
-			<option value="">Choose an action...</option>
-			<option value="delete">Delete selected hosts</option>
-			<option value="owners">Set owners on selected hosts</option>
-			<option value="renew">Renew selected hosts</option>
-		</select>
-		<input type="hidden" name="multiurl" value="$url" />
-		<input type="submit" id="submitMultiAction" value="Go" />
-	</form>
-
 <div id="group_dialog" class="dialog">
 	<h4>Current group owners</h4>
 	<table class="infoTable" style="margin-bottom: 0pt">
@@ -200,18 +159,20 @@
 	<h4 style="padding-top: 5pt">Add group owners</h4>
 	
 	<form action="" method="post">
-		<div>
+		<div style="float: left">
 			<p><span>Search by username: </span><input type="text" id="username" name="username" value="" /><input type="submit" id="usernameSearch" name="usernameSearch"  class="button" value="Search" /></p>
 		</div>
-		<div>
+		<div style="float: right;">
 			<a href="javascript:;" id="showGroupsAgain" class="hidden">Show groups again</a>
 		</div>
 	</form>
 	
+	<div class="clear"><!-- --></div>
+	
 	<div id="searchMessage" class="message hidden">
 	</div>
 	
-	<table class="infoTable" style="height: 30px; margin-bottom: 0pt;">
+	<table class="infoTable" style="margin-bottom: 0pt">
 		<thead>
 			<tr>
 				<th>Group name</th>
@@ -225,9 +186,19 @@
 				</tbody>
 		</table>
 	</div>
-
 </div>
 
+		<input type="hidden" id="owners_list" name="owners_list" value="user_$username," />
+		<input type="hidden" id="full_group_list" value="$full_group_list" />
+		<select name="multiaction" id="multiaction">
+			<option value="">Choose an action...</option>
+			<option value="delete">Delete selected hosts</option>
+			<option value="owners">Set owners on selected hosts</option>
+			<option value="renew">Renew selected hosts</option>
+		</select>
+		<input type="hidden" name="multiurl" value="$url" />
+		<input type="submit" id="submitMultiAction" value="Go" />
+	</form>
 	#else:
 		<p class="noResults">
 			No hosts found.<br />

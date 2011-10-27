@@ -27,7 +27,7 @@ class AdminGroupsNetwork(AdminGroups):
 		networks = ''
 		if len(search):
 			try:
-				networks = self.webservice.get_networks({ 'network' : search, 'exact': False })
+				networks = self.webservice.get_networks({ 'network' : search })
 			except Exception, e:
 				err = error.parse_webservice_fault(e)
 				if err == 'InvalidCIDRNetwork':

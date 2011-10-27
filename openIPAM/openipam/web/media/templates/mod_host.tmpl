@@ -15,7 +15,7 @@
 		#set host['hostname'] = ''
 		#set host['description'] = ''
 		#set network = ''
-		#set owners_list = 'user_%s|' % $username
+		#set owners_list = 'user_%s,' % $username
 		#set owners_list_shown = 'user_%s' % $username
 	#end if
 #else:
@@ -27,7 +27,7 @@
 	#set owners_list_shown = []
 	
 	#for $owner in $owners:
-		#silent $owners_list.append('%s|' % $owner.name)
+		#silent $owners_list.append('%s,' % $owner.name)
 		#silent $owners_list_shown.append( $owner.name )
 	#end for
 	
