@@ -46,7 +46,8 @@ from openipam.config import auth_sources
 
 try:
 	from openipam.extensions import arp
-except:
+except Exception, e:
+	print "Failed to import arp extension, disabling: %s" % repr(e)
 	arp = None
 
 import openipam.iptypes
@@ -1938,6 +1939,8 @@ class MainWebService(XMLRPCController):
 		if kw.has_key('ip'):
 			ip = kw['ip']
 		print 'arp_data(mac=%s,ip=%s)' % (mac,ip)
+		if not arp:
+			raise error.NotImplemented("The arp extension is not installed.")
 		if mac and ip or (not mac and not ip):
 			raise error.InvalidArgument('Specify exactly one of mac(%s) and ip(%s).' % (mac, ip))
 		if not arp.min_permissions:
