@@ -1,0 +1,165 @@
+#! /usr/bin/python
+
+"""
+openIPAM start script
+
+This script is the main entry point to openIPAM and will initialize all of the services
+necessary to serve the openIPAM backend.
+
+"""
+
+import os
+import sys
+import cherrypy
+import logging
+import signal
+import atexit
+import errno
+from optparse import OptionParser
+
+import openipam.log	# Keep in mind there is a 'logging' module up above that we need...
+from openipam.utilities import daemon
+from openipam.web.resource import webroot
+from openipam.config import frontend
+
+__progname__ = "openIPAM"
+__progurl__ = "http://openipam.org"
+__version__ = "0.1.0"
+
+# Build configuration
+print "Reading configuration..."
+
+cert = frontend.ssl_cert
+key = frontend.ssl_key
+if cert and not os.path.exists( cert ):
+	raise Exception( "certificate not found: %s" % cert )
+if key and not os.path.exists( key ):
+	raise Exception( "private key not found: %s" % key )
+
+def global_error_handler():
+	raise cherrypy.InternalRedirect("/hosts")
+	cherrypy.response.status = 500
+	cherrypy.response.body = ["<html><body>Sorry, an error occured</body></html>"]
+			
+if frontend.proxied:
+	cherrypy.log = openipam.log.IPAMLogManager(client_ip_header=frontend.proxy_client_ip_header)
+
+cp_settings = {
+	'global' : {
+		'server.socket_host' : frontend.bind_host,
+		'server.socket_port' : frontend.bind_port,
+		'server.environment' : __progname__,
+		'engine.autoreload_on' : True,
+		'tools.sessions.on' : True,
+		'tools.sessions.storage_type' : frontend.session_storage,
+		'tools.sessions.storage_path' : frontend.session_dir,
+		'tools.sessions.timeout' : frontend.session_timeout,
+		'tools.gzip.on' : True,
+		'tools.xmlrpc.allow_none' : True,
+		'log.access_file' : frontend.log_access, 
+		'log.error_file' : frontend.log_error
+		#'request.error_response' : global_error_handler
+	},
+	'/styles' : {
+		'tools.staticdir.on' : True,
+		'tools.staticdir.dir' : frontend.styles_dir
+	},
+	'/scripts' : {
+		'tools.staticdir.on' : True,
+		'tools.staticdir.dir' : frontend.scripts_dir
+	},
+	'/images' : {
+		'tools.staticdir.on' : True,
+		'tools.staticdir.dir' : frontend.images_dir
+	},
+	'/yaml' : {
+		'tools.staticdir.on' : True,
+		'tools.staticdir.dir' : "%s/yaml" % frontend.styles_dir
+	}
+}
+
+if frontend.ssl_enabled:
+	if not cert or not key:
+		raise Exception('SSL enabled with no key/cert')
+	cp_settings['global']['server.ssl_certificate'] = cert
+	cp_settings['global']['server.ssl_private_key'] = key
+
+if frontend.proxied:
+	cp_settings['global']['tools.proxy.on'] = True
+	cp_settings['global']['tools.proxy.base'] = frontend.proxy_base
+
+
+# parse command line options
+parser = OptionParser()
+parser.add_option("-v","--version",action="store_true",dest="version",help="Print the version and exit.")
+parser.add_option("-d","--daemon",action="store_true",dest="daemon",help="Start program as a daemon.")
+parser.add_option("-s","--signals",action="store_true",dest="signals",help="Use signal processing code.")
+
+parser.add_option("-p","--pidfile",action="store",type='string',dest="pidfile",help="Use the given filename to store the PID of the server.")
+
+(options,args) = parser.parse_args()
+
+if (options.version):
+	print "%s version %s" % (__progname__,__version__)
+	os._exit(0)
+
+# check what we should do with respect to the things expected of unix daemons
+start_daemon = False
+process_signals = False
+	
+start_daemon = options.daemon
+
+if (options.signals):
+	process_signals = True
+
+if options.pidfile: pidfile=options.pidfile
+else: pidfile=None
+
+def start_server():
+	# WE'RE RUNNING THE WEB COMPONENT 
+	
+	root = webroot.get_web_root()
+	
+	try:
+		# Make sure the right directories exist
+		if not os.path.isdir(frontend.session_dir):
+			os.mkdir(frontend.session_dir)
+		if not os.path.isfile(frontend.log_access):
+			open(frontend.log_access, 'w').close()
+		if not os.path.isfile(frontend.log_error):
+			open(frontend.log_error, 'w').close()
+			
+		# Start the server
+		cherrypy.quickstart(root, '/', cp_settings)
+	except Exception, e:
+		msg = "Unable to start server: %s" % e
+		cherrypy.log(msg, context='', severity=logging.FATAL, traceback=False) 
+		os.sys.exit(-1)
+
+if __name__ == '__main__':
+	if (process_signals):
+		print "Signal handling: Loading signal handlers."
+		print "Signal handling: (This could break something!)"
+		signal.signal(signal.SIGHUP,sighand_hup)	# 1 - reload || terminal line hangup
+		#signal.signal(signal.SIGINT,sighand_int)	# 2 - interrupt programme (from keyboard)
+		#signal.signal(signal.SIGQUIT,sighand_quit)	# 3 - quit programme (from keyboard)
+		#signal.signal(signal.SIGILL,sighand_ill)	# 4 - illegal instruction
+		#signal.signal(signal.SIGABRT,sighand_abrt)	# 6 - abort programme (from abort(3) )
+		#signal.signal(signal.SIGFPE,sighand_fpe)	# 8 - floating point exception
+		# cannot handle signal 9!
+		#signal.signal(signal.SIGSEGV,sighand_segv)	# 11 - Invalid memory reference
+		#signal.signal(signal.SIGPIPE,sighand_pipe)	# 13 - Broken pipe
+		#signal.signal(signal.SIGALRM,sighand_alrm)	# 14 - Timer signal from alarm(2)
+		#signal.signal(signal.SIGTERM,sighand_term)	# 15 - Termination signal
+	else:
+		print "Signal handling: using default behavior (safe for now)."
+
+	if (start_daemon):
+		print "Starting in daemon mode."
+
+		daemon.daemonize(start_server, pidfile)
+	else:
+		print "Starting in foreground mode."
+		print "Starting %s version %s on port %s" % (__progname__,__version__,cp_settings['global']['server.socket_port'])
+		start_server()
+
