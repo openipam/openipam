@@ -924,6 +924,17 @@ class IPMCmdInterface( cmd.Cmd ):
 				defaults={'structured':False, 'required':False,})
 		self.iface.add_attribute( **vals )
 
+	def do_add_structured_attribute_value( self, arg ):
+		vals = self.get_from_user( [ ('attribute',), ('value',), ('default',) ], defaults={'default':False} )
+		attribute=vals['attribute']
+		try:
+			aid = int(attribute)
+		except:
+			attr = self.iface.get_attributes(name=attribute)
+			assert len(attr) == 1
+			aid = attr[0]['id']
+		self.iface.add_structured_attribute_value(aid=aid, value=vals['value'], is_default=vals['default'])
+
 	def do_add_attribute_to_host( self, arg ):
 		attribute = arg.strip()
 		try:
@@ -935,7 +946,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			raise Exception("attribute doesn't exist or is not unique: %s -> %s" % (attribute,a))
 		attribute = a[0]
 		if attribute['structured']:
-			possible = self.iface.get_structured_values(aid=attribute['id'])
+			possible = self.iface.get_structured_attribute_values(aid=attribute['id'])
 			byvalue = {}
 			for sval in possible:
 				byvalue[ sval['value'] ] = sval['id']
