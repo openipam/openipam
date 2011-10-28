@@ -450,7 +450,7 @@ class DBBaseInterface(object):
 				
 		return final_whereclause
 	
-	def _get_attributes( self, aid=None, name=None, mac=None, ):
+	def _get_attributes( self, aid=None, name=None, ):
 		"""Get possible host attributes
 		"""
 		query = select( [obj.attributes] )
@@ -458,14 +458,11 @@ class DBBaseInterface(object):
 			query=query.where(obj.attributes.c.id == aid)
 		if name:
 			query=query.where(obj.attributes.c.name == name)
-		if mac:
-			query=query.where(obj.attributes.c.mac == mac)
-
 
 		return query
 		
 	def _get_attributes_to_hosts( self, aid=None, mac=None ):
-		a2h = obj.structured_attributes_to_hosts
+		a2h = obj.attributes_to_hosts
 		if not self.has_min_perms( perms.READ ):
 			if not mac:
 				raise error.InsufficientPermissions("Must have global read perms to look up all attributes: aid=%s mac=%s" % (aid,mac))
