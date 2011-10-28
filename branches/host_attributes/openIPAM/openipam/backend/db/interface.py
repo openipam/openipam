@@ -450,7 +450,7 @@ class DBBaseInterface(object):
 				
 		return final_whereclause
 	
-	def _get_attributes( self, aid=None, name=None, ):
+	def _get_attributes( self, aid=None, name=None, mac=None, ):
 		"""Get possible host attributes
 		"""
 		query = select( [obj.attributes] )
@@ -458,6 +458,9 @@ class DBBaseInterface(object):
 			query=query.where(obj.attributes.c.id == aid)
 		if name:
 			query=query.where(obj.attributes.c.name == name)
+		if mac:
+			query=query.where(obj.attributes.c.mac == mac)
+
 
 		return query
 		
