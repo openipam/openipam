@@ -1612,12 +1612,12 @@ class DBInterface( DBBaseInterface ):
 	def _audit_vals(self, table, vals):
 		# auditing
 		if table.name == 'disabled':
-			values['disabled'] = sqlalchemy.sql.func.now()
-			values['disabled_by'] = self._uid
+			vals['disabled'] = sqlalchemy.sql.func.now()
+			vals['disabled_by'] = self._uid
 		if 'changed' in table.c:
-			values['changed'] = sqlalchemy.sql.func.now()
+			vals['changed'] = sqlalchemy.sql.func.now()
 		if 'changed_by' in table.c:
-			values['changed_by'] = self._uid
+			vals['changed_by'] = self._uid
 
 		return vals
 
