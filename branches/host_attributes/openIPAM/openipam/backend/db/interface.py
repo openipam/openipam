@@ -463,7 +463,7 @@ class DBBaseInterface(object):
 		
 	def _get_attributes_to_hosts( self, aid=None, mac=None ):
 		a2h = obj.structured_attributes_to_hosts
-		if not has_min_perms( perms.READ ):
+		if not self.has_min_perms( perms.READ ):
 			if not mac:
 				raise error.InsufficientPermissions("Must have global read perms to look up all attributes: aid=%s mac=%s" % (aid,mac))
 			self._require_perms_on_host(permission=perms.READ, mac=mac)
