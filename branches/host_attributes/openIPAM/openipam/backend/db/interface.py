@@ -1618,6 +1618,17 @@ class DBInterface( DBBaseInterface ):
 		@param query: a query object to execute
 		@param **kw: additional arguments to pass to the execute function
 		"""
+
+		# auditing
+		if query.table.name == 'disabled':
+			# making this one different was a mistake, but I'm willing to live with it
+			values['disabled'] = sqlalchemy.sql.func.now()
+			values['disabled_by'] = self._uid
+		if 'changed' in query.table.c:
+			query.values['changed'] = sqlalchemy.sql.func.now()
+		if 'changed_by' in query.table.c:
+			query.values['changed_by'] = self._uid
+
 		
 		if hasattr(self, '_conn'):
 			# We are currently in a transaction, so just execute the given query
