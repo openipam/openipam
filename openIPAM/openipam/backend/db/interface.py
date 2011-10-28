@@ -1817,7 +1817,7 @@ class DBInterface( DBBaseInterface ):
 		return self._do_insert(table=obj.attributes, values={'name':name, 'description':description, 'structured': structured,
 			'required': required, 'validation': validation } )
 
-	def add_strucutured_attribute_value( self, aid, value, is_default=False ):
+	def add_structured_attribute_value( self, aid, value, is_default=False ):
 		"""
 		"""
 		self.require_perms(perms.DEITY)
