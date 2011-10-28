@@ -1840,7 +1840,7 @@ class DBInterface( DBBaseInterface ):
 		if len(attr_value) != 1:
 			raise error.InvalidArgument("Structured attribute value non-existent or not unique: %s" % attr_value)
 
-		return self._do_insert(table=obj.structured_attribute_to_hosts, values={'mac':mac, 'svid': svid})
+		return self._do_insert(table=obj.structured_attributes_to_hosts, values={'mac':mac, 'svid': svid})
 
 	def add_freeform_attribute_to_host( self, mac, aid, value ):
 		"""
