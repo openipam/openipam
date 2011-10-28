@@ -301,7 +301,7 @@ class MainWebService(XMLRPCController):
 		return self.__sanitize(db.add_attribute( **args[0] ))
 	
 	@cherrypy.expose
-	def add_strucutured_attribute_value(self, *args):
+	def add_structured_attribute_value(self, *args):
 		"""
 		Create a new host custom attribute
 		"""
