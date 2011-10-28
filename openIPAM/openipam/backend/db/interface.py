@@ -518,10 +518,6 @@ class DBBaseInterface(object):
 		return query
 		
 	
-	def _get_host_attribute_value( self ):
-		"""attribute_value"""
-		pass
-	
 	def _get_auth_sources( self, name=None ):
 		"""auth_source"""
 		self.require_perms( perms.DEITY )
