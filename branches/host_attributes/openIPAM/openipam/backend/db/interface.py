@@ -1822,7 +1822,7 @@ class DBInterface( DBBaseInterface ):
 		"""
 		self.require_perms(perms.DEITY)
 
-		attr = self.get_attribute(aid=aid)
+		attr = self.get_attributes(aid=aid)
 		if len(attr) != 1:
 			raise error.InvalidArgument("aid not unique or non-existent: %s" % attr)
 		attr=attr[0]
@@ -1847,7 +1847,7 @@ class DBInterface( DBBaseInterface ):
 		"""
 		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
 
-		attr = self.get_attribute(aid=aid)
+		attr = self.get_attributes(aid=aid)
 		if len(attr) != 1:
 			raise error.InvalidArgument("aid not unique or non-existent: %s" % attr)
 		attr=attr[0]
