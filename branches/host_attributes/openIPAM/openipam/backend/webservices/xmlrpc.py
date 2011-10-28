@@ -298,7 +298,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return db.add_attribute( **args[0] )
+		return self.__sanitize(db.add_attribute( **args[0] ))
 	
 	@cherrypy.expose
 	def add_strucutured_attribute_value(self, *args):
@@ -309,7 +309,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return db.add_strucutured_attribute_value( **args[0] )
+		return self.__sanitize(db.add_strucutured_attribute_value( **args[0] ))
 	
 	@cherrypy.expose
 	def add_structured_attribute_to_host(self, *args):
@@ -320,7 +320,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return db.add_structured_attribute_to_host( **args[0] )
+		return self.__sanitize(db.add_structured_attribute_to_host( **args[0] ))
 	
 	@cherrypy.expose
 	def add_freeform_attribute_to_host(self, *args):
@@ -331,7 +331,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return db.add_freeform_attribute_to_host( **args[0] )
+		return self.__sanitize(db.add_freeform_attribute_to_host( **args[0] ))
 	
 	#------------------------	 USERS	  ----------------------------
 	# User management
