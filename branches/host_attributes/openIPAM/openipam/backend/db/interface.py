@@ -1836,7 +1836,7 @@ class DBInterface( DBBaseInterface ):
 		"""
 		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
 
-		attr_value = self.get_structured_attribute_value(avid=avid)
+		attr_value = self.get_structured_attribute_values(avid=avid)
 		if len(attr_value) != 1:
 			raise error.InvalidArgument("Structured attribute value non-existent or not unique: %s" % attr_value)
 
