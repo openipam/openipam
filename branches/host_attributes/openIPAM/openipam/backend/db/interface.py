@@ -1829,7 +1829,7 @@ class DBInterface( DBBaseInterface ):
 		if not attr['structured']:
 			raise error.InvalidArgument("aid specified is not a structured attribute: %s" % attr)
 
-		return self._do_insert(table=obj.strucutured_attribute_values, values={'aid':aid, 'value':value, 'is_default': is_default})
+		return self._do_insert(table=obj.structured_attribute_values, values={'aid':aid, 'value':value, 'is_default': is_default})
 
 	def add_structured_attribute_to_host( self, mac, avid ):
 		"""
