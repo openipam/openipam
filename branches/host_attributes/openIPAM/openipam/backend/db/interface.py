@@ -476,14 +476,14 @@ class DBBaseInterface(object):
 
 		return query
 
-	def _get_structured_attribute_values( self, svid=None, aid=None ):
+	def _get_structured_attribute_values( self, avid=None, aid=None ):
 		"""Get possible values for structured attributes"""
 		sav = obj.structured_attribute_values
-		if svid is None and aid is None:
-			raise error.RequiredArgument("Must specify either svid or aid")
+		if avid is None and aid is None:
+			raise error.RequiredArgument("Must specify either avid or aid")
 		query = select([sav])
-		if svid:
-			query = query.where(sav.c.id == svid)
+		if avid:
+			query = query.where(sav.c.id == avid)
 		if aid:
 			query = query.where(sav.c.aid == aid)
 
@@ -1831,16 +1831,16 @@ class DBInterface( DBBaseInterface ):
 
 		return self._do_insert(table=obj.structured_attribute_values, values={'aid':aid, 'value':value, 'is_default': is_default})
 
-	def add_structured_attribute_to_host( self, mac, svid ):
+	def add_structured_attribute_to_host( self, mac, avid ):
 		"""
 		"""
 		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
 
-		attr_value = self.get_structured_attribute_values(svid=svid)
+		attr_value = self.get_structured_attribute_values(avid=avid)
 		if len(attr_value) != 1:
 			raise error.InvalidArgument("Structured attribute value non-existent or not unique: %s" % attr_value)
 
-		return self._do_insert(table=obj.structured_attributes_to_hosts, values={'mac':mac, 'svid': svid})
+		return self._do_insert(table=obj.structured_attributes_to_hosts, values={'mac':mac, 'avid': avid})
 
 	def add_freeform_attribute_to_host( self, mac, aid, value ):
 		"""
