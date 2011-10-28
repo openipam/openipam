@@ -1831,16 +1831,16 @@ class DBInterface( DBBaseInterface ):
 
 		return self._do_insert(table=obj.structured_attribute_values, values={'aid':aid, 'value':value, 'is_default': is_default})
 
-	def add_structured_attribute_to_host( self, mac, avid ):
+	def add_structured_attribute_to_host( self, mac, svid ):
 		"""
 		"""
 		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
 
-		attr_value = self.get_structured_attribute_values(avid=avid)
+		attr_value = self.get_structured_attribute_values(svid=svid)
 		if len(attr_value) != 1:
 			raise error.InvalidArgument("Structured attribute value non-existent or not unique: %s" % attr_value)
 
-		return self._do_insert(table=obj.structured_attribute_to_hosts, values={'mac':mac, 'avid': avid})
+		return self._do_insert(table=obj.structured_attribute_to_hosts, values={'mac':mac, 'svid': svid})
 
 	def add_freeform_attribute_to_host( self, mac, aid, value ):
 		"""
