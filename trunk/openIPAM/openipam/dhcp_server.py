@@ -504,6 +504,10 @@ def db_consumer( dbq, send_packet ):
 			mac = decode_mac( packet.GetOption('chaddr') )
 			ciaddr = '.'.join(map(str,packet.GetOption('ciaddr')))
 
+			if router == '0.0.0.0':
+				# hey, local DHCP traffic!
+				router = packet.get_recv_interface()
+
 			# FIXME: If ciaddr is set, we should use a unicast message to the client
 
 			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
@@ -511,12 +515,6 @@ def db_consumer( dbq, send_packet ):
 				requested_ip = ciaddr
 				if not requested_ip:
 					raise Exception("This really needs fixed...")
-
-			if router == '0.0.0.0':
-				# This could either be traffic directly to our server or a local broadcast
-				# FIXME: if src_address == requested_ip: router = requested_ip
-				# elif dst_address == 255.255.255.255: router = packet.get_recv_interface()
-				router = requested_ip
 
 			giaddr = '.'.join(map(str, packet.GetOption('giaddr')))
 
