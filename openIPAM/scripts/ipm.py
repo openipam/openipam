@@ -164,6 +164,9 @@ class IPMCmdInterface( cmd.Cmd ):
 		return filter
 
 	def show_dicts( self, dicts, fields=None, prefix='', separator='\n' ):
+		if len(dicts) == 0:
+			print prefix + "<Empty list>"
+			return
 		if not fields and dicts:
 			fields = []
 			for k in dicts[0].keys():
@@ -355,6 +358,10 @@ class IPMCmdInterface( cmd.Cmd ):
 		addrs = self.iface.get_addresses( mac=arg )
 		leases = self.iface.get_leases( mac=arg )
 		disabled = self.iface.is_disabled( mac=arg )
+		arps_by_ip = []
+		arps_by_mac = self.iface.arp_data( mac=arg )
+		if not arps_by_mac:
+			arps_by_mac=[]
 		if disabled:
 			print '!! HOST IS DISABLED'
 			if disabled[0]['reason']:
@@ -367,6 +374,11 @@ class IPMCmdInterface( cmd.Cmd ):
 		if addrs:
 			print "Static addresses:"
 			self.show_dicts( addrs, prefix='\t' )
+			for a in addrs:
+				arps_by_ip.extend(self.iface.arp_data(ip=a['address']))
+		print "Arp data:"
+		self.show_dicts(arps_by_mac, prefix='\t')
+		self.show_dicts(arps_by_ip, prefix='\t')
 		if leases:
 			print "Leased addresses:"
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
