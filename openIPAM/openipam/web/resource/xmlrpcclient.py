@@ -37,7 +37,7 @@ class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
 	ssl = True
 	
 	def __init__(self, cookiejar=None, ssl=True, use_datetime=True):
-		xmlrpclib.Transport.__init__(self)
+		xmlrpclib.Transport.__init__(self, use_datetime=use_datetime)
 		if not ssl:
 			self.ssl = False
 			self.transport = 'http'
