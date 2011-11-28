@@ -1365,7 +1365,7 @@ class DBBaseInterface(object):
 			query = query.join(obj.networks_to_groups, and_(obj.networks.c.network == obj.networks_to_groups.c.nid, obj.networks_to_groups.c.gid==gid))			
 		
 		# Create the selectable
-		query = select( [obj.networks], from_obj=query )
+		query = select( [obj.networks, sqlalchemy.sql.func.netmask(obj.networks.c.network).label('netmask')], from_obj=query )
 
 		if nid:
 			query = query.where(obj.networks.c.network == nid)

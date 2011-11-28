@@ -876,7 +876,7 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		network = match[0]
 
-		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id') ] , defaults=network)
+		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id'), ('gateway',) ] , defaults=network)
 		
 		changed = {}
 		new_net = None
