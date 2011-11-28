@@ -2472,6 +2472,10 @@ class DBInterface( DBBaseInterface ):
 		if kw.has_key('changed'):
 			raise Exception("Naughty!")
 
+		for k in kw.keys():
+			if k not in obj.networks.c:
+				raise Exception("Invalid column for networks: %s" % k)
+
 		if new_network:
 			kw['network'] = new_network
 			addr = openipam.iptypes.IP(new_network)
@@ -2490,13 +2494,13 @@ class DBInterface( DBBaseInterface ):
 		# Check if this network overlaps with another network
 		self._begin_transaction()
 		try:
-			query = select([obj.networks.c.network], or_(obj.networks.c.network.op("<<=")(new_network), obj.networks.c.network.op(">>")(new_network)))
-			result = self._execute(query)
-
-			if len(result) != 1:
-				raise Exception("I can't do what you want: %s" % result)
-
 			if new_network:
+				query = select([obj.networks.c.network], or_(obj.networks.c.network.op("<<=")(new_network), obj.networks.c.network.op(">>")(new_network)))
+				result = self._execute(query)
+
+				if len(result) != 1:
+					raise Exception("I can't do what you want: %s" % result)
+
 				net = openipam.iptypes.IP(new_network)
 				old_net = openipam.iptypes.IP(network)
 				if not old_net in net:
