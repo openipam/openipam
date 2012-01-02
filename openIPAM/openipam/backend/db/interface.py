@@ -939,7 +939,7 @@ class DBBaseInterface(object):
 		# Apply all the filtering that was specified
 		if ip != None:
 			if type(ip) == types.ListType:
-				whereclause.append(obj.addresses.c.address.in_(ip) or obj.leases.c.address.in_(ip))
+				whereclause.append( or_(obj.addresses.c.address.in_(ip), obj.leases.c.address.in_(ip)))
 			else:
 				# This allows us to search on IP addresses that are dynamically assigned
 				whereclause.append(or_(obj.addresses.c.address==ip, obj.leases.c.address==ip))
@@ -3919,7 +3919,7 @@ class DBDHCPInterface(DBInterface):
 					address = addresses[0]
 
 			if not address:
-				addresses_q = registered_q.where( obj.leases.c.ends == None or obj.leases.c.mac == mac ).limit(20)
+				addresses_q = registered_q.where( or_( obj.leases.c.ends == None, obj.leases.c.mac == mac ) ).limit(20)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				if addresses:
