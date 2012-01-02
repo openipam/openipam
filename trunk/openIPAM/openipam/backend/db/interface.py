@@ -3719,7 +3719,7 @@ class DBDHCPInterface(DBInterface):
 												) )
 			self._execute_set(query)
 			
-			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))], obj.leases.c.mac==mac).with_lockmode('update')
+			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))], obj.leases.c.mac==mac, for_update=True)
 			result = self._execute(query)
 			
 			# If this lease is < 10 seconds old, don't bother updating it
