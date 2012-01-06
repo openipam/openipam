@@ -3947,7 +3947,7 @@ class DBDHCPInterface(DBInterface):
 			if address:
 				if not is_static and not discover:
 					# Update the DNS records
-					q = select( [obj.dhcp_dns_records] ).where( or_( obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name == hostname ) )
+					q = select( [obj.dhcp_dns_records], for_update=True ).where( or_( obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name == hostname ) )
 					exists = False
 					records = self._execute( q )
 					for record in records:
