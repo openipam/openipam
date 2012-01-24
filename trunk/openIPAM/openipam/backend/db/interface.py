@@ -3169,7 +3169,7 @@ class DBInterface( DBBaseInterface ):
 	# FIXME: trash this function and replace it with smaller ones.
 	def change_registration( self, old_mac, mac=None, hostname=None, description=None,
 			expires=None, expiration_format=None, is_dynamic=True, network=None,
-			address=None, owners=None, dhcp_group=None ):
+			address=None, owners=None, dhcp_group=None, pool=None ):
 		"""
 		The continuation of register_host ... this is a smart function that will update
 		everything required if a registration needs to change.
@@ -3216,23 +3216,45 @@ class DBInterface( DBBaseInterface ):
 			
 			# Ahh...hello states
 			if is_dynamic and not was_dynamic:
+				if pool is None:
+					pool = backend.db_default_pool_id
 				# FIXME: maybe this should be an unsupported action...  Deleting the host is not an expected behavior
 				raise error.NotImplemented('You should delete and re-create the host instead')
 
 				# STATIC REGISTRATION ---> DYNAMIC REGISTRATION
 					
-				# Delete the host in its entirety
-				#self.del_host(mac=old_mac)
+				# Check for any unusual records that might be missed (ie. A/PTR don't match hostname, CNAME, etc)
+				former_addresses = get_addresses( mac=old_host['mac'] )
+				if len(former_addresses) != 1:
+					raise error.NotImplemented(
+							'Host has multiple addresses or inconsistent data.  Delete and re-create it to convert to dynamic. addresses: %s' % ', '.join([a['address'] for a in former_addresses))
+				former_address = openipam.iptypes.IP(former_addresses[0]['address'])
+				dns_records = self.get_dns_records(mac=old_host['mac'])
+				nonstandard_records = []
+				for record in dns_records:
+					if record['tid'] == 1: # A
+						if (record['name'] != old_host['hostname'] or record['ip_content'] != former_address):
+							nonstandard_records.append(record)
+					elif record['tid'] == 12: # PTR
+						if (record['name'] != former_address.reverseName()[:-1]
+							or record['text_content'] != old_host['hostname']):
+							nonstandard_records.append(record)
+					else:
+						# Anything else is not recognized (CNAME, etc).
+						nonstandard_records.append(record)
 
-				# Old host is gone, recreate as dynamic...
-				
-				# If anything wasn't specified, use the old host's data
-				#mac = mac if mac else old_mac
-				#hostname = hostname if hostname else old_host['hostname']
-				#description = description if description else old_host['description']
-				#expires = expires if expires else old_host['expires']
-				
-				#self.register_host(mac=mac, hostname=hostname, description=description, expires=expires, is_dynamic=True, owners=owners, add_host_to_my_group=False )
+				if len(nonstandard_records) > 0:
+					raise error.NotImplemented( "Host has non-standard DNS records.  Either delete the records or delete and re-create the host: %s" %
+						', '.join( "id: %(id)s name: %(name)s tid: %(tid)s text_content: %(text_content)s ip_content: %(ip_content)s" % r for r in nonstandard_records] ) )
+
+				for r in dns_records:
+					self.del_dns_record(rid = r['id'])
+
+				self.release_static_address(address=str(former_address))
+
+				self.add_host_to_pool(mac=old_host['mac'], pool_id=pool)
+
+				self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format, dhcp_group=dhcp_group)
 				
 			elif is_dynamic and was_dynamic:
 				# STAYING DYNAMIC REGISTRATION

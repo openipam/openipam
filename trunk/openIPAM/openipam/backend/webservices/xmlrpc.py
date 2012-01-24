@@ -1280,7 +1280,7 @@ class MainWebService(XMLRPCController):
 	@cherrypy.expose
 	def add_dhcp_option_to_dhcp_group(self, *args):
 		"""
-		Delete an option from a DHCP group
+		Add an option to a DHCP group
 		"""
 		
 		# Check permissions -- do this in every exposed function
