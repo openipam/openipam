@@ -1629,7 +1629,7 @@ class DBInterface( DBBaseInterface ):
 
 	def _do_update(self, table, where, values):
 		vals = self._audit_vals(table, values)
-		return self._execute_set( table.update(values=values, where=where) )
+		return self._execute_set( table.update(values=values).where(where) )
 
 	def _do_delete(self, table, where):
 		if where is None or where is True:

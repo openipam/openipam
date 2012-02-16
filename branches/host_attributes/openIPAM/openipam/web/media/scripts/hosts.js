@@ -51,9 +51,9 @@ function toggleHostFlyout( mac ){
 				if (response.length){
 					output.push('<strong>Attributes:</strong> ')
 					for (i in response){
-						output.push("<br/>" + response[i].name + ": " + response[i].value)
+						output.push("<br/>" + response[i].name + ": " + response[i].value);
 					}
-					output.push('<br/><br/>')
+					output.push('<br/><br/>');
 				}
 			}
 		});
