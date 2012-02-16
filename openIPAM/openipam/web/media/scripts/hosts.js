@@ -44,15 +44,16 @@ function toggleHostFlyout( mac ){
 		});
 		
 		$.ajax({
-			url: "/ajax/ajax_get_attributes_to_host/",
+			url: "/ajax/ajax_get_attributes_to_hosts/",
 			data: { mac : mac },
 			async: false, 
 			success: function(response){
 				if (response.length){
 					output.push('<strong>Attributes:</strong> ')
 					for (i in response){
-						output.push("" + response[i].name + " " + response[i].value + "<br/>");
+						output.push("<br/>" + response[i].name + ": " + response[i].value)
 					}
+					output.push('<br/><br/>')
 				}
 			}
 		});

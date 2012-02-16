@@ -118,7 +118,8 @@ CREATE TABLE structured_attributes_to_hosts (
 	mac				MACADDR NOT NULL REFERENCES hosts(mac),
 	avid				integer REFERENCES structured_attribute_values(id) NOT NULL,
 	changed				timestamp DEFAULT NOW(),
-	changed_by			integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
+	changed_by			integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+	UNIQUE(mac,avid)
 );
 
 CREATE UNIQUE INDEX structured_attributes_to_hosts_unique_default_idx ON structured_attributes_to_hosts(avid) WHERE is_default = TRUE;
@@ -129,7 +130,8 @@ CREATE TABLE freeform_attributes_to_hosts (
 	aid				integer NOT NULL REFERENCES attributes(id) ON DELETE RESTRICT,
 	value			text NOT NULL,
 	changed			timestamp DEFAULT NOW(),
-	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+	UNIQUE(mac,aid,value)
 );
 
 CREATE VIEW attributes_to_hosts AS

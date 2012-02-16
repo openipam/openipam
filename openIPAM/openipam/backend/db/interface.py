@@ -1625,7 +1625,7 @@ class DBInterface( DBBaseInterface ):
 	
 	def _do_insert(self, table, values):
 		vals = self._audit_vals(table, values)
-		return self._execute_set( table.insert(values=values) )
+		return self._execute_set( table.update(values=values).where(where) )
 
 	def _do_update(self, table, where, values):
 		vals = self._audit_vals(table, values)

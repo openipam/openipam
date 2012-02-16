@@ -10,9 +10,18 @@ from openipam.utilities import misc, error, validation
 from openipam.utilities.perms import Perms
 from openipam.web.resource.utils import redirect_to_referer
 from openipam.config import frontend
+from openipam.iptypes import IP
 
 class Hosts(BasePage):
 	'''The hosts class. This includes all pages that are /hosts/*'''
+	address_types = [
+			{ 'name': 'dynamic', 'description': 'Dynamic, routable address (preferred)', 'ranges': [] },
+			{ 'name': 'nonroutable', 'description': 'Static, non-routable address', 'ranges': [IP('172.17.0.0/16'),IP('172.18.0.0/16')] },
+			# Consider any other ranges 'routable', whether they are or not
+			{ 'name': 'routable', 'description': 'Static, routable address',
+				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'), IP('0.0.0.0/0'] },
+		]
+
 
 	def __init__(self):
 		BasePage.__init__(self)
@@ -141,13 +150,36 @@ class Hosts(BasePage):
 		# FIXME: this needs to come from the backend
 		values['allow_dynamic_ip'] = frontend.allow_dynamic_ip
 
-		values['networks'] = self.webservice.get_networks( { 'additional_perms' : str(frontend.perms.ADD), 'order_by' : 'network' } )
+		nets = self.webservice.get_networks( { 'additional_perms' : str(frontend.perms.ADD), 'order_by' : 'network' } )
+		nets_by_type = {}
+		for k in self.address_types.keys():
+			nets_by_type[k] = []
+		for net in nets:
+			net_type = self.get_address_type( net )
+			nets_by_type[net_type].append(net)
+
+		values['nets_by_type'] = nets_by_type
 		values['domains'] = self.webservice.get_domains( { 'additional_perms' : str(frontend.perms.ADD), 'show_reverse' : False, 'order_by' : 'name' } )
 		values['expirations'] = self.webservice.get_expiration_types()
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
  		values['dhcp_groups'] = self.webservice.get_dhcp_groups( {'order_by' : 'name' } )
+
+		values['address_types'] = [ i['name'], i['description'] for i in self.address_types ]
+
+		if values.has_key('address') and values['address']:
+			values['address_type'] = self.get_address_type(values['address'])
+		else:
+			values['address_type'] = 'dynamic'
 		
 		return values
+
+
+	def get_address_type(self, address):
+		for t in self.address_types:
+			for cidr in t['ranges']:
+				if cidr.contains(address):
+					return t['name']
+		raise Exception("FIXME: could not determine address type for %s" % address)
 
 	def add_host(self, **kw):
 		'''
@@ -164,7 +196,7 @@ class Hosts(BasePage):
 			'domain' : int(kw['domain']) if kw['domain'] else None,
 			'description' : kw['description'],
 			'expiration' : int(kw['expiration']),
-			'is_dynamic' : kw.has_key('dynamicIP'),
+			'is_dynamic' : kw['address_type'] == 'dynamic',
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if kw.has_key('network') and kw['network'] else None),
 			'add_host_to_my_group' : False,
@@ -182,7 +214,7 @@ class Hosts(BasePage):
 		# Confirm user authentication
 		self.check_session()
 
-		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw.has_key('dynamicIP'))
+		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw['address_type'] == 'dynamic')
 		
 		self.webservice.change_registration(
 			{
@@ -192,7 +224,7 @@ class Hosts(BasePage):
 			'domain' : (int(kw['domain']) if kw.has_key('domain') else None),
 			'description' : kw['description'],
 			'expiration' : (int(kw['expiration']) if kw.has_key('did_renew_host') else None),
-			'is_dynamic' : kw.has_key('dynamicIP'),
+			'is_dynamic' : kw['address_type'] == 'dynamic',
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if changed_to_static else None),
 			'address' : (kw['ip'] if changed_to_static else None),
