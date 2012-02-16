@@ -57,6 +57,7 @@
 <form action="" method="post" class="form">
 	<input type="hidden" id="owners_list" name="owners_list" value="$owners_list" />
 	<input type="hidden" id="full_group_list" value="$full_group_list" />
+	<input type="hidden" id="networks_$type" value="$nets_by_type[$type]" />
 	<div id="element">
 		<div id="label">Ethernet Address:</div>
 		<div id="value">
@@ -93,30 +94,25 @@
 	
 	#if $allow_dynamic_ip:
 		## We are allowing dynamic IPs
+		## Should this be called 'allow_static_ip' instead?
 	
 		<div id="element">
-			<div id="label">&nbsp;</div>
+			<div id="label">Address type</div>
 			<div id="value">
-				<label for="dynamicIP">
-					#set dynamic_checked = ' checked="checked"'
-					#if $editing and not $is_dynamic:
-						#set dynamic_checked = ''
-					#elif $editing and $is_dynamic:
-						<input type="hidden" name="was_dynamic" value="True" />
-					#end if
-					
-					#if ($networks and not $editing) or ($networks and $editing and $has_domain_access):
-						<input type="checkbox" name="dynamicIP" id="dynamicIP" $dynamic_checked />
-					#else:
-						## If you disable a form element, it doesn't show up in the POSTed keys
-						## This creates a hidden value of the correct name and disables the visible checkbox if appropriate
-						<input type="checkbox" name="dyn" disabled="" $dynamic_checked />
-						#if $dynamic_checked:
-							<input type="hidden" name="dynamicIP" value="on" />
-						#end if
-					#end if
-					Dynamic IP Address
-				</label>
+				#elif $editing and $is_dynamic:
+					<input type="hidden" name="was_dynamic" value="True" />
+				#end if
+				
+				#if ($networks and not $editing) or ($networks and $editing and $has_domain_access):
+					#for $type,$descr in address_types:
+						#set checked = ''
+						#if $address_type == $type:
+							#set checked = ' checked'
+						<input type="radio" name="address_type" value="$type" $checked />$descr<br/>
+					#end for
+				#else:
+					<input type="hidden" name="address_type" value="$address_type" />
+				#end if
 			</div>
 		</div>
 		

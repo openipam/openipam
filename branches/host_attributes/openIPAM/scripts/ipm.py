@@ -953,10 +953,10 @@ class IPMCmdInterface( cmd.Cmd ):
 
 			vals = self.get_from_user( [('mac',),('value',),] )
 
-			svid = byvalue[vals['value']]
+			avid = byvalue[vals['value']]
 			mac = vals['mac']
 
-			self.iface.add_structured_attribute_to_host( mac=mac, svid=svid )
+			self.iface.add_structured_attribute_to_host( mac=mac, avid=avid )
 
 		else:
 			vals = self.get_from_user( [('mac',),('value',),] )
