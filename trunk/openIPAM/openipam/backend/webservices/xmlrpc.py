@@ -46,7 +46,8 @@ from openipam.config import auth_sources
 
 try:
 	from openipam.extensions import arp
-except:
+except Exception, e:
+	print "Failed to import arp extension, disabling: %s" % repr(e)
 	arp = None
 
 import openipam.iptypes
@@ -102,17 +103,6 @@ class MainWebService(XMLRPCController):
 			return db
 		raise error.SessionExpired()
 
-	#----------------------	   ATTRIBUTES	 -------------------------
-
-	def assign_attribute(self, aid, value, mac):
-		"""Assign attribute data to a specific host
-		@param aid: the database attribute id
-		@param value: the value to assign to this characteristic of this host
-		@param mac: unique identifier of a host"""
-		# TODO: value can be either a string, or an id of a selection from the table (ie. if this is a drop down attribute)
-		# TODO: do we need to allow attributes for networks and domains, in addition to hosts?
-		
-		pass
 	
 	def __sanitize(self, query):
 		"""
@@ -273,16 +263,34 @@ class MainWebService(XMLRPCController):
 	# to track about a host.
 	
 	@cherrypy.expose
-	def get_host_attributes(self, *args):
-		"""Get all host attributes"""
+	def get_attributes(self, *args):
+		"""Get host attributes"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return self.__sanitize(db.get_host_attributes(**args[0]))
+		return self.__sanitize(db.get_attributes(**args[0]))
 	
 	@cherrypy.expose
-	def add_host_attribute(self, *args):
+	def get_attributes_to_hosts(self, *args):
+		"""Get host attributes"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		return self.__sanitize(db.get_attributes_to_hosts(**args[0]))
+	
+	@cherrypy.expose
+	def get_structured_attribute_values(self, *args):
+		"""Get host attributes"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		return self.__sanitize(db.get_structured_attribute_values(**args[0]))
+	
+	@cherrypy.expose
+	def add_attribute(self, *args):
 		"""
 		Create a new host custom attribute
 		"""
@@ -290,51 +298,40 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		db.add_host_attribute( **args[0] )
+		return self.__sanitize(db.add_attribute( **args[0] ))
 	
 	@cherrypy.expose
-	def edit_host_attribute(self, *args):
+	def add_structured_attribute_value(self, *args):
 		"""
-		Edit a custom host attribute
+		Create a new host custom attribute
 		"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		db.update_host_attribute( **args[0] )
+		return self.__sanitize(db.add_structured_attribute_value( **args[0] ))
 	
 	@cherrypy.expose
-	def get_host_attribute_values(self, *args):
+	def add_structured_attribute_to_host(self, *args):
 		"""
-		Get all host attributes
+		Create a new host custom attribute
 		"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return self.__sanitize(db.get_host_attribute_values( **args[0] ))
+		return self.__sanitize(db.add_structured_attribute_to_host( **args[0] ))
 	
 	@cherrypy.expose
-	def update_host_attribute_values(self, *args):
-		"""Edit an attribute
-		@param aid: the database attribute id
-		@param values: a tuple or list of strings"""
-		
-		# Check permissions -- do this in every exposed function
-		db = self.__check_session()
-		
-		db.update_host_attribute_values( **args[0] )
-	
-	@cherrypy.expose
-	def del_host_attribute(self, *args):
+	def add_freeform_attribute_to_host(self, *args):
 		"""
-		Delete an attribute and all data associated with it for all hosts
+		Create a new host custom attribute
 		"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		db.del_host_attribute( **args[0] )
+		return self.__sanitize(db.add_freeform_attribute_to_host( **args[0] ))
 	
 	#------------------------	 USERS	  ----------------------------
 	# User management
@@ -1927,6 +1924,8 @@ class MainWebService(XMLRPCController):
 		if kw.has_key('ip'):
 			ip = kw['ip']
 		print 'arp_data(mac=%s,ip=%s)' % (mac,ip)
+		if not arp:
+			raise error.NotImplemented("The arp extension is not installed.")
 		if mac and ip or (not mac and not ip):
 			raise error.InvalidArgument('Specify exactly one of mac(%s) and ip(%s).' % (mac, ip))
 		if not arp.min_permissions:

@@ -54,7 +54,9 @@ CREATE TABLE groups(
 	-- Think of them as a central linking point for everything
 	id				SERIAL PRIMARY KEY,
 	name			text UNIQUE,
-	description		text
+	description		text,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
 );
 
 INSERT INTO groups (name, description) VALUES ('default', 'The default group for all dynamic domains and member objects. Do not change.');
@@ -83,7 +85,9 @@ CREATE TABLE internal_auth(
 	id				integer PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	hash			varchar NOT NULL,
 	name			varchar, -- Users full name
-	email			varchar -- User's email address
+	email			varchar, -- User's email address
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE dhcp_groups (
@@ -98,7 +102,9 @@ CREATE TABLE dhcp_groups (
 CREATE TABLE shared_networks (
 	id				SERIAL PRIMARY KEY,
 	name			varchar(255) UNIQUE NOT NULL,
-	description		text
+	description		text,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
 );
 
 INSERT INTO dhcp_groups (name, description, changed_by) VALUES ( 'global', 'dhcp options applied to all hosts unless overridden by more specific options', 1);
@@ -238,6 +244,8 @@ CREATE TABLE dhcp_options_to_dhcp_groups (
 	gid				integer REFERENCES dhcp_groups(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	oid				integer REFERENCES dhcp_options(id) ON DELETE RESTRICT, -- restrict or cascade for this?
 	value			bytea,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 	unique( gid, oid, value )
 );
 
@@ -293,7 +301,9 @@ CREATE TABLE hosts_to_pools (
 	id			SERIAL PRIMARY KEY,
 	-- Allow this mac to get addresses from this pool.
 	mac			MACADDR NOT NULL REFERENCES hosts(mac) ON DELETE CASCADE ON UPDATE CASCADE,
-	pool_id		INTEGER NOT NULL REFERENCES pools(id) ON DELETE CASCADE ON UPDATE CASCADE
+	pool_id		INTEGER NOT NULL REFERENCES pools(id) ON DELETE CASCADE ON UPDATE CASCADE,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE networks (
@@ -315,6 +325,8 @@ CREATE TABLE addresses (
 	-- Specify that this address is specail: either a network address, a broadcast address, or maybe a gateway.
 	reserved	boolean DEFAULT FALSE,
 	network		cidr REFERENCES networks(network) NOT NULL,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 	CHECK (( mac IS NULL AND pool IS NULL ) OR (mac IS NULL AND reserved IS FALSE) OR (pool IS NULL AND reserved IS FALSE)),
 	CHECK ( address <<= network )
 );
@@ -334,23 +346,61 @@ CREATE TABLE attributes (
 	id				SERIAL PRIMARY KEY,
 	name			varchar(255) UNIQUE NOT NULL,
 	description		text,
-	use_values		boolean NOT NULL DEFAULT FALSE,
-	is_required		boolean NOT NULL DEFAULT FALSE
+	structured		boolean NOT NULL DEFAULT FALSE,
+	required		boolean NOT NULL DEFAULT FALSE,
+	validation		text DEFAULT NULL,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT
 );
 
-CREATE TABLE attribute_values (
+CREATE TABLE structured_attribute_values (
 	id				SERIAL PRIMARY KEY,
 	aid				integer NOT NULL REFERENCES attributes(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	value			text NOT NULL,
+	is_default			boolean NOT NULL DEFAULT FALSE,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 	UNIQUE (aid,value)
 );
 
-CREATE TABLE attributes_to_hosts (
+CREATE TABLE structured_attributes_to_hosts (
 	id				SERIAL PRIMARY KEY,
-	-- Exactly one of either the attribute id (aid) or text_value will be NULL
-	aid				integer REFERENCES attributes(id) ON DELETE RESTRICT,
-	text_value		text,
-	CHECK ( ( aid IS NULL AND text_value IS NOT NULL ) OR ( text_value IS NULL AND aid IS NOT NULL ) )
+	mac				MACADDR NOT NULL REFERENCES hosts(mac),
+	avid				integer REFERENCES attribute_values(id) NOT NULL,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+	UNIQUE(mac,avid)
+);
+
+CREATE UNIQUE INDEX structured_attributes_to_hosts_unique_default_idx ON structured_attributes_to_hosts(avid) WHERE is_default = TRUE;
+
+CREATE TABLE freeform_attributes_to_hosts (
+	id				SERIAL PRIMARY KEY,
+	mac				MACADDR NOT NULL REFERENCES hosts(mac),
+	aid				integer NOT NULL REFERENCES attributes(id) ON DELETE RESTRICT,
+	value			text NOT NULL,
+	changed			timestamp DEFAULT NOW(),
+	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+	UNIQUE(mac,aid,value)
+);
+
+CREATE VIEW attributes_to_hosts AS
+(
+        (SELECT a.id as aid, a.name as name, a.structured, a.required,
+                        sa2h.mac, sa2h.avid, sav.value
+                FROM attributes a
+                JOIN structured_attribute_values sav
+                        ON sav.aid = a.id
+                JOIN structured_attributes_to_hosts sa2h
+                        ON sav.id = sa2h.avid
+        )
+        UNION
+        (SELECT a.id as aid, a.name as name, a.structured, a.required,
+                        fa2h.mac, NULL as avid, fa2h.value
+                FROM attributes a
+                JOIN freeform_attributes_to_hosts fa2h
+                        ON a.id = fa2h.aid
+        )
 );
 
 -- Domains, records, and supermasters are more or less from the PowerDNS schema
@@ -632,5 +682,11 @@ CREATE TABLE networks_to_vlans (
 	vlan smallint REFERENCES vlans(id) NOT NULL,
 	changed timestamp default NOW(),
 	changed_by integer REFERENCES users(id) NOT NULL
+);
+
+CREATE TABLE kvp (
+	id 	SERIAL NOT NULL,
+	key	text NOT NULL,
+	value	text NOT NULL
 );
 

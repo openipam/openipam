@@ -351,11 +351,17 @@ class IPMCmdInterface( cmd.Cmd ):
 		if groups:
 			print "Related groups:"
 			self.show_dicts( groups, [('name','Group'),('description','Description'),('id','GID'),], prefix='\t')
+
+	def do_show_attributes( self, arg ):
+		attrs = self.iface.get_attributes()
+		print "Attributes:"
+		self.show_dicts(attrs)
 	
 	def do_show_full_mac( self, arg ):
 		arg = arg.strip()
 		hosts = self.iface.get_hosts( mac=arg )
 		addrs = self.iface.get_addresses( mac=arg )
+		attrs = self.iface.get_attributes_to_hosts( mac=arg )
 		leases = self.iface.get_leases( mac=arg )
 		disabled = self.iface.is_disabled( mac=arg )
 		arps_by_ip = []
@@ -379,6 +385,9 @@ class IPMCmdInterface( cmd.Cmd ):
 		print "Arp data:"
 		self.show_dicts(arps_by_mac, prefix='\t')
 		self.show_dicts(arps_by_ip, prefix='\t')
+		if attrs:
+			print "Host attributes:"
+			self.show_dicts( attrs, prefix='\t' )
 		if leases:
 			print "Leased addresses:"
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
@@ -921,6 +930,49 @@ class IPMCmdInterface( cmd.Cmd ):
 		desc = vals['description']
 		
 		self.iface.create_shared_network( networks=networks, name=name, description=desc )
+
+	def do_add_attribute( self, arg ):
+		vals = self.get_from_user( [ ('name',), ('description',), ('structured',), ('required',), ('validation',), ],
+				defaults={'structured':False, 'required':False,})
+		self.iface.add_attribute( **vals )
+
+	def do_add_structured_attribute_value( self, arg ):
+		vals = self.get_from_user( [ ('attribute',), ('value',), ('default',) ], defaults={'default':False} )
+		attribute=vals['attribute']
+		try:
+			aid = int(attribute)
+		except:
+			attr = self.iface.get_attributes(name=attribute)
+			assert len(attr) == 1
+			aid = attr[0]['id']
+		self.iface.add_structured_attribute_value(aid=aid, value=vals['value'], is_default=vals['default'])
+
+	def do_add_attribute_to_host( self, arg ):
+		attribute = arg.strip()
+		try:
+			aid=int(attribute)
+			a = self.iface.get_attributes(aid=aid)
+		except:
+			a = self.iface.get_attributes(name=attribute)
+		if len(a) != 1:
+			raise Exception("attribute doesn't exist or is not unique: %s -> %s" % (attribute,a))
+		attribute = a[0]
+		if attribute['structured']:
+			possible = self.iface.get_structured_attribute_values(aid=attribute['id'])
+			byvalue = {}
+			for sval in possible:
+				byvalue[ sval['value'] ] = sval['id']
+
+			vals = self.get_from_user( [('mac',),('value',),] )
+
+			avid = byvalue[vals['value']]
+			mac = vals['mac']
+
+			self.iface.add_structured_attribute_to_host( mac=mac, avid=avid )
+
+		else:
+			vals = self.get_from_user( [('mac',),('value',),] )
+			self.iface.add_freeform_attribute_to_host( aid=attribute['id'], **vals )
 
 	def do_disable_mac( self, arg ):
 		# expect a mac address followed by a reason
