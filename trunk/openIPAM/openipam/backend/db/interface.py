@@ -488,7 +488,10 @@ class DBBaseInterface(object):
 		if not address and not mac and not pool and not network:
 			self.require_perms(perms.OWNER)
 		
-		query = select( [obj.addresses] )
+		fromobject = obj.addresses.join(obj.networks, obj.networks.c.network == obj.addresses.c.network)
+		
+
+		query = select( [obj.addresses, obj.networks.c.gateway], from_obj=fromobject )
 		
 		if address:
 			query = query.where(obj.addresses.c.address == address)
@@ -3227,7 +3230,7 @@ class DBInterface( DBBaseInterface ):
 				former_addresses = get_addresses( mac=old_host['mac'] )
 				if len(former_addresses) != 1:
 					raise error.NotImplemented(
-							'Host has multiple addresses or inconsistent data.  Delete and re-create it to convert to dynamic. addresses: %s' % ', '.join([a['address'] for a in former_addresses))
+							'Host has multiple addresses or inconsistent data.  Delete and re-create it to convert to dynamic. addresses: %s' % ', '.join([a['address'] for a in former_addresses]))
 				former_address = openipam.iptypes.IP(former_addresses[0]['address'])
 				dns_records = self.get_dns_records(mac=old_host['mac'])
 				nonstandard_records = []
@@ -3245,7 +3248,7 @@ class DBInterface( DBBaseInterface ):
 
 				if len(nonstandard_records) > 0:
 					raise error.NotImplemented( "Host has non-standard DNS records.  Either delete the records or delete and re-create the host: %s" %
-						', '.join( "id: %(id)s name: %(name)s tid: %(tid)s text_content: %(text_content)s ip_content: %(ip_content)s" % r for r in nonstandard_records] ) )
+						', '.join( [ "id: %(id)s name: %(name)s tid: %(tid)s text_content: %(text_content)s ip_content: %(ip_content)s" % r for r in nonstandard_records] ) )
 
 				for r in dns_records:
 					self.del_dns_record(rid = r['id'])

@@ -2,7 +2,7 @@
 
 from openipam import dhcp_server
 from openipam.utilities import daemon
-import processing
+import multiprocessing as processing
 import atexit
 import ctypes
 
