@@ -3651,6 +3651,9 @@ class DBAuthInterface( DBInterface ):
 def ago( sec ):
 	return sqlalchemy.sql.func.now() - text("interval '%s sec'" % sec)
 
+# 1 week
+MAX_LEASE_TIME=604800
+
 class DBDHCPInterface(DBInterface):
 	"""
 	The interface for all DHCP-related backend stuff
@@ -4011,6 +4014,8 @@ class DBDHCPInterface(DBInterface):
 			if lease_time_option:
 				new_lease_time = lease_time_option[-1]['value']
 				lease_time = bytes_to_int(new_lease_time)
+				if lease_time > MAX_LEASE_TIME:
+					raise Exception("Bad lease time: %s (%s)" % (lease_time, dict(lease_time_option)))
 
 			# FIXME: we should check lease_time here, but oh well
 			self.update_or_create_lease_and_delete_conflicting(mac, address['address'], lease_time)
