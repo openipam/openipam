@@ -112,7 +112,7 @@ function toggleHostFlyout( mac ){
 				if (response.length){
 					output.push('<strong>Static addresses:</strong><br />');
 					for (i in response){
-						output.push('address: ' + response[i].address + 'network: ' + response[i].network + 'gateway: ' + response[i].gateway + '<br />');
+						output.push('address: ' + response[i].address + ' network: ' + response[i].network + ' gateway: ' + response[i].gateway + '<br />');
 						addresses.push(response[i].address)
 					}
 					output.push('<br />');
