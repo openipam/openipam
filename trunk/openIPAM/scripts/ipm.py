@@ -739,7 +739,7 @@ class IPMCmdInterface( cmd.Cmd ):
 				print 'failed to add the following records:'
 				for r in failed:
 					m,a,n,d = r
-					print '%s,%s,%s,%s' % (m,n,a,d)
+					print '%s,%s,%s,%s' % (m,n,d,a)
 					
 	def do_assign_hosts( self, arg ):
 		mac = name = desc = address = None
@@ -904,7 +904,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.update_network(network=arg, new_network=new_net, **changed)
 
 	def do_add_network( self, arg ):
-		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id') ] )
+		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id'),  ] )
 
 		name=vals['name']
 		if not name:
@@ -919,6 +919,8 @@ class IPMCmdInterface( cmd.Cmd ):
 			pool_id = vals['pool_id']
 		
 		self.iface.add_network( network=network, name=name, description=desc, shared_network=shared_id, pool=pool_id )
+		print "Remember to add domain for PTRs"
+
 
 	def do_add_shared_network( self, arg ):
 		vals = self.get_from_user( [ ('name',), ('networks','networks (space-separated, CIDR)',), ('description',), ] )

@@ -16,10 +16,10 @@ class Hosts(BasePage):
 	'''The hosts class. This includes all pages that are /hosts/*'''
 	address_types = [
 			{ 'name': 'dynamic', 'description': 'Dynamic, routable address (preferred)', 'ranges': [] },
-			{ 'name': 'nonroutable', 'description': 'Static, non-routable address', 'ranges': [IP('172.17.0.0/16'),IP('172.18.0.0/16')] },
+			{ 'name': 'nonroutable', 'description': 'Static, non-routable address', 'ranges': [IP('172.17.0.0/16'),IP('172.21.0.0/16')] },
 			# Consider any other ranges 'routable', whether they are or not
 			{ 'name': 'routable', 'description': 'Static, routable address',
-				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'), IP('0.0.0.0/0'] },
+				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'), IP('0.0.0.0/0')] },
 		]
 
 
@@ -164,7 +164,7 @@ class Hosts(BasePage):
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
  		values['dhcp_groups'] = self.webservice.get_dhcp_groups( {'order_by' : 'name' } )
 
-		values['address_types'] = [ i['name'], i['description'] for i in self.address_types ]
+		values['address_types'] = [ (i['name'], i['description']) for i in self.address_types ]
 
 		if values.has_key('address') and values['address']:
 			values['address_type'] = self.get_address_type(values['address'])
