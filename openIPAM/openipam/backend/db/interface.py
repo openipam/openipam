@@ -787,7 +787,7 @@ class DBBaseInterface(object):
 			# Gives the most specific domains first, followed by the rest.
 			query = query.order_by(sqlalchemy.sql.func.length(obj.domains.c.name).desc())
 		if not show_reverse:
-			query = query.where(not_(obj.domains.c.name.like('%.in-addr.arpa')))
+			query = query.where(not_(obj.domains.c.name.like('%.arpa')))
 		
 		return query
 	
@@ -1628,14 +1628,14 @@ class DBInterface( DBBaseInterface ):
 	
 	def _do_insert(self, table, values):
 		vals = self._audit_vals(table, values)
-		return self._execute_set( table.update(values=values).where(where) )
+		return self._execute_set( table.insert(values=values) )
 
 	def _do_update(self, table, where, values):
 		vals = self._audit_vals(table, values)
 		return self._execute_set( table.update(values=values).where(where) )
 
 	def _do_delete(self, table, where):
-		if where is None or where is True:
+		if where is None or where is True or where == '':
 			raise error.InvalidArgument('You just tried to delete everything in the "%s" table.  where=%s' % (str(table.name), str(where)))
 
 		self._begin_transaction()
@@ -1644,7 +1644,7 @@ class DBInterface( DBBaseInterface ):
 			if table.name == 'disabled' or 'changed' in table.c or 'changed_by' in table.c:
 				# should update our audit log
 				self._do_update(table=table, where=where, values={})
-			result = self._execute_set(table.delete( where=where ))
+			result = self._execute_set(table.delete().where(where))
 			# Commit the transaction
 			self._commit()
 		except:
@@ -2204,7 +2204,7 @@ class DBInterface( DBBaseInterface ):
 				self._require_perms_on_host(permission=perms.ADMIN, mac=mac, error_msg="Couldn't add host %s to group %s, %s" % (mac, gid, group_name))
 			
 			# They have permission ... do the insert
-			result = self._do_insert( table=obj.hosts, values={'mac' : mac,'gid' : gid,} )
+			result = self._do_insert( table=obj.hosts_to_groups, values={'mac' : mac,'gid' : gid,} )
 			
 			# Commit the transaction
 			self._commit()
@@ -2406,6 +2406,9 @@ class DBInterface( DBBaseInterface ):
 		"""
 		
 		expires = self._finalize_expires(expires=expires, expiration_format=expiration_format)
+
+		if not hostname:
+			raise Exception("No hostname given: %s" % hostname)
 		
 		# If this is a dynamic host and no pool is specified, use the default pool
 		if is_dynamic and not pool:
@@ -3201,12 +3204,12 @@ class DBInterface( DBBaseInterface ):
 				if pool is None:
 					pool = backend.db_default_pool_id
 				# FIXME: maybe this should be an unsupported action...  Deleting the host is not an expected behavior
-				raise error.NotImplemented('You should delete and re-create the host instead')
+				#raise error.NotImplemented('You should delete and re-create the host instead')
 
 				# STATIC REGISTRATION ---> DYNAMIC REGISTRATION
 					
 				# Check for any unusual records that might be missed (ie. A/PTR don't match hostname, CNAME, etc)
-				former_addresses = get_addresses( mac=old_host['mac'] )
+				former_addresses = self.get_addresses( mac=old_host['mac'] )
 				if len(former_addresses) != 1:
 					raise error.NotImplemented(
 							'Host has multiple addresses or inconsistent data.  Delete and re-create it to convert to dynamic. addresses: %s' % ', '.join([a['address'] for a in former_addresses]))
@@ -3215,7 +3218,8 @@ class DBInterface( DBBaseInterface ):
 				nonstandard_records = []
 				for record in dns_records:
 					if record['tid'] == 1: # A
-						if (record['name'] != old_host['hostname'] or record['ip_content'] != former_address):
+						if (record['name'] != old_host['hostname']
+								or openipam.iptypes.IP(record['ip_content']) != former_address):
 							nonstandard_records.append(record)
 					elif record['tid'] == 12: # PTR
 						if (record['name'] != former_address.reverseName()[:-1]
@@ -3229,8 +3233,17 @@ class DBInterface( DBBaseInterface ):
 					raise error.NotImplemented( "Host has non-standard DNS records.  Either delete the records or delete and re-create the host: %s" %
 						', '.join( [ "id: %(id)s name: %(name)s tid: %(tid)s text_content: %(text_content)s ip_content: %(ip_content)s" % r for r in nonstandard_records] ) )
 
+				deleted = set()
 				for r in dns_records:
-					self.del_dns_record(rid = r['id'])
+					if r['id'] not in deleted:
+						if r['tid'] == 12: # PTR
+							# this may have been deleted with the A record
+							oldptr = self.get_dns_records(id=r['id'])
+							if len(oldptr) == 0:
+								deleted.add(r['id'])
+								continue
+						self.del_dns_record(rid = r['id'])
+						deleted.add(r['id'])
 
 				self.release_static_address(address=str(former_address))
 

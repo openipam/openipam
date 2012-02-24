@@ -12,15 +12,24 @@ from openipam.web.resource.utils import redirect_to_referer
 from openipam.config import frontend
 from openipam.iptypes import IP
 
+import cjson
+
 class Hosts(BasePage):
 	'''The hosts class. This includes all pages that are /hosts/*'''
-	address_types = [
-			{ 'name': 'dynamic', 'description': 'Dynamic, routable address (preferred)', 'ranges': [] },
-			{ 'name': 'nonroutable', 'description': 'Static, non-routable address', 'ranges': [IP('172.17.0.0/16'),IP('172.21.0.0/16')] },
+	address_types = {
+			'dynamic': { 'name': 'dynamic', 'description': 'Dynamic, routable address (preferred)', 'ranges': [], 'pool': 1 },
+			'nonroutable': { 'name': 'nonroutable', 'description': 'Static, non-routable address', 'ranges': [IP('172.17.0.0/16'),IP('172.21.0.0/16')] },
 			# Consider any other ranges 'routable', whether they are or not
-			{ 'name': 'routable', 'description': 'Static, routable address',
-				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'), IP('0.0.0.0/0')] },
-		]
+			'routable': { 'name': 'routable', 'description': 'Static, routable address',
+				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'),], 'default': True },
+			'management': { 'name': 'management', 'description': 'device management',
+				'ranges': [IP('172.20.0.0/16'),] },
+			'protected': { 'name': 'protected', 'description': 'Protected devices (ie. HIPAA, PCI)',
+				'ranges': [IP('172.19.0.0/16'),] },
+			'quarantine': { 'name': 'quarantine', 'description': 'Quarantine networks',
+				'ranges': [IP('172.16.0.0/16'),IP('172.18.0.0/16'),] },
+			'ipv6': { 'name': 'ipv6', 'description': 'Routable IPv6 address', 'ranges': [IP('2001:1948:110::/44'),] }
+			}
 
 
 	def __init__(self):
@@ -155,19 +164,31 @@ class Hosts(BasePage):
 		for k in self.address_types.keys():
 			nets_by_type[k] = []
 		for net in nets:
-			net_type = self.get_address_type( net )
+			net_type = self.get_address_type( net['network'] )
 			nets_by_type[net_type].append(net)
 
-		values['nets_by_type'] = nets_by_type
+		nets_by_type_keys = []
+		for k in sorted(nets_by_type.keys()):
+			if nets_by_type[k] or not self.address_types[k]['ranges']:
+				nets_by_type_keys.append(k)
+
+		values['have_networks'] = False
+
+		values['nets_by_type'] = []
+		for k in nets_by_type_keys:
+			netlist = [ [n['network'], n['description']] for n in nets_by_type[k] ]
+			values['nets_by_type'].append( (k, cjson.encode(netlist).replace("'","&#39;")) )
+			if len(netlist) > 0:
+				values['have_networks'] = True
 		values['domains'] = self.webservice.get_domains( { 'additional_perms' : str(frontend.perms.ADD), 'show_reverse' : False, 'order_by' : 'name' } )
 		values['expirations'] = self.webservice.get_expiration_types()
  		values['groups'] = self.webservice.get_groups( { 'ignore_usergroups' : True, 'order_by' : 'name' } )
  		values['dhcp_groups'] = self.webservice.get_dhcp_groups( {'order_by' : 'name' } )
 
-		values['address_types'] = [ (i['name'], i['description']) for i in self.address_types ]
+		values['address_types'] = [ (self.address_types[k]['name'], self.address_types[k]['description']) for k in nets_by_type_keys ]
 
-		if values.has_key('address') and values['address']:
-			values['address_type'] = self.get_address_type(values['address'])
+		if values.has_key('ips') and len(values['ips']):
+			values['address_type'] = self.get_address_type(values['ips'][0]['address'])
 		else:
 			values['address_type'] = 'dynamic'
 		
@@ -175,11 +196,19 @@ class Hosts(BasePage):
 
 
 	def get_address_type(self, address):
-		for t in self.address_types:
+		default = None
+		for k in self.address_types.keys():
+			t = self.address_types[k]
 			for cidr in t['ranges']:
-				if cidr.contains(address):
+				if address in cidr:
 					return t['name']
-		raise Exception("FIXME: could not determine address type for %s" % address)
+			if t.has_key('default') and t['default']:
+				if default is not None:
+					raise Exception("Bad configuration -- must only specify one default (%s and %s both marked default)" % (default, k))
+				default = k
+		if not default:
+			raise Exception("FIXME: could not determine address type for %s" % address)
+		return default
 
 	def add_host(self, **kw):
 		'''
@@ -318,7 +347,7 @@ class Hosts(BasePage):
 				values['message'] = error.get_nice_error(e)
 				
 		# Initialization
-		values = self.mod_host_attributes( values )
+		values = {}
 		
 		host = self.webservice.get_hosts( { 'mac' : macaddr, 'additional_perms' : str(frontend.perms.MODIFY) } )
 		if not host:
@@ -339,6 +368,8 @@ class Hosts(BasePage):
 		values['host']['description'] = values['host']['description'].encode('utf8') if values['host']['description'] else ''
 		values['owners'] = owners
 		values['is_dynamic'] = is_dynamic
+
+		values = self.mod_host_attributes( values )
 		
 		return self.__template.wrap(leftcontent=self.get_leftnav(show_options=False), filename='%s/templates/mod_host.tmpl'%frontend.static_dir, values=values)
 	
