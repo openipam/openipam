@@ -57,7 +57,10 @@
 <form action="" method="post" class="form">
 	<input type="hidden" id="owners_list" name="owners_list" value="$owners_list" />
 	<input type="hidden" id="full_group_list" value="$full_group_list" />
-	<input type="hidden" id="networks_$type" value="$nets_by_type[$type]" />
+	<input type="hidden" id="debug_addr_type" value="$address_type" />
+	#for $type,$val in $nets_by_type
+		<input type="hidden" id="networks_$type" value='$val' />
+	#end for
 	<div id="element">
 		<div id="label">Ethernet Address:</div>
 		<div id="value">
@@ -99,19 +102,22 @@
 		<div id="element">
 			<div id="label">Address type</div>
 			<div id="value">
-				#elif $editing and $is_dynamic:
+				#if $editing and $is_dynamic:
 					<input type="hidden" name="was_dynamic" value="True" />
 				#end if
 				
-				#if ($networks and not $editing) or ($networks and $editing and $has_domain_access):
-					#for $type,$descr in address_types:
+				#if ($have_networks and not $editing) or ($have_networks and $editing and $has_domain_access):
+					<select name="address_type" id="address_type">
+					#for $addrtype,$descr in $address_types:
 						#set checked = ''
-						#if $address_type == $type:
-							#set checked = ' checked'
-						<input type="radio" name="address_type" value="$type" $checked />$descr<br/>
+						#if $address_type == $addrtype:
+							#set checked = 'selected '
+						#end if
+						<option value="$addrtype" $checked>$descr</option>
 					#end for
+					</select>
 				#else:
-					<input type="hidden" name="address_type" value="$address_type" />
+					<input type="hidden" name="address_type" value="$address_type" id="address_type" />
 				#end if
 			</div>
 		</div>
@@ -129,7 +135,7 @@
 								$ip.address
 							#end for
 						#end if
-						#if $networks and (not $editing or ($editing and $has_domain_access)):
+						#if $have_networks and (not $editing or ($editing and $has_domain_access)):
 							<a href="javascript:;" id="changeIPLink">[ change IP address ]</a>
 							<input type="hidden" name="did_not_change_ip" value="" />
 						#end if
@@ -138,21 +144,13 @@
 			</div>
 		#end if
 		
-		#if $networks and (not $editing or ($editing and $has_domain_access)):
+		#if $have_networks and (not $editing or ($editing and $has_domain_access)):
 			<div id="ipContent">
 				<div id="element">
 					<div id="label">Network:</div>
 					<div id="value">
-						<select name="network">
+						<select name="network" id="network_selection">
 							<option value="">...</option>
-							#set selected = ''
-							#for $one_network in $networks:
-								#if $one_network.network == $network:
-									#set selected = ' selected=""'
-								#end if
-								<option value="$one_network.network"$selected>$one_network.network - $one_network.name</option>
-								#set selected = ''
-							#end for
 						</select>
 					</div>
 				</div>

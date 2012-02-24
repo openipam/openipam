@@ -5,15 +5,32 @@
 
 /*
 */
-function toggleIPField(){
-	$("#ipContent").slideToggle("fast", function(){
-		if (!$("#dynamicIP").attr("checked")) {
-			$("#ipContentText").focus();
-		} else {
-			$("#dynamicIP").focus();
-		}
-	});
-};
+
+function loadAddresses() {
+			var atype = $('#address_type');
+			var adiv = $('#ipContent');
+			if ( atype.val() == 'dynamic' ) {
+				adiv.hide();
+			} else {
+				adiv.show();
+			}
+
+			var property = '#networks_'+atype.val();
+			var jsonstr = $(property).val();
+
+			var nets = $.parseJSON( jsonstr	);
+
+			var abox = $("#network_selection");
+			
+			var selections = "<option value=''>Please select a network</option>\n";
+
+			for (n in nets) {
+				var net = nets[n]
+				selections += "<option value='" + net[0] + "'>" + net[0] + ' - ' + net[1] + '</option>\n';
+			}
+
+			abox.html(selections);
+}
 
 function toggleHostFlyout( mac ){
 	
@@ -256,7 +273,7 @@ function showGroups() {
  */
 
 $(function() {
-	if ($("#dynamicIP").attr("checked")) {
+	if ($("#address_type").val() == 'dynamic') {
 		$("#ipContent").hide();
 	};
 	
@@ -347,15 +364,15 @@ $(function() {
 
 		$('#ipContent').hide();
 		
-		var checkbox = $("#dynamicIP");
+		var selectbox = $("#address_type");
 		
-		if (!checkbox.attr("checked")) {
-			checkbox.click(function () {
-				var checkbox = $("#dynamicIP");
+		if (!selectbox.val() == 'dynamic') {
+			$('#changeIPLink')(function () {
+				var selectbox = $("#address_type");
 				
 				$('#currentIPContent').css( { textDecoration : 'line-through' });
 				
-				if (checkbox.attr("checked")) {
+				if (selectbox.val == 'dynamic') {
 					alert("By moving this host from static to dynamic, all DNS resource records will be irreversibly lost (including any A records, CNAMEs, MX records, etc.)\n\nThis action cannot be undone.\n\nIf you do not want this to happen, uncheck Dynamic IP Address.")
 				} else {
 					$('#currentIPContent').css( { textDecoration : 'none' });
@@ -364,11 +381,10 @@ $(function() {
 		}
 	}
 	
+
 	if (!$('input[name="did_not_change_ip"]').length) {
 		// We're not editing a static host
-		$('#dynamicIP').click(function () {
-			toggleIPField();
-		});
+		$('#address_type').change(loadAddresses);
 	}
 	
 	$("#submitMultiAction").click(function () {
@@ -427,7 +443,9 @@ $(function() {
 	});
 	
 	$('#changeIPLink').click(function () {
-		$("#ipContent").slideToggle("fast");
+		loadAddresses();
+
+		$('#address_type').change(loadAddresses);
 		
 		var input = $('input[name="did_not_change_ip"]');
 		
