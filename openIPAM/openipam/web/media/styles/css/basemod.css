@@ -411,11 +411,19 @@ table.infoTable tr:hover {
 }
 
 table.infoTable tr.expiredinfo:hover {
-	background: #f8e0e0;
+	background: #ffff70;
 }
 
 table.infoTable tr.expiredinfo {
-    background-color: #e5e5e5
+    background-color: #f8f860
+}
+
+table.infoTable tr.notseeninfo:hover {
+	background: #ffd0a0;
+}
+
+table.infoTable tr.notseeninfo {
+    background-color: #f0c090
 }
 
 table.infoTable tr.disabledinfo:hover {
@@ -428,6 +436,15 @@ table.infoTable tr.disabledinfo {
 
 table.infoTable tr.expiredinfo td.expires {
     color: #ff0000;
+}
+
+table.infoTable tr.notseeninfo td.mac_seen {
+    color: #ff0000;
+}
+
+table.infoTable tr.disabledinfo td.actions {
+    color: #ff2020;
+    font-weight: bold;
 }
 
 table.infoTable tr.infoNew {

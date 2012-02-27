@@ -50,6 +50,8 @@ log_error = None
 log_stdout = None
 log_stderr = None
  
+enable_gul = False
+
 # SYSTEM CONFIGURATION
 
 # Enable or disable the use of dynamic IP addresses

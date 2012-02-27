@@ -64,6 +64,9 @@ notifications = Table('notifications', meta, autoload=True)
 notifications_to_hosts = Table('notifications_to_hosts', meta, autoload=True)
 disabled = Table('disabled', meta, autoload=True)
 
+if backend.enable_gul:
+	gul_recent_arp_byaddress = Table('gul_recent_arp_byaddress', meta, autoload=True)
+	gul_recent_arp_bymac = Table('gul_recent_arp_bymac', meta, autoload=True)
 
 def perm_query( uid, min_perms, hosts=False, networks=False, domains=False, gid=None, pools=False, required_perms=None, do_subquery=True, andwhere=None ):
 	"""Return an SQLAlchemy select object containing the users groups and
