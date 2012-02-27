@@ -84,10 +84,12 @@
 					<th style="width: 20px">&nbsp;</th>
 					#set class_foo='' if 'hostname' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
 					#echo '<th%s><a href="/hosts%sorder_by=hostname%s">Hostname</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'hostname' else '')
-					#set class_foo='' if 'mac' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#set class_foo='' if ('mac ' not in $order_by and 'mac' != $order_by[-3:]) else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
 					#echo '<th%s><a href="/hosts%sorder_by=mac%s">Ethernet Address</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'mac' else '')
 					#set class_foo='' if 'expires' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
 					#echo '<th%s><a href="/hosts%sorder_by=expires%s">Expires</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'expires' else '')
+					#set class_foo='' if 'mac_seen' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=mac_seen%s">MAC address last seen</a></th>' % ($class_foo, $search, ' DESC NULLS LAST' if $order_by == 'mac_seen NULLS FIRST' else ' NULLS FIRST')
 					<th style="text-align: right">
 						<input type="checkbox" name="selectAll" id="selectAll" />
 					</th>
@@ -99,6 +101,8 @@
 					<tr class="disabledinfo" id="hostRow_$host.clean_mac">
 				#elif $host.expired:
 					<tr class="expiredinfo" id="hostRow_$host.clean_mac">
+				#elif $host.mac_seen is None:
+					<tr class="notseeninfo" id="hostRow_$host.clean_mac">
 				#else:
 					<tr class="info" id="hostRow_$host.clean_mac">
 				#end if
@@ -109,6 +113,11 @@
 					<td><a href="javascript:;" id="hostLink" class="toggleHostFlyout" name="$host.clean_mac">$host.hostname</a></td>
 					<td>$host.mac</td>
 					<td class="expires">$host.expires</td>
+					#if $host.mac_seen is None:
+					<td class="mac_seen">no data</td>
+					#else
+					<td class="mac_seen">$host.mac_seen</td>
+					#end if
 					<td class="actions">
 					#if $host.disabled:
 						host is disabled

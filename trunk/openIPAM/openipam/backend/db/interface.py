@@ -925,6 +925,8 @@ class DBBaseInterface(object):
 		
 		if not columns:
 			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired'), (obj.disabled.c.mac != None).label('disabled')]
+			if backend.enable_gul:
+				columns.append( obj.gul_recent_arp_bymac.c.stopstamp.label('mac_seen') )
 
 		if funky_ordering:
 			columns.append(sqlalchemy.sql.func.length(obj.hosts.c.hostname).label('len'))
@@ -988,12 +990,19 @@ class DBBaseInterface(object):
 
 			a_tbl = obj.dns_records.alias('a')
 			cname_tbl = obj.dns_records.alias('cname')
-			dns_q = a_tbl.outerjoin(cname_tbl, and_(a_tbl.c.name == cname_tbl.c.text_content, cname_tbl.c.tid == 5))
 
 			if '%' in namesearch:
-				dns_where = or_( obj.hosts.c.hostname.like(namesearch), or_(a_tbl.c.name.like(namesearch),cname_tbl.c.name.like(namesearch)) )
+				cname_where = cname_tbl.c.name.like(namesearch)
+				a_where = a_tbl.c.name.like(namesearch)
+				hosts_where = obj.hosts.c.hostname.like(namesearch)
 			else:
-				dns_where = or_( obj.hosts.c.hostname == namesearch, or_(a_tbl.c.name == namesearch, cname_tbl.c.name == namesearch) )
+				cname_where = cname_tbl.c.name == namesearch
+				a_where = a_tbl.c.name == namesearch
+				hosts_where = obj.hosts.c.hostname == namesearch
+
+			dns_where = or_( hosts_where, or_(a_where, cname_where) )
+
+			dns_q = a_tbl.outerjoin(cname_tbl, and_(cname_where, and_(a_tbl.c.name == cname_tbl.c.text_content, cname_tbl.c.tid == 5)))
 
 			whereclause.append(dns_where)
 
@@ -1037,6 +1046,7 @@ class DBBaseInterface(object):
 
 				#columns.append( (sqlalchemy.sql.func.coalesce(net_perms.c.permissions,self._min_perms).op('|')(sqlalchemy.sql.func.coalesce(host_perms.c.permissions,self._min_perms))).label('effective_perms')
 
+
 		# Finalize the WHERE clause
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
@@ -1044,10 +1054,23 @@ class DBBaseInterface(object):
 			whereclause = True
 
 		if type(hosts) == types.ListType:
-			hosts = [ select(columns, from_obj=i, distinct=True).where(whereclause) for i in hosts ]
+			if backend.enable_gul:
+				newhosts = []
+				for i in hosts:
+					i = i.outerjoin(obj.gul_recent_arp_bymac, obj.hosts.c.mac == obj.gul_recent_arp_bymac.c.mac)
+					i = select(columns, from_obj=i, distinct=True).where(whereclause)
+					newhosts.append(i)
+				hosts = newhosts
+			else:
+				hosts = [ select(columns, from_obj=i, distinct=True).where(whereclause) for i in hosts ]
 			hosts = union(*hosts)
 		else:
-			hosts = select(columns, from_obj=hosts, distinct=True)
+			if backend.enable_gul:
+				# hosts=hosts.join()
+				hosts = hosts.outerjoin(obj.gul_recent_arp_bymac, obj.hosts.c.mac == obj.gul_recent_arp_bymac.c.mac)
+				hosts = select(columns, from_obj=hosts, distinct=True)
+			else:
+				hosts = select(columns, from_obj=hosts, distinct=True)
 			hosts = hosts.where(whereclause)
 
 		if self.has_min_perms( required_perms ):
