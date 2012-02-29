@@ -90,6 +90,8 @@
 					#echo '<th%s><a href="/hosts%sorder_by=expires%s">Expires</a></th>' % ($class_foo, $search, '%20DESC' if $order_by == 'expires' else '')
 					#set class_foo='' if 'mac_seen' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
 					#echo '<th%s><a href="/hosts%sorder_by=mac_seen%s">MAC address last seen</a></th>' % ($class_foo, $search, ' DESC NULLS LAST' if $order_by == 'mac_seen NULLS FIRST' else ' NULLS FIRST')
+					#set class_foo='' if 'address_seen' not in $order_by else (' class="desc"' if 'DESC' in $order_by else ' class="asc"')
+					#echo '<th%s><a href="/hosts%sorder_by=address_seen%s">Static IP last seen</a></th>' % ($class_foo, $search, ' DESC NULLS LAST' if $order_by == 'address_seen NULLS FIRST' else ' NULLS FIRST')
 					<th style="text-align: right">
 						<input type="checkbox" name="selectAll" id="selectAll" />
 					</th>
@@ -118,6 +120,11 @@
 					#else
 					<td class="mac_seen">$host.mac_seen</td>
 					#end if
+					#if $host.address_seen is None:
+					<td class="address_seen"></td>
+					#else
+					<td class="address_seen">$host.address_seen</td>
+					#end if
 					<td class="actions">
 					#if $host.disabled:
 						host is disabled
@@ -133,7 +140,7 @@
 					</td>
 				</tr>
 				<tr class="infoExpand">
-					<td colspan="5">
+					<td colspan="7">
 						<div id="hostInfo$host.clean_mac" class="hiddenInfo">
 							<input type="hidden" class="isLoaded" name="False" />
 							<div class="innerHostInfo" style="padding: 10px;">
