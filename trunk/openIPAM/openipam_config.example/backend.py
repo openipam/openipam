@@ -74,6 +74,8 @@ db_default_group_id = 1
 db_default_guest_group_id = 2
 db_service_group_id = 3
 
+enable_gul = False
+
 # WRITEME
 pool_map = [
 	(1, openipam.iptypes.IP('192.168.0.0/16')),

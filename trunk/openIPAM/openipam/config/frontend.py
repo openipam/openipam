@@ -47,7 +47,11 @@ log_stderr = None
 # FIXME: make this 'ADD' instead of permission bits, and rename this to be more intuitive
 db_default_group_permissions = '00000010'
 
+enable_gul = False
 
+
+
+# NOTICE: Defaults that can be overridden should go above this line
 from openipam_config.frontend import *
 
 if not styles_dir: styles_dir = "%s/styles" % static_dir

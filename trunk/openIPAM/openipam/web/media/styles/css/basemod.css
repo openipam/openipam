@@ -447,6 +447,48 @@ table.infoTable tr.disabledinfo td.actions {
     font-weight: bold;
 }
 
+div.host_info {
+	padding-left: 20px
+}
+
+div.host_info table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+div.host_info table caption {
+	font-size: 120%;
+	font-weight: bold;
+	text-align: left;
+}
+
+div.host_info table tr th {
+	border: none;
+	padding: 0px;
+}
+
+div.host_info table tr {
+	border-style: none;
+}
+
+div.host_info table tr td {
+	border: none;
+	padding: 0px;
+}
+
+div.host_info div.label {
+	font-size: 120%;
+	font-weight: bold;
+}
+
+div.host_info div.value {
+	padding-left: 20px;
+}
+
+div.host_info table tr td.nomatch {
+	color: #ff0000;
+}
+
 table.infoTable tr.infoNew {
     border: 1px dotted #444444;
     border-bottom: none;
@@ -469,7 +511,7 @@ table.infoTable tr td.text-only {
 table.infoTable tr.infoExpand td div.hiddenInfo {
     display: none;
     border: none;
-    background: #DDDDDD;
+    background: #F8F8FF;
 }
 
 table.infoTable tr td a img.expand {

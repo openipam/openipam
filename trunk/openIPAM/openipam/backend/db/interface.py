@@ -507,7 +507,7 @@ class DBBaseInterface(object):
 		fromobject = obj.addresses.join(obj.networks, obj.networks.c.network == obj.addresses.c.network)
 		
 
-		query = select( [obj.addresses, obj.networks.c.gateway], from_obj=fromobject )
+		query = select( [obj.addresses, sqlalchemy.sql.func.netmask(obj.addresses.c.network).label('netmask'), obj.networks.c.gateway], from_obj=fromobject )
 		
 		if address:
 			query = query.where(obj.addresses.c.address == address)
@@ -574,7 +574,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None, did=None ):
+	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None, did=None, columns=None ):
 		"""
 		Get DNS Records
 		
@@ -594,7 +594,8 @@ class DBBaseInterface(object):
 		# PTR: name = A record ip_content reverse
 		
 		self.require_perms( perms.READ )
-		columns = [obj.dns_records]
+		if not columns:
+			columns = [obj.dns_records, obj.dns_types.c.name.label('type'), sqlalchemy.sql.func.coalesce(obj.dns_records.c.text_content,sqlalchemy.sql.expression.cast(obj.dns_records.c.ip_content, sqlalchemy.types.VARCHAR)).label('content')]
 		
 		whereclause = []
 		
@@ -667,19 +668,19 @@ class DBBaseInterface(object):
 			union_foo = []
 
 			if addresses:
-				a_records = self._get_dns_records( address = addresses ).distinct()
+				a_records = self._get_dns_records( address = addresses, columns=columns ).distinct()
 				union_foo.append(a_records.where(whereclause))
 
 				ptr_names = [ openipam.iptypes.IP(i).reverseName()[:-1] for i in addresses ]
 				if ptr_names:
-					ptrs = self._get_dns_records( name=ptr_names ).distinct()
+					ptrs = self._get_dns_records( name=ptr_names, columns=columns ).distinct()
 					union_foo.append(ptrs.where(whereclause))
 
 				a_record_names = [ i['name'] for i in self._execute(self._get_dns_records(address=addresses).with_only_columns([obj.dns_records.c.name,]) ) ]
 				if a_record_names:
-					other_records = self._get_dns_records( content = a_record_names ).distinct()
+					other_records = self._get_dns_records( content = a_record_names, columns=columns ).distinct()
 					union_foo.append(other_records.where(whereclause))
-					other_records = self._get_dns_records( name = a_record_names ).distinct()
+					other_records = self._get_dns_records( name = a_record_names, columns=columns ).distinct()
 					union_foo.append(other_records.where(whereclause))
 
 			if len(union_foo) > 2:
@@ -687,11 +688,11 @@ class DBBaseInterface(object):
 			elif union_foo:
 				query = union_foo[0]
 			else:
-				query = select( [obj.dns_records], from_obj = obj.dns_records ).where(False)
+				query = select( columns, from_obj = obj.dns_records ).where(False)
 
 		else:
-			from_object = obj.dns_records
-			query = select( [obj.dns_records], from_obj = from_object )
+			from_object = obj.dns_records.join(obj.dns_types, obj.dns_records.c.tid == obj.dns_types.c.id )
+			query = select( columns, from_obj = from_object )
 
 			if whereclause is not True:
 				query = query.where( whereclause )
@@ -744,7 +745,7 @@ class DBBaseInterface(object):
 		else:
 			domain_perms = obj.perm_query( self._uid, self._min_perms, domains = True, gid=gid, required_perms = required_perms )
 			query = domain_perms.join(obj.domains, obj.domains.c.id == domain_perms.c.did )
-		
+
 		if not columns:
 			columns = [obj.domains]
 		
@@ -923,10 +924,18 @@ class DBBaseInterface(object):
 		if (only_dynamics and only_statics):
 			raise error.RequiredArgument("Cannot specify both only_dynamics and only_statics")
 		
+		if backend.enable_gul:
+			gul_byaddr_fromclause = obj.addresses.join(obj.gul_recent_arp_byaddress, obj.gul_recent_arp_byaddress.c.address == obj.addresses.c.address)
+			gul_addr_seen_column = sqlalchemy.sql.func.max(obj.gul_recent_arp_byaddress.c.stopstamp).label('address_seen')
+			gul_byaddr_columns = [obj.addresses.c.mac, gul_addr_seen_column ]
+			#query = subquery( 'label', columns, whereclause, from_obj = fromclause )
+			gul_by_addr_subq = select( gul_byaddr_columns, from_obj = gul_byaddr_fromclause).group_by(obj.addresses.c.mac).alias('gul_byaddress_subq')
+
 		if not columns:
 			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired'), (obj.disabled.c.mac != None).label('disabled')]
 			if backend.enable_gul:
 				columns.append( obj.gul_recent_arp_bymac.c.stopstamp.label('mac_seen') )
+				columns.append( 'gul_byaddress_subq.address_seen' )
 
 		if funky_ordering:
 			columns.append(sqlalchemy.sql.func.length(obj.hosts.c.hostname).label('len'))
@@ -985,37 +994,15 @@ class DBBaseInterface(object):
 		if expiring:
 			whereclause.append(obj.hosts.c.expires < sqlalchemy.sql.func.now() + text("interval '%d days'" % int(expiring) ) )
 
-		if namesearch:
-			# Let's get some DNS records, shall we?
-
-			a_tbl = obj.dns_records.alias('a')
-			cname_tbl = obj.dns_records.alias('cname')
-
-			if '%' in namesearch:
-				cname_where = cname_tbl.c.name.like(namesearch)
-				a_where = a_tbl.c.name.like(namesearch)
-				hosts_where = obj.hosts.c.hostname.like(namesearch)
-			else:
-				cname_where = cname_tbl.c.name == namesearch
-				a_where = a_tbl.c.name == namesearch
-				hosts_where = obj.hosts.c.hostname == namesearch
-
-			dns_where = or_( hosts_where, or_(a_where, cname_where) )
-
-			dns_q = a_tbl.outerjoin(cname_tbl, and_(cname_where, and_(a_tbl.c.name == cname_tbl.c.text_content, cname_tbl.c.tid == 5)))
-
-			whereclause.append(dns_where)
-
 		# Check permissions and generate the query
 		hosts = obj.hosts
 		hosts = hosts.outerjoin(obj.disabled, obj.hosts.c.mac == obj.disabled.c.mac)
 		hosts = hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
 		hosts = hosts.outerjoin(obj.leases, obj.hosts.c.mac==obj.leases.c.mac)
 
-		if namesearch:
-			hosts = hosts.outerjoin(dns_q, obj.addresses.c.address == a_tbl.c.ip_content)
 		if only_dynamics:
 			hosts = hosts.join(obj.hosts_to_pools, obj.hosts_to_pools.c.mac == obj.hosts.c.mac)
+
 		if gid:
 			hosts = hosts.join(obj.hosts_to_groups, and_(obj.hosts.c.mac == obj.hosts_to_groups.c.mac, obj.hosts_to_groups.c.gid==gid))
 
@@ -1047,17 +1034,49 @@ class DBBaseInterface(object):
 				#columns.append( (sqlalchemy.sql.func.coalesce(net_perms.c.permissions,self._min_perms).op('|')(sqlalchemy.sql.func.coalesce(host_perms.c.permissions,self._min_perms))).label('effective_perms')
 
 
+		if namesearch:
+			# Let's get some DNS records, shall we?
+
+			a_tbl = obj.dns_records.alias('a')
+			cname_tbl = obj.dns_records.alias('cname')
+
+			if '%' in namesearch:
+				cname_where = cname_tbl.c.name.like(namesearch)
+				a_where = a_tbl.c.name.like(namesearch)
+				hosts_where = obj.hosts.c.hostname.like(namesearch)
+			else:
+				cname_where = cname_tbl.c.name == namesearch
+				a_where = a_tbl.c.name == namesearch
+				hosts_where = obj.hosts.c.hostname == namesearch
+
+			dns_where = or_( hosts_where, or_(a_where, cname_where) )
+
+			dns_q = a_tbl.outerjoin(cname_tbl, and_(cname_where, and_(a_tbl.c.name == cname_tbl.c.text_content, cname_tbl.c.tid == 5)))
+
+			cname_from = a_tbl.join(cname_tbl, and_(cname_where, and_(a_tbl.c.name == cname_tbl.c.text_content, cname_tbl.c.tid == 5)))
+			dns_hosts_from = obj.hosts.join(obj.addresses, obj.addresses.c.mac == obj.hosts.c.mac)
+
+			a_q = select(columns=[obj.hosts.c.mac], from_obj=dns_hosts_from.join(a_tbl, and_(a_tbl.c.ip_content == obj.addresses.c.address, a_where)) )
+			cname_q = select(columns=[obj.hosts.c.mac], from_obj=dns_hosts_from.join(cname_from, a_tbl.c.ip_content == obj.addresses.c.address) )
+			hosts_q = select(columns=[obj.hosts.c.mac], from_obj=obj.hosts, whereclause=hosts_where)
+
+			dns_q = union(a_q, cname_q, hosts_q).alias('namesearch_macs')
+
+			hosts = hosts.join(dns_q, obj.hosts.c.mac == dns_q.c.mac)
+
 		# Finalize the WHERE clause
 		if whereclause:
 			whereclause = self._finalize_whereclause( whereclause )
 		else:
 			whereclause = True
 
+
 		if type(hosts) == types.ListType:
 			if backend.enable_gul:
 				newhosts = []
 				for i in hosts:
 					i = i.outerjoin(obj.gul_recent_arp_bymac, obj.hosts.c.mac == obj.gul_recent_arp_bymac.c.mac)
+					i = i.outerjoin( gul_by_addr_subq, obj.hosts.c.mac == gul_by_addr_subq.c.mac )
 					i = select(columns, from_obj=i, distinct=True).where(whereclause)
 					newhosts.append(i)
 				hosts = newhosts
@@ -1068,6 +1087,7 @@ class DBBaseInterface(object):
 			if backend.enable_gul:
 				# hosts=hosts.join()
 				hosts = hosts.outerjoin(obj.gul_recent_arp_bymac, obj.hosts.c.mac == obj.gul_recent_arp_bymac.c.mac)
+				hosts = hosts.outerjoin( gul_by_addr_subq, obj.hosts.c.mac == gul_by_addr_subq.c.mac )
 				hosts = select(columns, from_obj=hosts, distinct=True)
 			else:
 				hosts = select(columns, from_obj=hosts, distinct=True)
@@ -1355,13 +1375,15 @@ class DBBaseInterface(object):
 		"""
 		Get leases
 		"""
+
+		columns = [obj.leases, (obj.leases.c.ends < sqlalchemy.sql.func.now()).label('expired')]
 		
 		if address:
 			self.require_perms(perms.READ)
-			query = select( [obj.leases] ).where(obj.leases.c.address == address)
+			query = select( columns ).where(obj.leases.c.address == address)
 		elif mac:
 			self.require_perms(perms.READ)
-			query = select( [obj.leases] ).where(obj.leases.c.mac == mac)
+			query = select( columns ).where(obj.leases.c.mac == mac)
 		else:
 			raise error.RequiredArgument( 'Exactly one of mac or address required' )
 
@@ -1467,7 +1489,7 @@ class DBBaseInterface(object):
 		'''
 
 		# Permissions
-		self.require_perms(perms.OWNER)
+		self.require_perms(perms.READ)
 		
 		# Set base query
 		query = select( [obj.disabled] )
@@ -1559,6 +1581,37 @@ class DBBaseInterface(object):
 	def _get_vlan_to_group( self ):
 		"""vlan_to_group"""
 		pass
+	def _get_gul_recent_arp_byaddress( self, address ):
+		self.require_perms( perms.READ )
+		if not backend.enable_gul:
+			raise Exception("GUL functionality is disabled in backend config")
+
+		if type(address) == list:
+			where = obj.gul_recent_arp_byaddress.c.address.in_(address)
+		elif type(address) == str:
+			where = obj.gul_recent_arp_byaddress.c.address == address
+		else:
+			raise error.InvalidArgument('expecting string or list for address: %r' % address)
+
+		fmt = 'FMDD"d "FMHH24"h "FMMI"m "FMSS"s"'
+		last_seen = sqlalchemy.sql.func.to_char(sqlalchemy.sql.func.now() - obj.gul_recent_arp_byaddress.c.stopstamp, fmt).label('last_seen')
+
+		query = select( columns=[obj.gul_recent_arp_byaddress, last_seen],  ).where( where )
+
+		return query
+
+	def _get_gul_recent_arp_bymac( self, mac ):
+		self.require_perms( perms.READ )
+		if not backend.enable_gul:
+			raise Exception("GUL functionality is disabled in backend config")
+		
+		fmt = 'FMDD"d "FMHH24"h "FMMI"m "FMSS"s"'
+		last_seen = sqlalchemy.sql.func.to_char(sqlalchemy.sql.func.now() - obj.gul_recent_arp_bymac.c.stopstamp, fmt).label('last_seen')
+
+
+		query = select( columns=[obj.gul_recent_arp_bymac, last_seen],  ).where(obj.gul_recent_arp_bymac.c.mac == mac)
+
+		return query
 
 class DBBackendInterface( DBBaseInterface ):
 	def __init__(self):

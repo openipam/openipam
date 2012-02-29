@@ -45,3 +45,6 @@ log_dir = "/var/log/openipam/web"
 # Permissions selected by default when adding users to groups 
 # FIXME: make this 'ADD' instead of permission bits, and rename this to be more intuitive
 db_default_group_permissions = '00000010'
+
+enable_gul = False
+

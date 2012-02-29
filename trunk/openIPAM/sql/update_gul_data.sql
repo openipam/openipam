@@ -28,26 +28,32 @@ RAISE NOTICE 'Beginning update';
 
 PERFORM dblink_connect('gul_db',connstr);
 
-DROP TABLE IF EXISTS gul_recent_arp_byaddress;
-DROP TABLE IF EXISTS gul_recent_arp_bymac;
-
-CREATE TABLE gul_recent_arp_byaddress
+CREATE TABLE new_gul_recent_arp_byaddress
   AS SELECT * FROM dblink('gul_db',
     'SELECT arpentries.mac, arpentries.ip, coalesce(arpentries.stopstamp,now())::timestamptz FROM iplastarp JOIN arpentries ON iplastarp.arpid = arpentries.id;')
  AS (mac macaddr, address inet, stopstamp timestamptz);
 
-CREATE INDEX gul_recent_arp_byaddress_address_idx ON gul_recent_arp_byaddress(address);
+CREATE INDEX new_gul_recent_arp_byaddress_address_idx ON gul_recent_arp_byaddress(address);
 
-CREATE TABLE gul_recent_arp_bymac
+CREATE TABLE new_gul_recent_arp_bymac
   AS SELECT * FROM dblink('gul_db',
     'SELECT arpentries.mac, arpentries.ip, coalesce(arpentries.stopstamp,now())::timestamptz FROM maclastarp JOIN arpentries ON maclastarp.arpid = arpentries.id;')
  AS (mac macaddr, address inet, stopstamp timestamptz);
 
-CREATE INDEX gul_recent_arp_bymac_mac_idx ON gul_recent_arp_bymac(mac);
+CREATE INDEX new_gul_recent_arp_bymac_mac_idx ON gul_recent_arp_bymac(mac);
 
-GRANT SELECT ON gul_recent_arp_byaddress, gul_recent_arp_bymac TO openipam_readonly;
+GRANT SELECT ON new_gul_recent_arp_byaddress, new_gul_recent_arp_bymac TO openipam_readonly;
 
 UPDATE kvp SET value=NOW()::varchar WHERE key='last_gul_cache_update';
+
+DROP TABLE IF EXISTS gul_recent_arp_byaddress;
+DROP TABLE IF EXISTS gul_recent_arp_bymac;
+
+ALTER TABLE new_gul_recent_arp_byaddress RENAME TO gul_recent_arp_byaddress;
+ALTER INDEX new_gul_recent_arp_byaddress_address_idx RENAME TO gul_recent_arp_byaddress_address_idx;
+
+ALTER TABLE new_gul_recent_arp_bymac RENAME TO gul_recent_arp_bymac;
+ALTER INDEX new_gul_recent_arp_bymac_mac_idx RENAME TO gul_recent_arp_bymac_mac_idx;
 
 PERFORM dblink_disconnect('gul_db');
 

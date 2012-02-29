@@ -1939,6 +1939,22 @@ class MainWebService(XMLRPCController):
 		return self.__sanitize( data )
 
 	@cherrypy.expose
+	def get_gul_recent_arp_bymac(self, args):
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+
+		data = db.get_gul_recent_arp_bymac(**args)
+		return self.__sanitize(data)
+
+	@cherrypy.expose
+	def get_gul_recent_arp_byaddress(self, args):
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+
+		data = db.get_gul_recent_arp_byaddress(**args)
+		return self.__sanitize(data)
+
+	@cherrypy.expose
 	def create_shared_network( self, *args ):
 		"""
 		Add a shared network

@@ -24,7 +24,7 @@
 				};
 				$(this).html('<div>The following errors occurred:<br /><br /><ul>' + errors.join('') + '</ul></div>');
 			} else {
-				$('<div>There was an error in requesting the information. Please tell the openIPAM developers about this error.<br /><br />' + XMLHttpRequest.responseText + '</div>').appendTo($(this));
+				$('<div>There was an error in requesting the information. Please tell the openIPAM developers about this error.<br /><br />' + 'error:<br/>' + thrownError + 'return:<br/>' + XMLHttpRequest.responseText + '</div>').appendTo($(this));
 			};
 			
 			$(this).slideDown(1000);
