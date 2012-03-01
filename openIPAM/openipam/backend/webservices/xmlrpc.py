@@ -387,6 +387,13 @@ class MainWebService(XMLRPCController):
 		finally:
 			cherrypy.session.release_lock()
 	
+	def get_uid(self):
+		cherrypy.session.acquire_lock()
+		try:
+			return str(cherrypy.session['user']['uid'])
+		finally:
+			cherrypy.session.release_lock()
+
 	def get_username(self):
 		cherrypy.session.acquire_lock()
 		try:

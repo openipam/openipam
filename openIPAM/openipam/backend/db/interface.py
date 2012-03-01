@@ -932,7 +932,8 @@ class DBBaseInterface(object):
 			gul_by_addr_subq = select( gul_byaddr_columns, from_obj = gul_byaddr_fromclause).group_by(obj.addresses.c.mac).alias('gul_byaddress_subq')
 
 		if not columns:
-			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired'), (obj.disabled.c.mac != None).label('disabled')]
+			columns = [obj.hosts, (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label('expired'), (obj.disabled.c.mac != None).label('disabled'),
+					obj.dhcp_groups.c.name.label('dhcp_group_name'), obj.dhcp_groups.c.description.label('dhcp_group_description') ]
 			if backend.enable_gul:
 				columns.append( obj.gul_recent_arp_bymac.c.stopstamp.label('mac_seen') )
 				columns.append( 'gul_byaddress_subq.address_seen' )
@@ -996,6 +997,7 @@ class DBBaseInterface(object):
 
 		# Check permissions and generate the query
 		hosts = obj.hosts
+		hosts = hosts.outerjoin(obj.dhcp_groups, obj.hosts.c.dhcp_group == obj.dhcp_groups.c.id)
 		hosts = hosts.outerjoin(obj.disabled, obj.hosts.c.mac == obj.disabled.c.mac)
 		hosts = hosts.outerjoin(obj.addresses, obj.hosts.c.mac==obj.addresses.c.mac)
 		hosts = hosts.outerjoin(obj.leases, obj.hosts.c.mac==obj.leases.c.mac)
@@ -1364,7 +1366,9 @@ class DBBaseInterface(object):
 		else:
 			self.require_perms(perms.DEITY)
 			
-		query = select([obj.hosts_to_pools])
+
+		fromobj = obj.hosts_to_pools.join(obj.pools, obj.hosts_to_pools.c.pool_id == obj.pools.c.id)
+		query = select([obj.hosts_to_pools, obj.pools.c.name, obj.pools.c.description, ], from_obj=fromobj)
 		
 		if mac:
 			query = query.where(obj.hosts_to_pools.c.mac==mac)
