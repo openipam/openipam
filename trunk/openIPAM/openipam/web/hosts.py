@@ -572,38 +572,27 @@ class Hosts(BasePage):
 			raise Exception("Invalid host: %s (%r)" % (mac,host) )
 		host = host[0]
 		vals['host'] = host
-		print "find_ownernames_of_host"
 		vals['owners'] = self.webservice.find_ownernames_of_host({'mac':mac})
-		print "get_attributes_to_hosts"
 		vals['attributes'] = self.webservice.get_attributes_to_hosts({'mac':mac})
-		print "get_leases"
 		vals['leased'] = self.webservice.get_leases({'mac':mac})
-		print "get_addresses"
 		vals['static'] = self.webservice.get_addresses({'mac':mac})
 		vals['addresses'] = [ a['address'] for a in vals['static'] + vals['leased'] ]
-		#dns_records = self.webservice.get_dns_records({'mac':mac})
-		#for r in dns_records:
-		#	print r
+		vals['pools'] = self.webservice.get_hosts_to_pools({'mac':mac}) ###
 
 		if host['disabled']:
 			vals['disabled'] = self.webservice.get_disabled( {'mac':mac} )[0]
 
-		print "get_dns_records"
 		vals['dns_records'] = self.webservice.get_dns_records({'mac':mac,'order_by':'tid,name,ip_content,text_content'})
 		vals['enable_gul'] = frontend.enable_gul
-		#FIXME: if gul is enabled
+
 		if frontend.enable_gul:
-			print "get_gul_recent_arp_bymac"
 			vals['arp_bymac'] = self.webservice.get_gul_recent_arp_bymac({'mac':mac})
 			gul_byaddr = []
 			addrlist = [ addr['address'] for addr in vals['static']+vals['leased'] ]
 			gul_byaddr = self.webservice.get_gul_recent_arp_byaddress({'address':addrlist})
 
 			byaddr = {}
-			print gul_byaddr
-			print "making vals['arp_byaddress']"
 			for i in gul_byaddr:
-				print i
 				if i.has_key('address'):
 					byaddr[i['address']] = i
 				else:
@@ -612,7 +601,6 @@ class Hosts(BasePage):
 				if not byaddr.has_key(addr):
 					byaddr[addr] = {'address':addr,'stopstamp':'no data','mac':'',}
 			vals['arp_byaddress'] = byaddr
-			print "done"
 
 		filename = '%s/templates/host_info.tmpl'%frontend.static_dir
 

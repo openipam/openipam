@@ -23,6 +23,26 @@
 		#set description = $host.description if $host.description else "No description given"
 		<div class="value">$description</div>
 	</div>
+	<div class="owners">
+		<table class="owners">
+			<caption>Owners</caption>
+			<tr><th>Username</th><th>Name</th><th>Email</th></tr>
+			#for i in $owners
+			<tr><td>$i.username</td><td>$i.name</td><td>$i.email</td></tr>
+			#end for
+		</table>
+	</div>
+	#if $pools
+	<div class="pools">
+		<table class="pools">
+			<caption>Allowed dynamic addresses</caption>
+			<tr><th>Pool</th><th>Description</th></tr>
+			#for i in $pools
+			<tr><td>$i.name</td><td>$i.description</td></tr>
+			#end for
+		</table>
+	</div>
+	#end if
 	<div class="addresses">
 	    #if $enable_gul and $arp_bymac:
 		<table class="arp">
@@ -97,6 +117,11 @@
 		<div class="label">DNS records</div>
 		<div class="value">No DNS records found</div>
 	    #end if
+	</div>
+	<div class="dhcp_group">
+		<div class="label">DHCP Group</div>
+		#set dhcp_group_str = "%s - %s" % ($host.dhcp_group_name,$host.dhcp_group_description) if $host.dhcp_group else "not set"
+		<div class="value">$dhcp_group_str</div>
 	</div>
 	<div class="attributes">
 	    #if $attributes:
