@@ -34,32 +34,48 @@ class BasePage(object):
 		self.__template = framework.Basics("")
 		
 	def __do_logout(self):
-
-		cherrypy.lib.sessions.expire() 
-		cherrypy.session.delete()	
-
-		if hasattr(cherrypy.session, 'username'):
-			raise error.FatalException("Still have session username ... this shouldn't ever happen ... please tell the openIPAM developers about this error and the conditions under which it happened.")
-
+		cherrypy.session.acquire_lock()
 		try:
-			self.webservice.logout()
-		except:
-			pass
+			cherrypy.lib.sessions.expire() 
+			cherrypy.session.delete()	
+
+			if hasattr(cherrypy.session, 'username'):
+				raise error.FatalException("Still have session username ... this shouldn't ever happen ... please tell the openIPAM developers about this error and the conditions under which it happened.")
+		finally:
+			cherrypy.session.release_lock()
+			try:
+				self.webservice.logout()
+			except:
+				pass
 	#-----------------------------------------------------------------
+	def has_min_perms(self, perms):
+		cherrypy.session.acquire_lock()
+		try:
+			return Perms(perms) & cherrypy.session['user']['min_permissions'] == perms
+		finally:
+			cherrypy.session.release_lock()
 
 	def check_session(self, logging_in=False):
 		"""Session checking for user management"""
-		
-		if not cherrypy.session.has_key('transport'):
-			cherrypy.session['transport'] = CookieAuthXMLRPCSafeTransport( ssl=frontend.xmlrpc_ssl_enabled )
+		cherrypy.session.acquire_lock()
 
-		self.webservice = xmlrpclib.ServerProxy(self.__url, transport=cherrypy.session['transport'], allow_none=True)
+		try:
+			if not cherrypy.session.has_key('transport'):
+				cherrypy.session['transport'] = CookieAuthXMLRPCSafeTransport( ssl=frontend.xmlrpc_ssl_enabled )
 
+			self.webservice = xmlrpclib.ServerProxy(self.__url, transport=cherrypy.session['transport'], allow_none=True)
+
+			have_username = cherrypy.session.has_key('username')
+		finally:
+			cherrypy.session.release_lock()
+
+
+		# FIXME: there has to be a better way...
 		if not logging_in and not self.webservice.have_session():
 			self.__do_logout()
 			raise cherrypy.HTTPRedirect("/login/?expired=true")
 
-		if not logging_in and hasattr(cherrypy, 'session') and not cherrypy.session.has_key('username'):
+		if not logging_in and not have_username:
 			raise cherrypy.HTTPRedirect("/login")
 	
 	#-----------------------------------------------------------------
@@ -67,9 +83,13 @@ class BasePage(object):
 	@cherrypy.expose
 	def index(self, **kw):
 		"""The home page."""
-		if cherrypy.session.has_key('transport'):
-			raise cherrypy.HTTPRedirect("/hosts/")
-		raise cherrypy.HTTPRedirect("/login")
+		cherrypy.session.acquire_lock()
+		try:
+			if cherrypy.session.has_key('transport'):
+				raise cherrypy.HTTPRedirect("/hosts/")
+			raise cherrypy.HTTPRedirect("/login")
+		finally:
+			cherrypy.session.release_lock()
 
 	@cherrypy.expose
 	def default(self, *args, **kw):
@@ -95,13 +115,21 @@ class BasePage(object):
 						'''
 		return self.__template.wrap(maincontent)
 
+	def logged_in(self):
+		cherrypy.session.acquire_lock()
+		try:
+			return cherrypy.session.has_key('user') and cherrypy.session['user']['username']
+		finally:
+			cherrypy.session.release_lock()
+		return False
+
 	@cherrypy.expose
 	def login(self, username=None, password=None, expired=None, failed=None, logged_out=None, ne=None, email=None, **kw):
 		'''The login page'''
 		
 		self.check_session(logging_in=True)
 		
-		if hasattr(cherrypy, 'session') and cherrypy.session.has_key('username'):
+		if self.logged_in():
 			# They're already logged in
 			raise cherrypy.HTTPRedirect("/hosts")
 		
@@ -144,6 +172,7 @@ class BasePage(object):
 		else:
 			# Do Authentication
 			# validate username and password
+			cherrypy.session.acquire_lock()
 			try:
 				info = self.webservice.login(username, password)
 				
@@ -161,7 +190,6 @@ class BasePage(object):
 				cherrypy.session['show_ns'] = False
 				cherrypy.session['hosts_limit'] = DEFAULT_HOSTS_LIMIT
 				cherrypy.session['dns_records_limit'] = DEFAULT_DNS_RECORDS_LIMIT
-				cherrypy.session.save()
 
 				# redirect to main page
 				raise cherrypy.HTTPRedirect('/')
@@ -173,6 +201,8 @@ class BasePage(object):
 					raise cherrypy.InternalRedirect('/login?email=required')
 				else:
 					raise
+			finally:
+				cherrypy.session.save() # releases lock, it would appear
 		
 		raise error.FatalException()
 	

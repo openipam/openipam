@@ -54,11 +54,15 @@ class Basics(object):
 			# Make a template_keys variable that will always exist for every Cheetah template
 			# so that templates can do things like #if 'hosts' in $template_keys:
 			# and makes it so that all variables in a template are NOT required to pass in every time
-			values['template_keys'] = values.keys()
-			values['has_admin_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.ADMIN) == perms.ADMIN)
-			values['has_owner_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.OWNER) == perms.OWNER)
-			values['has_deity_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.DEITY) == perms.DEITY)
-			values['username'] = cherrypy.session['username']
+			cherrypy.session.acquire_lock()
+			try:
+				values['template_keys'] = values.keys()
+				values['has_admin_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.ADMIN) == perms.ADMIN)
+				values['has_owner_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.OWNER) == perms.OWNER)
+				values['has_deity_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.DEITY) == perms.DEITY)
+				values['username'] = cherrypy.session['username']
+			finally:
+				cherrypy.session.release_lock()
 			
 			maincontent = Template(file=filename, searchList=values)
 		
@@ -125,14 +129,18 @@ class Basics(object):
 
 	def topbar(self):
 		'''The very top bar of page -- with Logout, About, etc.'''
-		return '''
-		<div id="topnav">
-			<a class="skip" title="skip link" href="#navigation">Skip to the navigation</a>
-			<span class="hideme">.</span>
-			<a class="skip" title="skip link" href="#main">Skip to the content</a>
-			<span class="hideme">.</span>
-			<a href="/logout">Logout %s</a> | 
-		</div>''' % cherrypy.session['username']
+		cherrypy.session.acquire_lock()
+		try:
+			return '''
+			<div id="topnav">
+				<a class="skip" title="skip link" href="#navigation">Skip to the navigation</a>
+				<span class="hideme">.</span>
+				<a class="skip" title="skip link" href="#main">Skip to the content</a>
+				<span class="hideme">.</span>
+				<a href="/logout">Logout %s</a> | 
+			</div>''' % cherrypy.session['username']
+		finally:
+			cherrypy.session.release_lock()
 
 	#-----------------------------------------------------------------
 	
@@ -140,24 +148,28 @@ class Basics(object):
 		'''Everything from logo down to the navigation buttons
 		@param selected: an integer denoting the index of which top nav link we're on'''
 		
-		if not cherrypy.session.has_key('min_permissions'):
-			raise error.SessionExpired("Permissions not in session, can't continue")
+		cherrypy.session.acquire_lock()
+		try:
+			if not cherrypy.session.has_key('min_permissions'):
+				raise error.SessionExpired("Permissions not in session, can't continue")
+			
+			if cherrypy.session['min_permissions'] == perms.DEITY:
+				# The user has DEITY permissions
+				__topnav_left_links = (self.__sections['hosts'],
+								self.__sections['networks'],
+								self.__sections['domains'],
+								self.__sections['dns'])
 		
-		if cherrypy.session['min_permissions'] == perms.DEITY:
-			# The user has DEITY permissions
-			__topnav_left_links = (self.__sections['hosts'],
-							self.__sections['networks'],
-							self.__sections['domains'],
-							self.__sections['dns'])
-	
-			__topnav_right_links = (self.__sections['admin'],)
-		else:
-			# The user doesn't have DEITY permissions
-			__topnav_left_links = (self.__sections['hosts'],
-							self.__sections['dns'],
-							self.__sections['access'])
-	
-			__topnav_right_links = ()
+				__topnav_right_links = (self.__sections['admin'],)
+			else:
+				# The user doesn't have DEITY permissions
+				__topnav_left_links = (self.__sections['hosts'],
+								self.__sections['dns'],
+								self.__sections['access'])
+		
+				__topnav_right_links = ()
+		finally:
+			cherrypy.session.release_lock()
 		
 		text = []
 		

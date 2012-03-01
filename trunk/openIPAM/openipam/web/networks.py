@@ -30,7 +30,8 @@ class Networks(BasePage):
 		# Call the base session checker
 		BasePage.check_session(self, logging_in)
 		
-		if cherrypy.session['min_permissions'] != perms.DEITY:
+		#FIXME: is this necessary?
+		if not self.has_min_perms( perms.DEITY ):
 			raise cherrypy.InternalRedirect("/denied")
 
 	def search_form(self):

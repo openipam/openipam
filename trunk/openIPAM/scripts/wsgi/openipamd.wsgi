@@ -17,6 +17,7 @@ cherrypy.config.update({'log.screen': True})
 
 cherrypy.config.update( {
 		'tools.sessions.on' : True,
+		'tools.sessions.locking' : 'explicit',
 		'tools.sessions.storage_type' : backend.session_storage,
 		'tools.sessions.storage_path' : backend.session_dir,
 		'tools.sessions.timeout' : backend.session_timeout,

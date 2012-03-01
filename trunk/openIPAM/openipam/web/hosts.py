@@ -56,7 +56,13 @@ class Hosts(BasePage):
 		
 		options = (('Show expired hosts','Hide expired hosts',), ('Show everyone\'s hosts','Show only my hosts',),)
 		options_links = ('/hosts/?show_expired', '/hosts/?show_all')
-		selected = (cherrypy.session['show_expired_hosts'], cherrypy.session['show_all_hosts'])
+
+		# FIXME: get this out of our session...
+		cherrypy.session.acquire_lock()
+		try:
+			selected = (cherrypy.session['show_expired_hosts'], cherrypy.session['show_all_hosts'])
+		finally:
+			cherrypy.session.release_lock()
 		
 		return OptionsSubmenu(values=options, links=options_links, title="Options", selected=selected)
 	
@@ -68,13 +74,20 @@ class Hosts(BasePage):
 		@param page: the current page the user is viewing
 		@param show_all_hosts: default false, will only show hosts that the current user has OWNER over
 		"""
-			
-		limit = cherrypy.session['hosts_limit']
 		
-		# This would be better as an argument
-		additional_perms = str(frontend.perms.OWNER)
-		if cherrypy.session['show_all_hosts']:
-			additional_perms = '00000000'
+		# FIXME: get this stuff out of our session...
+		cherrypy.session.acquire_lock()
+		try:
+			limit = cherrypy.session['hosts_limit']
+			
+			# This would be better as an argument
+			additional_perms = str(frontend.perms.OWNER)
+			if cherrypy.session['show_all_hosts']:
+				additional_perms = '00000000'
+			show_expired = cherrypy.session['show_expired_hosts']
+		finally:
+			cherrypy.session.release_lock()
+
 
 		if hostname:
 			hostname = hostname.replace('*','%').lower()
@@ -100,7 +113,7 @@ class Hosts(BasePage):
 			'additional_perms' : str(additional_perms),
 			'limit' : limit,
 			'page' : int(page),
-			'show_expired' : cherrypy.session['show_expired_hosts'],
+			'show_expired' : show_expired,
 			'ip' : ip,
 			'mac' : mac,
 			'endmac': endmac,
@@ -276,21 +289,25 @@ class Hosts(BasePage):
 		# Initialization
 		values = {}
 		
-		# Toggle 'Show expired hosts' and 'Show all hosts'
-		if kw.has_key('show_expired'):
-			cherrypy.session['show_expired_hosts'] = not cherrypy.session['show_expired_hosts']
-			redirect_to_referer()
-		if kw.has_key('show_all'):
-			cherrypy.session['show_all_hosts'] = not cherrypy.session['show_all_hosts']
-			redirect_to_referer()
-			
-		if cherrypy.session['has_global_owner']:
-			values['show_search_here'] = True
-		else:
-			#values['num_hosts'],values['hosts'] = self.get_hosts( page=page, count=True )
-			raise cherrypy.HTTPRedirect('/hosts/search/?username=%s' % cherrypy.session['username'])
-			
-		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
+		cherrypy.session.acquire_lock()
+		try:
+			# Toggle 'Show expired hosts' and 'Show all hosts'
+			if kw.has_key('show_expired'):
+				cherrypy.session['show_expired_hosts'] = not cherrypy.session['show_expired_hosts']
+				redirect_to_referer()
+			if kw.has_key('show_all'):
+				cherrypy.session['show_all_hosts'] = not cherrypy.session['show_all_hosts']
+				redirect_to_referer()
+				
+			if cherrypy.session['has_global_owner']:
+				values['show_search_here'] = True
+			else:
+				#values['num_hosts'],values['hosts'] = self.get_hosts( page=page, count=True )
+				raise cherrypy.HTTPRedirect('/hosts/search/?username=%s' % cherrypy.session['username'])
+				
+			values['show_all_hosts'] = cherrypy.session['show_all_hosts']
+		finally:
+			cherrypy.session.release_lock()
 
 		values['url'] = cherrypy.url()
 
@@ -381,7 +398,6 @@ class Hosts(BasePage):
 		
 		# Confirm user authentication
 		self.check_session()
-		limit = cherrypy.session['hosts_limit']
 		# Initialization
 		values = {}
 		page = int(page)
@@ -389,11 +405,16 @@ class Hosts(BasePage):
 		if re.search(r'[^a-zA-Z.,_ ]',order_by):
 			raise Exception('Who do you think you are?')
 		
-		if not q and not kw.keys():
-			if not expiring:
-				raise cherrypy.InternalRedirect('/hosts')
-			else:
-				kw['username'] = cherrypy.session['username']
+		cherrypy.session.acquire_lock()
+		try:
+			if not q and not kw.keys():
+				if not expiring:
+					raise cherrypy.InternalRedirect('/hosts')
+				else:
+					kw['username'] = cherrypy.session['username']
+			limit = cherrypy.session['hosts_limit']
+		finally:
+			cherrypy.session.release_lock()
 
 		if success:
 			values['global_success'] = 'Hosts Updated Successfully'
@@ -467,7 +488,13 @@ class Hosts(BasePage):
 
 		values['search'] = search_str
 		values['page'] = int(page)
-		values['show_all_hosts'] = cherrypy.session['show_all_hosts']
+
+		cherrypy.session.acquire_lock()
+		try:
+			values['show_all_hosts'] = cherrypy.session['show_all_hosts']
+			values['username'] = cherrypy.session['username']
+		finally:
+			cherrypy.session.release_lock()
 
 		values['num_hosts'],values['hosts'] = self.get_hosts( count=True, **kw )
 		values['len_hosts'] = len(values['hosts'])
@@ -476,7 +503,6 @@ class Hosts(BasePage):
 		values['last_host'] = page * limit + len(values['hosts'])
 		values['limit'] = limit
 
-		values['username'] = cherrypy.session['username']
 		values['order_by'] = order_by
 		
 		values['url'] = cherrypy.url()
