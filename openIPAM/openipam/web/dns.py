@@ -31,7 +31,6 @@ class DNS(BasePage):
 		
 		#options = ('Show A records', 'Show CNAMEs')
 		#options_links = ('/dns/?show_a_records', '/dns/?show_cnames')
-		#selected = (cherrypy.session['show_a_records'], cherrypy.session['show_cnames'])
 
 		options = ()
 		options_links = ()
@@ -42,10 +41,13 @@ class DNS(BasePage):
 	def get_leftnav(self, action="", show_options=True):
 		return '%s' % (self.leftnav_options() if show_options else '')
 	
-	def get_dns(self, name = None, address = None, content = None, mac = None ):
+	def get_dns(self, name = None, address = None, content = None, mac = None, limit = None ):
 		'''
 		
 		'''
+
+		if not limit and frontend.default_dns_records_limit:
+			limit = frontend.default_dns_records_limit
 		
 		# Replace any wildcard stars with DB capable wildcards
 		if type(name) == types.StringType:
@@ -59,13 +61,12 @@ class DNS(BasePage):
 			'address' : address,
 			'content' : content,
 			'order_by' : 'tid, name',
-			'mac' : mac
+			'mac' : mac,
 			}
 
-		# Set the limit if wildcard is in the search
-		if (name and ('%' in name)) or (content and ('%' in content)):
-			values['limit'] = cherrypy.session['dns_records_limit']
-		
+		if limit:
+			values['limit'] = limit
+
 		#call webservice to get values
 		dns_records = self.webservice.get_dns_records( values )
 		
@@ -81,23 +82,6 @@ class DNS(BasePage):
 			record['has_modify_perm'] = ((Perms(permissions[0][str(record['id'])]) & frontend.perms.MODIFY) == frontend.perms.MODIFY)
 			record['has_delete_perm'] = ((Perms(permissions[0][str(record['id'])]) & frontend.perms.DELETE) == frontend.perms.DELETE)
 		
-		# filtering based on selected options
-		#count = 0
-		#dns_results = []
-		#for record in dns_records:
-		#	if (cherrypy.session['show_a_records'] and record['tid'] == 1):
-		#		dns_results.append(record)
-		#	elif (cherrypy.session['show_ns'] and record['tid'] == 2):
-		#		dns_results.append(record)
-		#	elif (cherrypy.session['show_cnames'] and record['tid'] == 5):
-		#		dns_results.append(record)
-		#		
-		#	if (not cherrypy.session['show_a_records'] and not cherrypy.session['show_ns'] and not cherrypy.session['show_cnames']):
-		#		return dns_records
-		#	count += 1
-		#
-		#return dns_results
-
 		# don't filter
 		return dns_records
 	
@@ -112,17 +96,6 @@ class DNS(BasePage):
 		# Confirm user authentication
 		self.check_session()
 		
-		# Toggle 'Show only A-records' and 'Show only CNAMES' and 'Show only NS records'
-		if kw.has_key('show_a_records'):
-			cherrypy.session['show_a_records'] = not cherrypy.session['show_a_records']
-			redirect_to_referer()
-		if kw.has_key('show_cnames'):
-			cherrypy.session['show_cnames'] = not cherrypy.session['show_cnames']
-			redirect_to_referer()
-		if kw.has_key('show_ns'):
-			cherrypy.session['show_ns'] = not cherrypy.session['show_ns']
-			redirect_to_referer()
-											    
 		values = {}
 		values['show_search_here'] = True
 		values['title'] = 'DNS Search Results'

@@ -18,6 +18,7 @@ class Admin(BasePage):
 		# Object for wrapping HTML into the template
 		self._template = framework.Basics("admin", javascript=("/scripts/admin.js", '/scripts/jquery/jquery.dimensions.js', '/scripts/jquery/jquery.levitip.js'))
 		
+	# FIXME: is this really necessary?
 	def check_session(self, logging_in=False):
 		"""
 		Overwrite the BasePage's check_session function to make sure 
@@ -27,8 +28,9 @@ class Admin(BasePage):
 		# Call the base session checker
 		BasePage.check_session(self, logging_in)
 		
-		if cherrypy.session['min_permissions'] != perms.DEITY:
+		if not self.have_perms(perms.DEITY):
 			raise cherrypy.InternalRedirect("/denied")
+
 		
 	
 	def leftnav_manage(self, current=None):

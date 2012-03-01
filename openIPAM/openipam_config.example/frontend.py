@@ -48,3 +48,5 @@ db_default_group_permissions = '00000010'
 
 enable_gul = False
 
+default_dns_records_limit = 100
+

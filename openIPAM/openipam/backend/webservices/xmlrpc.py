@@ -64,10 +64,14 @@ class MainWebService(XMLRPCController):
 			# Don't log these, they are logged elsewhere
 			return
 		# FIXME: do logging here
-		if hasattr(cherrypy, 'session') and cherrypy.session.has_key('user'):
-			username = cherrypy.session['user']['username']
-		else:
-			username = '<unauthenticated>'
+		username = '<unauthenticated>'
+		if hasattr(cherrypy, 'session'):
+			cherrypy.session.acquire_lock()
+			try:
+				if cherrypy.session.has_key('user'):
+					username = cherrypy.session['user']['username']
+			finally:
+				cherrypy.session.release_lock()
 
 		#print username
 		#print fcn_name
@@ -96,11 +100,15 @@ class MainWebService(XMLRPCController):
 		'''
 		
 		# Make sure that that DB object still exists for this session
-		if hasattr(cherrypy, 'session') and cherrypy.session.has_key('user'):
-			# The server has restarted, but the session needs to still exist
-			
-			db = interface.DBInterface(uid=cherrypy.session['user']['uid'], username=cherrypy.session['user']['username'], min_perms=cherrypy.session['user']['min_permissions'])
-			return db
+		if hasattr(cherrypy, 'session'):
+			cherrypy.session.acquire_lock()
+			try:
+				if cherrypy.session.has_key('user'):
+					# The server has restarted, but the session needs to still exist
+					db = interface.DBInterface(uid=cherrypy.session['user']['uid'], username=cherrypy.session['user']['username'], min_perms=cherrypy.session['user']['min_permissions'])
+					return db
+			finally:
+				cherrypy.session.release_lock()
 		raise error.SessionExpired()
 
 	
@@ -154,6 +162,7 @@ class MainWebService(XMLRPCController):
 		@raise error.NoEmail: if an LDAP user authenticates successfully, but has no email address set
 		"""
 		
+		cherrypy.session.acquire_lock()
 		try:
 			if len(username) == 0 or len(password) == 0:
 				raise Exception("Invalid input!")
@@ -186,6 +195,8 @@ class MainWebService(XMLRPCController):
 			
 			# Just don't do: "Invalid password: %s" % password    ;)
 			raise error.InvalidCredentials("Invalid credentials; username: %s" % username)
+		finally:
+			cherrypy.session.release_lock()
 		
 		# We should never get here
 		raise error.FatalException()
@@ -199,14 +210,16 @@ class MainWebService(XMLRPCController):
 	@cherrypy.expose
 	def update_password(self, kw):
 		db = self.__check_session()
-		if cherrypy.session['user']['username'] != kw['username']:
+		if self.get_username() != kw['username']:
 			db.require_perms(perms.DEITY)
+
 		return auth_sources.update_password(**kw)
 	
 	@cherrypy.expose
 	def get_user_info(self, info):
-		if backend.show_user_perms & cherrypy.session['user']['min_permissions'] != backend.show_user_perms:
+		if not self.has_min_perms(backend.show_user_perms):
 			raise Exception('Insufficient permissions to look up user information.')
+
 		info = auth_sources.get_info( **info )
 		if info:
 			return info.__dict__
@@ -222,10 +235,13 @@ class MainWebService(XMLRPCController):
 	
 	@cherrypy.expose
 	def logout( self ):
+		cherrypy.session.acquire_lock()
 		try:
 			cherrypy.session.delete()
 		except:
 			pass
+		finally:
+			cherrypy.session.release_lock()
 		return True
 
 	#----------------------	   PERMISSIONS	  ------------------------
@@ -364,6 +380,27 @@ class MainWebService(XMLRPCController):
 		
 		return self.__sanitize(db.find_owners_of_host(**args[0]))
 
+	def has_min_perms(self, perms):
+		cherrypy.session.acquire_lock()
+		try:
+			return Perms(cherrypy.session['user']['min_permissions']) & Perms(perms) == Perms(perms)
+		finally:
+			cherrypy.session.release_lock()
+	
+	def get_username(self):
+		cherrypy.session.acquire_lock()
+		try:
+			return str(cherrypy.session['user']['username'])
+		finally:
+			cherrypy.session.release_lock()
+
+	def get_min_perms(self):
+		cherrypy.session.acquire_lock()
+		try:
+			return Perms(cherrypy.session['user']['min_permissions'])
+		finally:
+			cherrypy.session.release_lock()
+
 	@cherrypy.expose
 	def find_ownernames_of_host(self, *args):
 		db = self.__check_session()
@@ -371,7 +408,7 @@ class MainWebService(XMLRPCController):
 		ownerlist=[]
 		for group in groups:
 			data = dict(group)
-			if ( backend.show_user_perms & cherrypy.session['user']['min_permissions'] == backend.show_user_perms
+			if ( self.has_min_perms( backend.show_user_perms )
 					and group['name'][:5] == 'user_'):
 				user = self.get_user_info({'username': group['name'][5:],})
 				if user:
@@ -674,7 +711,7 @@ class MainWebService(XMLRPCController):
 
 		# If I'm a DEITY, allow me to specify an IP address
 		# Actually, there shouldn't be any harm in allowing anyone who can assign static addresses do this
-		if cherrypy.session['user']['min_permissions'] == perms.DEITY:
+		if self.has_min_perms( perms.DEITY ):
 			if kw.has_key('ip') and kw['ip'].strip():
 				# Have an address inputed, validate it
 				if not validation.is_ip(kw['ip']):
@@ -695,7 +732,7 @@ class MainWebService(XMLRPCController):
 			messages.append("Insufficient permissions to add host to domain %s" % kw['domain'])
 		
 		# Static IP permissions
-		if not kw['is_dynamic'] and kw.has_key('network') and kw['network'] and not cherrypy.session['user']['min_permissions'] == perms.DEITY:
+		if not kw['is_dynamic'] and kw.has_key('network') and kw['network'] and not self.has_min_perms(perms.DEITY):
 			# Get the network asked for and where I have ADD permissions
 			network = self.get_networks( { 'network' : kw['network'], 'additional_perms' : perms.ADD })
 			
@@ -726,12 +763,12 @@ class MainWebService(XMLRPCController):
 		
 		# If we're not allowing non-admin host transfers, and you didn't specify add_host_to_my_group (or you did specify it, but it's False)
 		if not backend.allow_non_admin_host_transfer and (not kw.has_key('add_host_to_my_group') or (kw.has_key('add_host_to_my_group') and not kw['add_host_to_my_group'])):
-			has_min_admin_perms = Perms(cherrypy.session['user']['min_permissions']) & perms.ADMIN == perms.ADMIN
+			has_min_admin_perms = self.has_min_perms(perms.ADMIN)
 			if not has_min_admin_perms:
 				# A normal user (non-admin and not in service group) cannot create a
 				# host and NOT be OWNER over it, verify this state:
 				# (you know you love the double negatives)
-				users_groups = self.get_groups( { 'uid' : cherrypy.session['user']['uid'], 'additional_perms' : perms.OWNER } )
+				users_groups = self.get_groups( { 'uid' : self.get_uid(), 'additional_perms' : perms.OWNER } )
 				users_group_names = [row['name'] for row in users_groups]
 				
 				# Am I in a group that has owner over this host?
@@ -966,7 +1003,7 @@ class MainWebService(XMLRPCController):
 		if not args[0].has_key('domain'):
 			raise error.RequiredArgument("Must specify both domain for getting the next hostname.")
 
-		hostname = cherrypy.session['user']['username'].lower()
+		hostname = self.get_username()
 		
 		# If username.example.com is not taken, return it
 		initial_hostname = '%s.%s' % (hostname, args[0]['domain'])
@@ -1663,14 +1700,12 @@ class MainWebService(XMLRPCController):
 				
 				new.append(form_row)
 				
-				have_perm = Perms(cherrypy.session['user']['min_permissions'])
 				if fqdn_perms.has_key(form_row['name']):
-					have_perm |= fqdn_perms[form_row['name']]
+					self.have_perms(fqdn_perms[form_row['name']])
 				else:
 					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
 
-				if not ((have_perm & perms.ADD == perms.ADD)
-				and (dns_type_perms.has_key(str(form_row['tid'])))):
+				if not self.have_perms(perms.ADD) and (dns_type_perms.has_key(str(form_row['tid']))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 					
 				continue
@@ -1930,8 +1965,8 @@ class MainWebService(XMLRPCController):
 			raise error.InvalidArgument('Specify exactly one of mac(%s) and ip(%s).' % (mac, ip))
 		if not arp.min_permissions:
 			raise error.NotImplemented('You do not have this extension installed...')
-		if not Perms(cherrypy.session['user']['min_permissions']) & arp.min_permissions == arp.min_permissions:
-			raise error.InsufficientPermissions('You are not permitted (have: %s, need: %s)' % (cherrypy.session['user']['min_permissions'], arp.min_permissions))
+		if not self.have_min_perms(arp.min_permissions):
+			raise error.InsufficientPermissions('You are not permitted (have: %s, need: %s)' % (self.get_min_perms(), arp.min_permissions))
 		if mac:
 			data = arp.bymac(mac)
 		else:

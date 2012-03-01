@@ -78,6 +78,7 @@ cherrypy.config.update({'log.screen': True})
 from openipam.config import frontend
 cherrypy.config.update({
 	'tools.sessions.on' : True,
+	'tools.sessions.locking' : 'explicit',
 	'tools.sessions.storage_type' : frontend.session_storage,
 	'tools.sessions.storage_path' : frontend.session_dir,
 	'tools.sessions.timeout' : frontend.session_timeout,

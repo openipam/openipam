@@ -37,7 +37,12 @@ class Service(BasePage):
 		
 		# Make sure this person is in the Service Desk group in order to do anything on this page
 		# FIXME: need to get db_service_group... from backend
-		group = self.webservice.get_users( { 'uid' : cherrypy.session['uid'], 'gid' : frontend.db_service_group_id } )
+		cherrypy.session.acquire_lock()
+		try:
+			group = self.webservice.get_users( { 'uid' : cherrypy.session['uid'], 'gid' : frontend.db_service_group_id } )
+		finally:
+			cherrypy.session.release_lock()
+
 		if not group:
 			raise cherrypy.HTTPRedirect('/denied')
 
