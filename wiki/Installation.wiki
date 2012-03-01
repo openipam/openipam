@@ -1,6 +1,8 @@
 #summary Instructions for getting and installing openIPAM.
 #labels Documentation,Featured
 
+== Notice: This documentation is out of date ==
+
 <wiki:toc max_depth="4" />
 
 = Installation =
