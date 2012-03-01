@@ -1,0 +1,116 @@
+
+<div class="host_info">
+	#if $host.disabled:
+	<div class="warning">
+		<div class="label">Host is disabled</div>
+		<div class="value">$disabled.reason</div>
+	</div>
+	#end if
+	#if $host.expired:
+	<div class="warning">
+		<div class="label">Host is expired</div>
+		<div class="value">Expired on $host.expires</div>
+	</div>
+	#end if
+	#if $enable_gul and $host.mac_seen is None:
+	<div class="warning">
+		<div class="label">MAC not seen</div>
+		<div class="value">No data for this mac address: we have not seen it in over 3 months (if ever)</div>
+	</div>
+	#end if
+	<div class="description">
+		<div class="label">Description</div>
+		#set description = $host.description if $host.description else "No description given"
+		<div class="value">$description</div>
+	</div>
+	<div class="addresses">
+	    #if $enable_gul and $arp_bymac:
+		<table class="arp">
+			<caption>ARP entries from MAC</caption>
+			<tr><th>Address</th><th>MAC</th><th>Last Seen</th></tr>
+			#for i in $arp_bymac:
+				#set addr_class = '' if $i.address in $addresses else ' class="nomatch"'
+			<tr><td$addr_class>$i.address</td><td>$i.mac</td><td>$i.stopstamp</td></tr>
+			#end for			
+	    #else if $enable_gul:
+		<div class="label">ARP entries from MAC</div>
+		<div class="value">No arp entries found</div>
+	    #end if
+	    #if $static:
+		<table class="static">
+			<caption>Static addresses</caption>
+		#if $enable_gul:
+			<tr><th>Address</th><th>Network</th><th>Gateway</th><th>Last seen</th><th>Last seen MAC</th></tr>
+		#else:
+			<tr><th>Address</th><th>Network</th><th>Gateway</th></tr>
+		#end if
+		#for i in $static:
+			#if $enable_gul:
+				#set arp_end = $arp_byaddress[$i.address]['stopstamp']
+				#set arp_mac = $arp_byaddress[$i.address]['mac']
+				#set mac_class='' if arp_mac == $host.mac else ' class="nomatch"'
+				#set arp_end_class='' if arp_end != 'no data' else ' class="nomatch"'
+			<tr><td>$i.address</td><td>$i.network ($i.netmask)</td><td>$i.gateway</td><td$arp_end_class>$arp_end</td><td$mac_class>$arp_mac</td></tr>
+			#else
+			<tr><td>$i.address</td><td>$i.network ($i.netmask)</td><td>$i.gateway</td></tr>
+			#end if
+		#end for
+		</table>
+	    #else
+		<div class="label">Static addresses</div>
+		<div class="value">No static addresses found</div>
+	    #end if
+	    #if $leased:
+		<table class="leased">
+			<caption>Leased addresses</caption>
+		#if $enable_gul:
+			<tr><th>Address</th><th>Expires</th><th>Last seen</th><th>Last seen MAC</th></tr>
+		#else
+			<tr><th>Address</th><th>Expires</th></tr>
+		#end if
+		#for i in $leased:
+			#if $enable_gul:
+				#set arp_end=$arp_byaddress[$i.address]['stopstamp']
+				#set arp_mac=$arp_byaddress[$i.address]['mac']
+				#set ends_class='' if not $i.expired else ' class="notmatch"'
+			<tr><td>$i.address</td><td$ends_class>$i.ends</td><td>$arp_end</td><td>$arp_mac</td></tr>
+			#else
+			<tr><td>$i.address</td><td>$i.ends</td></tr>
+			#end if
+		#end for
+		</table>
+	    #else
+		<div class="label">Leased addresses</div>
+		<div class="value">No leases found</div>
+	    #end if
+	</div>
+	<div class="dns">
+	    #if $dns_records:
+		<table class="dns_records">
+			<caption>DNS Records</caption>
+			<tr><th>Name</th><th>Type</th><th>TTL</th><th>Value</th><th>View</th></tr>
+			#for i in $dns_records:
+			<tr><td>$i.name</td><td>$i.type</td><td>$i.ttl</td><td>$i.content</td><td>$i.vid</td></tr>
+			#end for
+		</table>
+	    #else
+		<div class="label">DNS records</div>
+		<div class="value">No DNS records found</div>
+	    #end if
+	</div>
+	<div class="attributes">
+	    #if $attributes:
+		<table class="host_attributes">
+			<caption>Host attributes</caption>
+			<tr><th>Attribute</th><th>Value</th></tr>
+			#for i in $attributes
+			<tr><td>$i.name</td><td>$i.value</td></tr>
+			#end for
+		</table>
+	    #else
+		<div class="label">Host attributes</div>
+		<div class="value">No host attributes found</div>
+	    #end if
+	</div>
+</div>
+
