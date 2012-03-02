@@ -1708,7 +1708,7 @@ class MainWebService(XMLRPCController):
 				new.append(form_row)
 				
 				if fqdn_perms.has_key(form_row['name']):
-					self.have_perms(fqdn_perms[form_row['name']])
+					self.have_min_perms(fqdn_perms[form_row['name']])
 				else:
 					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
 
