@@ -40,7 +40,7 @@
 			#if $have_groups
 			<tr><th>Group name</th><th>Description</th></tr>
 				#for i in $owners
-					#if $i.has_key('name')
+					#if $i.has_key('description')
 			<tr><td>$i.name</td><td>$i.description</td></tr>
 					#end if
 				#end for
