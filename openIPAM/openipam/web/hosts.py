@@ -189,7 +189,7 @@ class Hosts(BasePage):
 
 		values['nets_by_type'] = []
 		for k in nets_by_type_keys:
-			netlist = [ [n['network'], n['description']] for n in nets_by_type[k] ]
+			netlist = [ [n['network'], n['name']] for n in nets_by_type[k] ]
 			values['nets_by_type'].append( (k, cjson.encode(netlist).replace("'","&#39;")) )
 			if len(netlist) > 0:
 				values['have_networks'] = True
