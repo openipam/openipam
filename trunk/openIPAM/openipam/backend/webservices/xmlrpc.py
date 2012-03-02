@@ -1708,11 +1708,11 @@ class MainWebService(XMLRPCController):
 				new.append(form_row)
 				
 				if fqdn_perms.has_key(form_row['name']):
-					self.have_min_perms(fqdn_perms[form_row['name']])
+					self.has_min_perms(fqdn_perms[form_row['name']])
 				else:
 					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
 
-				if not self.have_perms(perms.ADD) and (dns_type_perms.has_key(str(form_row['tid']))):
+				if not self.has_min_perms(perms.ADD) and (dns_type_perms.has_key(str(form_row['tid']))):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 					
 				continue
@@ -1972,7 +1972,7 @@ class MainWebService(XMLRPCController):
 			raise error.InvalidArgument('Specify exactly one of mac(%s) and ip(%s).' % (mac, ip))
 		if not arp.min_permissions:
 			raise error.NotImplemented('You do not have this extension installed...')
-		if not self.have_min_perms(arp.min_permissions):
+		if not self.has_min_perms(arp.min_permissions):
 			raise error.InsufficientPermissions('You are not permitted (have: %s, need: %s)' % (self.get_min_perms(), arp.min_permissions))
 		if mac:
 			data = arp.bymac(mac)

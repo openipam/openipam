@@ -51,7 +51,7 @@ class BasePage(object):
 	def has_min_perms(self, perms):
 		cherrypy.session.acquire_lock()
 		try:
-			return Perms(perms) & cherrypy.session['user']['min_permissions'] == perms
+			return Perms(perms) & cherrypy.session['min_permissions'] == perms
 		finally:
 			cherrypy.session.release_lock()
 
