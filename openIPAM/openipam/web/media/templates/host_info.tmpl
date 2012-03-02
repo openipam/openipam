@@ -30,7 +30,7 @@
 			#set have_groups = False
 			#for i in $owners
 				#if $i.has_key('username')
-			<tr><td>$i.username</td><td>$i.name</td><td><a href="mailto:$i.email?Subject=Your host $host.hostname in openipam">$i.email</a></td></tr>
+			<tr><td>$i.username</td><td>$i.name</td><td><a href="mailto:$i.email?Subject=Your host $host.hostname (MAC: $host.mac) in openipam">$i.email</a></td></tr>
 				#else
 					#set have_groups=True
 				#end if
