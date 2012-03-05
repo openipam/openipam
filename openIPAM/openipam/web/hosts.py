@@ -350,6 +350,7 @@ class Hosts(BasePage):
 		if not macaddr:
 			raise cherrypy.HTTPRedirect('/hosts')
 		
+		# Initialization
 		values = {}
 		
 		if kw.has_key('submit'):
@@ -363,9 +364,6 @@ class Hosts(BasePage):
 					raise
 				values['message'] = error.get_nice_error(e)
 				
-		# Initialization
-		values = {}
-		
 		host = self.webservice.get_hosts( { 'mac' : macaddr, 'additional_perms' : str(frontend.perms.MODIFY) } )
 		if not host:
 			raise cherrypy.HTTPRedirect('/denied')
