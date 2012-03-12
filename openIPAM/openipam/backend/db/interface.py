@@ -3203,6 +3203,8 @@ class DBInterface( DBBaseInterface ):
 		else:
 			dhcp_group = None
 
+		# Allow setting DHCP group to NULL
+		values['dhcp_group'] = dhcp_group
 		
 		# Require MODIFY permissions if not DEITY
 		if not self.has_min_perms(perms.DEITY):
