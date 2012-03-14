@@ -1319,6 +1319,17 @@ class MainWebService(XMLRPCController):
 		db.del_dhcp_group( **args[0] )
 
 	@cherrypy.expose
+	def add_dhcp_option(self, *args):
+		"""
+		Add an option to a DHCP group
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		db.add_dhcp_option( **args[0] )
+	
+	@cherrypy.expose
 	def add_dhcp_option_to_dhcp_group(self, *args):
 		"""
 		Add an option to a DHCP group

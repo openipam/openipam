@@ -1944,10 +1944,6 @@ class DBInterface( DBBaseInterface ):
 		pass
 		
 		
-	def add_dhcp_option( self ):
-		"""dhcp_option"""
-		pass
-		
 		
 	def add_soa_record( self, name, primary, hostmaster, serial=0, refresh=10800, retry=3600, expire=604800, default_ttl=3600 ):
 		"""Add an SOA using add_dns_record()
@@ -2083,6 +2079,19 @@ class DBInterface( DBBaseInterface ):
 	def add_dns_view( self):
 		pass
 		
+	def add_dhcp_group( self, name, description ):
+		"""Add a group
+		@param name: the group name
+		@param description: a description of the group"""
+
+		self.require_perms(perms.DEITY)
+		return self._do_insert(obj.dhcp_groups,
+				{'name':name,'description':description})
+
+	def add_dhcp_option( self ):
+		"""dhcp_option"""
+		pass
+		
 	def add_dhcp_option_to_dhcp_group(self, gid, oid, value):
 		"""Add a DHCP option to a DHCP group
 		@param oid: the database option id
@@ -2091,17 +2100,27 @@ class DBInterface( DBBaseInterface ):
 		
 		self.require_perms( perms.DEITY )
 		
-		if is_addresses( value ):
-			addresses = value.split(',')
-			bytes = []
-			for address in addresses:
-				address=address.strip()
-				octets = address.split('.')
-				if len(octets) != 4:
-					raise Exception('invalid ip address: %s' % address)
-				bytes.extend( octets )
-			bytes = map(int, bytes)
-			value = ''.join( map(chr , bytes ) )
+		dhcp_option = self.get_dhcp_option( oid )
+		if len(dhcp_option) != 1:
+			raise Exception("dhcp_option %d does not exist or not unique: %r" % (oid,dhcp_option))
+
+		dhcp_option = dhcp_option[0]
+		if dhcp_option['size'][0] == 4:
+			# expect an IP address
+			if '+' in dhcp_option['size']:
+				#or a list of IP addresses
+
+			if is_addresses( value ):
+				addresses = value.split(',')
+				bytes = []
+				for address in addresses:
+					address=address.strip()
+					octets = address.split('.')
+					if len(octets) != 4:
+						raise Exception('invalid ip address: %s' % address)
+					bytes.extend( octets )
+				bytes = map(int, bytes)
+				value = ''.join( map(chr , bytes ) )
 		#option = self.get_option( oid )
 		if value == 51: # lease time
 			value = int_to_bytes( oid, 4 )
@@ -3152,11 +3171,6 @@ class DBInterface( DBBaseInterface ):
 		
 		return self._do_delete( obj.users_to_groups, where=where )
 		
-	def add_dhcp_group( self, info ):
-		"""Add a group
-		@param name: the group name
-		@param description: a description of the group"""
-		pass
 	
 	def make_notifications_for_host(self, mac, expires):
 		"""

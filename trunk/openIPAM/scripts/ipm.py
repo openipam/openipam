@@ -14,6 +14,7 @@ import atexit
 import datetime
 import openipam.iptypes
 import re
+import binascii
 
 from openipam.web.resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
 from openipam.utilities.validation import mac as mac_regex
@@ -975,6 +976,30 @@ class IPMCmdInterface( cmd.Cmd ):
 		else:
 			vals = self.get_from_user( [('mac',),('value',),] )
 			self.iface.add_freeform_attribute_to_host( aid=attribute['id'], **vals )
+
+	def do_add_dhcp_group(self, arg ):
+		vals = self.get_from_user( [('name',), ('description',),] )
+		self.iface.add_dhcp_group( **vals )
+
+	def do_add_dhcp_option_value(self, arg):
+		vals = self.get_from_user( [('group',)('option',),('value', 'value (precede hex with 0x)') ] )
+		arg_vals = {}
+		if vals['value'] and len(vals['value'] >= 2) and vals['value'][:2] == '0x':
+			arg_vals['value'] = binascii.unhexlify( vals['value'][2:] )
+		try:
+			arg_vals['gid'] = int( vals['group'] )
+		except:
+			group = self.iface.get_dhcp_groups( name=vals['group'] )
+			assert len(group) == 1
+			arg_vals['gid'] = group[0]['id']
+		try:
+			arg_vals['oid'] = int(vals['option'])
+		except:
+			opt = self.iface.get_dhcp_options( name=vals['option'] )
+			assert len(opt) == 1
+			arg_vals['oid'] = opt[0]['id']
+
+		self.iface.add_dhcp_option_to_dhcp_group( **arg_vals )
 
 	def do_disable_mac( self, arg ):
 		# expect a mac address followed by a reason
