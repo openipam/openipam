@@ -33,14 +33,14 @@ CREATE TABLE new_gul_recent_arp_byaddress
     'SELECT arpentries.mac, arpentries.ip, coalesce(arpentries.stopstamp,now())::timestamptz FROM iplastarp JOIN arpentries ON iplastarp.arpid = arpentries.id;')
  AS (mac macaddr, address inet, stopstamp timestamptz);
 
-CREATE INDEX new_gul_recent_arp_byaddress_address_idx ON gul_recent_arp_byaddress(address);
+CREATE INDEX new_gul_recent_arp_byaddress_address_idx ON new_gul_recent_arp_byaddress(address);
 
 CREATE TABLE new_gul_recent_arp_bymac
   AS SELECT * FROM dblink('gul_db',
     'SELECT arpentries.mac, arpentries.ip, coalesce(arpentries.stopstamp,now())::timestamptz FROM maclastarp JOIN arpentries ON maclastarp.arpid = arpentries.id;')
  AS (mac macaddr, address inet, stopstamp timestamptz);
 
-CREATE INDEX new_gul_recent_arp_bymac_mac_idx ON gul_recent_arp_bymac(mac);
+CREATE INDEX new_gul_recent_arp_bymac_mac_idx ON new_gul_recent_arp_bymac(mac);
 
 GRANT SELECT ON new_gul_recent_arp_byaddress, new_gul_recent_arp_bymac TO openipam_readonly;
 
