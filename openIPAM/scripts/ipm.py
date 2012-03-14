@@ -982,23 +982,30 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.add_dhcp_group( **vals )
 
 	def do_add_dhcp_option_value(self, arg):
-		vals = self.get_from_user( [('group',)('option',),('value', 'value (precede hex with 0x)') ] )
+		vals = self.get_from_user( [('group',),('option',),('value', 'value (precede hex with 0x)') ] )
 		arg_vals = {}
-		if vals['value'] and len(vals['value'] >= 2) and vals['value'][:2] == '0x':
-			arg_vals['value'] = binascii.unhexlify( vals['value'][2:] )
+		if vals['value'] and len(vals['value']) >= 2 and vals['value'][:2] == '0x':
+			arg_vals['value'] = vals['value'][2:]
+			arg_vals['is_hex'] = True
+		else:
+			arg_vals['value'] = vals['value']
+
 		try:
 			arg_vals['gid'] = int( vals['group'] )
 		except:
 			group = self.iface.get_dhcp_groups( name=vals['group'] )
-			assert len(group) == 1
+			assert len(group) == 1, ('group not valid/unique',group)
+			print "%s -> %s" % (vals['group'],group[0]['id'])
 			arg_vals['gid'] = group[0]['id']
 		try:
 			arg_vals['oid'] = int(vals['option'])
 		except:
-			opt = self.iface.get_dhcp_options( name=vals['option'] )
-			assert len(opt) == 1
+			opt = self.iface.get_dhcp_options( option=vals['option'] )
+			assert len(opt) == 1, ('option not valid/unique',opt)
+			print "%s -> %s" % (vals['option'],opt[0]['id'])
 			arg_vals['oid'] = opt[0]['id']
 
+		print "Preparing to call self.iface.add_dhcp_option_to_dhcp_group( %r )" % arg_vals
 		self.iface.add_dhcp_option_to_dhcp_group( **arg_vals )
 
 	def do_disable_mac( self, arg ):

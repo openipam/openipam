@@ -29,6 +29,7 @@ import obj
 import openipam.iptypes
 import re
 import thread
+import binascii
 
 from openipam.utilities import error
 from openipam.utilities import validation
@@ -529,7 +530,7 @@ class DBBaseInterface(object):
 			query = query.where(obj.auth_sources.c.name == name)
 		return query
 	
-	def _get_dhcp_options( self, gid=None, id=None ):
+	def _get_dhcp_options( self, gid=None, id=None, option=None ):
 		"""
 		Get valid DHCP option types
 		
@@ -538,20 +539,19 @@ class DBBaseInterface(object):
 		
 		# Check permissions
 		self.require_perms(perms.DEITY)
-		whereclause = None
 		
 		fromobject = obj.dhcp_options
 		
 		if gid:
 			fromobject = fromobject.join(obj.dhcp_groups.c.id == gid)
-		
-		if id:
-			whereclause = obj.dhcp_options.c.id == id
 
 		query = select([obj.dhcp_options], from_obj=fromobject)
+		
+		if id:
+			query = query.where( obj.dhcp_options.c.id == id )
 
-		if whereclause:
-			query = query.where(whereclause)
+		if option:
+			query = query.where( obj.dhcp_options.c.option == option )
 
 		return query
 		
@@ -562,7 +562,7 @@ class DBBaseInterface(object):
 		"""
 		pass
 	
-	def _get_dhcp_groups( self, id=None ):
+	def _get_dhcp_groups( self, id=None, name=None ):
 		"""
 		Get DHCP groups, optionally filtered
 		@param id: a DHCP group ID, if only one needs to be returned
@@ -571,6 +571,8 @@ class DBBaseInterface(object):
 		
 		if id:
 			query = query.where(obj.dhcp_groups.c.id == id)
+		if name:
+			query = query.where(obj.dhcp_groups.c.name == name)
 
 		return query
 	
@@ -1777,7 +1779,7 @@ class DBInterface( DBBaseInterface ):
 					# xmlrpclib happily converts datetime.datetime to xmlrpclib.DateTime (which is a string in ISO 8601 format)
 					expires = datetime.datetime.strptime( str( expires ), '%Y%m%dT%H:%M:%S' )
 				except ValueError, e:
-					raise error.RequiredArgument("Could not convert expires to datetime object (from %s %s) -- expiration_format must be specified for strings" % (repr(expires),type(expires)))
+					raise error.RequiredArgument("Could not convert expires to datetime object (from %r %s) -- expiration_format must be specified for strings" % (expires,type(expires)))
 		return expires
 	
 	def add_address( self, address, network, mac=None, pool=None, reserved=False ):
@@ -2092,7 +2094,7 @@ class DBInterface( DBBaseInterface ):
 		"""dhcp_option"""
 		pass
 		
-	def add_dhcp_option_to_dhcp_group(self, gid, oid, value):
+	def add_dhcp_option_to_dhcp_group(self, gid, oid, value, is_hex=False):
 		"""Add a DHCP option to a DHCP group
 		@param oid: the database option id
 		@param gid: the database group id
@@ -2100,28 +2102,31 @@ class DBInterface( DBBaseInterface ):
 		
 		self.require_perms( perms.DEITY )
 		
-		dhcp_option = self.get_dhcp_option( oid )
+		dhcp_option = self.get_dhcp_options( id=oid )
+
 		if len(dhcp_option) != 1:
 			raise Exception("dhcp_option %d does not exist or not unique: %r" % (oid,dhcp_option))
 
 		dhcp_option = dhcp_option[0]
-		if dhcp_option['size'][0] == 4:
+		if is_hex:
+			value = str( binascii.unhexlify(value) )
+		elif int(dhcp_option['size'][0]) == 4:
 			# expect an IP address
-			if '+' in dhcp_option['size']:
-				#or a list of IP addresses
-
 			if is_addresses( value ):
+				if '+' not in dhcp_option['size']:
+					# sorry, pal... just the one
+					assert ',' not in value
 				addresses = value.split(',')
-				bytes = []
+				byteslst = []
 				for address in addresses:
 					address=address.strip()
 					octets = address.split('.')
 					if len(octets) != 4:
 						raise Exception('invalid ip address: %s' % address)
-					bytes.extend( octets )
-				bytes = map(int, bytes)
-				value = ''.join( map(chr , bytes ) )
-		#option = self.get_option( oid )
+					byteslst.extend( octets )
+				byteslst = map(int, byteslst)
+				value = ''.join( map(chr , byteslst ) )
+
 		if value == 51: # lease time
 			value = int_to_bytes( oid, 4 )
 
@@ -3444,7 +3449,6 @@ class DBInterface( DBBaseInterface ):
 			for name in owner_names:
 				if name:
 					g = self.get_groups(name=name)
-					print g
 					try:
 						new_owner_ids.add( int(g[0]['id']) )
 					except:
