@@ -47,7 +47,7 @@ from openipam.config import auth_sources
 try:
 	from openipam.extensions import arp
 except Exception, e:
-	print "Failed to import arp extension, disabling: %s" % repr(e)
+	print "Failed to import arp extension, disabling: %r" % e
 	arp = None
 
 import openipam.iptypes
@@ -87,7 +87,6 @@ class MainWebService(XMLRPCController):
 	def __getattribute__(self, name):
 		obj = object.__getattribute__(self,name)
 		if hasattr(obj,'__call__') and name[0] != '_' and name not in [ 'default', 'log_call','login',] :
-			#print repr(name)
 			return fcn_wrapper(obj=self, fcn=obj, name=name)
 		return obj
 	
@@ -314,7 +313,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return self.__sanitize(db.add_attribute( **args[0] ))
+		return db.add_attribute( **args[0] ).last_inserted_ids()
 	
 	@cherrypy.expose
 	def add_structured_attribute_value(self, *args):
@@ -325,7 +324,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return self.__sanitize(db.add_structured_attribute_value( **args[0] ))
+		return db.add_structured_attribute_value( **args[0] ).last_inserted_ids()
 	
 	@cherrypy.expose
 	def add_structured_attribute_to_host(self, *args):
@@ -336,7 +335,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return self.__sanitize(db.add_structured_attribute_to_host( **args[0] ))
+		return db.add_structured_attribute_to_host( **args[0] ).last_inserted_ids()
 	
 	@cherrypy.expose
 	def add_freeform_attribute_to_host(self, *args):
@@ -347,7 +346,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		return self.__sanitize(db.add_freeform_attribute_to_host( **args[0] ))
+		return db.add_freeform_attribute_to_host( **args[0] ).last_inserted_ids()
 	
 	#------------------------	 USERS	  ----------------------------
 	# User management
@@ -1334,7 +1333,7 @@ class MainWebService(XMLRPCController):
 		"""
 		Add an option to a DHCP group
 		"""
-		
+
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
