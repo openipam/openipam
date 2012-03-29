@@ -32,6 +32,41 @@ function loadAddresses() {
 			abox.html(selections);
 }
 
+
+function attribute_form_init() {
+	var add_attr_form = "div.add_attribute form";
+	$(add_attr_form + " input.add_attribute_fv").hide();
+	$(add_attr_form + " select.add_attribute_sv").hide();
+	
+	$(add_attr_form + " select.add_attribute_type_id").change(function () {
+		var add_attr_form = "div.add_attribute form";
+		var tselected = add_attr_form + " select.add_attribute_type_id option:selected";
+		var fv = add_attr_form + " input.add_attribute_fv";
+		var sv = add_attr_form + " select.add_attribute_sv";
+
+		if ($(tselected).attr("class") == "structured") {
+			$(fv).hide();
+			$(sv).show();
+			/* FIXME: load values */
+			$.ajax({
+				url: "/ajax/ajax_get_structured_attribute_values/",
+				data: { aid : $(tselected).val() },
+				success: function(data) {
+					var html = '<option value="">Select value</option>\n';
+					for ( svinfo in data ) {
+						html += '<option value="' + data[svinfo].id + '">' + data[svinfo].value + '</option>\n';
+					}
+					$(sv).html(html)
+				}
+			});
+		} else {
+			$(fv).show();
+			$(sv).hide();
+		}
+
+	});
+}
+
 function toggleHostFlyout( mac ){
 	
 	$("#hostInfo" + mac).toggle();
@@ -47,9 +82,28 @@ function toggleHostFlyout( mac ){
 					var content = $("#hostInfo" + mac + ' div.innerHostInfo');
 					content.html(data);
 					$("#hostInfo" + mac + ' input.isLoaded').attr('name', "True");
+
+					$('a.show_add').click( function() {
+						addAttributeForm(mac);
+						return false;
+					});
+					
+					$('table#attributes_'+mac+" a.delete_value").click( function() {
+						var href = $(this).attr("href");
+						$.ajax( { url: href, dataType: "html" } );
+
+						$("#hostInfo" + mac + ' input.isLoaded').attr('name', "False");
+						$("#hostInfo" + mac).hide();
+						toggleHostFlyout(mac);
+
+						return false;
+					});
+	
 				}
 			});
+
 	}
+
 };
 
 /*
@@ -105,6 +159,81 @@ function showGroups() {
 	bindAddAsOwner();
 }
 
+function addAttributeForm(mac) {
+
+	$.ajax( { url: '/hosts/add_attribute/', data: { mac: mac, wrap: "False"}, dataType: "html",
+		success: function (data) {
+			var content = $("div#modal-form");
+			content.html(data);
+			if(data != '') {
+				content.dialog( {
+					height: 200,
+					width: 600,
+					modal: true,
+					title : 'Add host attribute for '+mac,
+					buttons: {
+						"Add attribute": function() {
+							var formid = "div#add_attribute_"+mac + " form.add_attribute_form";
+							var aid = $(formid + " .add_attribute_type_id");
+							var avid = $(formid + " .add_attribute_sv");
+							var value = $(formid + " .add_attribute_fv");
+
+							$.ajax( { url: '/hosts/add_attribute/',
+								data: { mac: mac, wrap: "False",
+									attr_type_id: aid.val(),
+									freeform_value: value.val(),
+									structured_value: avid.val(),
+									submit: "Submit"
+								},
+								dataType: "html",
+								success: function(data) {
+									$("#modal-form").dialog("close");
+									// update the host info
+									$("#hostInfo" + mac + ' input.isLoaded').attr('name', "False");
+									$("#hostInfo" + mac).hide();
+									toggleHostFlyout(mac);
+								}
+							} );
+
+						},
+						Cancel: function() {
+							$(this).dialog("close");
+						}
+					}
+				});
+
+				var formid = "div#add_attribute_"+mac + " form.add_attribute_form";
+				$(formid).submit( function() {
+						/* FIXME: click the button in the modal pane here */
+						var buttons = $(this).closest("div.ui-dialog").find("div.ui-dialog-buttonpane div.ui-dialog-buttonset button.ui-button");
+
+						/*
+						alert(buttons);
+
+
+						for ( i in buttons ) {
+							alert(i);
+							if ( buttons[i].html().indexOf("Add attribute") >= 0 )
+							{
+								//alert( buttons[i].html() );
+								buttons[i].click();
+								break;		
+							}
+						}
+						*/
+
+						return false;
+				} );
+
+				attribute_form_init();
+				content.show();
+			}
+		}
+	});
+
+	return false;
+}
+
 /*
  * Global
  */
@@ -122,11 +251,11 @@ $(function() {
 		$('#loaderIcon').show();
 	});
 
-	$('.toggleHostFlyout').click(function () {
+	$('a.toggleHostFlyout').click(function () {
 		toggleHostFlyout($(this).attr('name'));
-		$(this).blur()
+		$(this).blur();
 	});
-	
+
 	// For the initial groups that are shown
 	if ($("#group_dialog").length) {
 		full_group_list = $('#full_group_list').val().split("-*-");
@@ -296,7 +425,9 @@ $(function() {
 	if ($('#owners_list').length) {
 		updateOwnersList();
 	}
-	
+
+	attribute_form_init();
+
 	$('#searchBox').focus();
 	$('#mac').focus();
 

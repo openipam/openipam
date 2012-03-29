@@ -1927,6 +1927,15 @@ class DBInterface( DBBaseInterface ):
 
 		return self._do_insert(table=obj.structured_attributes_to_hosts, values={'mac':mac, 'avid': avid})
 
+	def del_structured_attribute_to_host( self, mac, avid ):
+		"""
+		"""
+		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
+
+		where = and_( obj.structured_attributes_to_hosts.c.mac == mac, obj.structured_attributes_to_hosts.c.avid == avid )
+
+		return self._do_delete(table=obj.structured_attributes_to_hosts, where=where)
+
 	def add_freeform_attribute_to_host( self, mac, aid, value ):
 		"""
 		"""
@@ -1940,6 +1949,16 @@ class DBInterface( DBBaseInterface ):
 			raise error.InvalidArgument("aid specified is not a freeform attribute: %s" % attr)
 
 		return self._do_insert(table=obj.freeform_attributes_to_hosts, values={'mac':mac, 'aid':aid, 'value':value})
+
+	def del_freeform_attribute_to_host( self, mac, aid, value ):
+		"""
+		"""
+		self._require_perms_on_host(permission=perms.OWNER, mac=mac)
+
+		where = and_( obj.freeform_attributes_to_hosts.c.mac == mac, obj.freeform_attributes_to_hosts.c.aid == aid,
+				obj.freeform_attributes_to_hosts.c.value == value )
+
+		return self._do_delete(table=obj.freeform_attributes_to_hosts, where=where)
 
 	def add_auth_source( self ):
 		"""auth_source"""

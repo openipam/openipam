@@ -164,6 +164,7 @@ class Hosts(BasePage):
 		"""
 		Return the attributes passed to the Add/Edit host template that are shared between
 		Add and Edit functionality
+		FIXME: the name should be changed to protect the innocent
 		"""
 		
 		if not values:
@@ -246,7 +247,7 @@ class Hosts(BasePage):
 			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
 			})
 		
-		raise cherrypy.HTTPRedirect('/hosts/search/?q=%s' % misc.fix_mac(mac))
+		self.redirect('/hosts/search/?q=%s' % misc.fix_mac(mac))
 	
 	def edit_host(self, **kw):
 		'''
@@ -273,7 +274,7 @@ class Hosts(BasePage):
 			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
 			})
 		
-		raise cherrypy.HTTPRedirect('/hosts/search/?q=%s' % misc.fix_mac(kw['mac'] if kw['mac'] else kw['old_mac']))
+		self.redirect('/hosts/search/?q=%s' % misc.fix_mac(kw['mac'] if kw['mac'] else kw['old_mac']))
 
 	#-----------------------------------------------------------------
 	
@@ -303,7 +304,7 @@ class Hosts(BasePage):
 				values['show_search_here'] = True
 			else:
 				#values['num_hosts'],values['hosts'] = self.get_hosts( page=page, count=True )
-				raise cherrypy.HTTPRedirect('/hosts/search/?username=%s' % cherrypy.session['username'])
+				self.redirect('/hosts/search/?username=%s' % cherrypy.session['username'])
 				
 			values['show_all_hosts'] = cherrypy.session['show_all_hosts']
 		finally:
@@ -348,7 +349,7 @@ class Hosts(BasePage):
 		self.check_session()
 		
 		if not macaddr:
-			raise cherrypy.HTTPRedirect('/hosts')
+			self.redirect('/hosts')
 		
 		# Initialization
 		values = {}
@@ -366,7 +367,7 @@ class Hosts(BasePage):
 				
 		host = self.webservice.get_hosts( { 'mac' : macaddr, 'additional_perms' : str(frontend.perms.MODIFY) } )
 		if not host:
-			raise cherrypy.HTTPRedirect('/denied')
+			self.redirect('/denied')
 		host = host[0]
 
 		owners = self.webservice.find_owners_of_host( { 'mac' : macaddr } )
@@ -480,7 +481,7 @@ class Hosts(BasePage):
 
 		if q:
 			# we are ignoring order_by here, but this should only happen with a new search anyway...
-			raise cherrypy.HTTPRedirect('/hosts%s' % ( search_str[:-1] ) )
+			self.redirect('/hosts%s' % ( search_str[:-1] ) )
 
 		kw['order_by'] = order_by
 
@@ -552,7 +553,7 @@ class Hosts(BasePage):
 		success = "%ssuccess=True" % sep if "success" not in ref else ""
 		ref = "%s%s" % (ref, success)
 
-		raise cherrypy.HTTPRedirect(ref)
+		self.redirect(ref)
 	
 	@cherrypy.expose
 	def host_info(self, mac, wrap=True):
@@ -569,6 +570,7 @@ class Hosts(BasePage):
 		if len(host) != 1:
 			raise Exception("Invalid host: %s (%r)" % (mac,host) )
 		host = host[0]
+		host['clean_mac'] = misc.fix_mac(host['mac'])
 		vals['host'] = host
 		vals['owners'] = self.webservice.find_ownernames_of_host({'mac':mac})
 		vals['attributes'] = self.webservice.get_attributes_to_hosts({'mac':mac})
@@ -606,5 +608,62 @@ class Hosts(BasePage):
 			return self.__template.wrap(leftcontent=self.get_leftnav(), filename=filename, values=vals)
 		return str(framework.Template(file=filename, searchList=vals))
 	
-	
+	@cherrypy.expose
+	def add_attribute(self, mac, wrap=True, submit=False, attr_type_id=None, freeform_value=None, structured_value=None):
+		# Confirm user authentication
+		self.check_session()
+
+		if wrap in ['0','f','False','no']:
+			wrap = False
+
+		vals = {}
+		vals['wrap'] = wrap
+		host = self.webservice.get_hosts({'mac':mac})
+		if len(host) != 1:
+			raise Exception("Invalid host: %s (%r)" % (mac,host) )
+		host = host[0]
+		host['clean_mac'] = misc.fix_mac(host['mac'])
+		vals['host'] = host
+		vals['valid_attributes'] = self.webservice.get_attributes({})
+		attrs = {}
+		for i in vals['valid_attributes']:
+			attrs[i['id']] = i
+
+		filename = '%s/templates/add_host_attribute.tmpl'%frontend.static_dir
+
+		if submit:
+			if attrs[int(attr_type_id)]['structured']:
+				self.webservice.add_structured_attribute_to_host( {'mac': mac, 'avid':int(structured_value)} )
+			else:
+				self.webservice.add_freeform_attribute_to_host( {'mac': mac, 'aid': attr_type_id, 'value': freeform_value } )
+			status = "Success."
+			if wrap:
+				status = 'Success. <a href="javascript:window.close()">close window</a>'
+			return status
+		if wrap:
+			return self.__template.wrap(leftcontent=self.get_leftnav(), filename=filename, values=vals)
+		return str(framework.Template(file=filename, searchList=vals))
+
+	@cherrypy.expose
+	def del_attribute(self, mac=None, aid=None, structured=None, avid=None, value=None):
+
+		if structured is not None and structured.lower() in [ 'false', '0', 'f', 'no', 'n' ]:
+			structured = False
+
+		if not mac:
+			raise Exception("Must supply MAC address")
+
+		self.check_session()
+
+		if structured:
+			if avid is None:
+				raise Exception("Must supply avid for structured attribute")
+			self.webservice.del_structured_attribute_to_host( {'mac':mac, 'avid':avid } )
+		else:
+			if aid is None:
+				raise Exception("Must supply aid for freeform attribute")
+			self.webservice.del_freeform_attribute_to_host( {'mac':mac, 'aid':aid, 'value':value } )
+
+		return 'Success. <a href="javascript:window.close()">close window</a>'
+
 
