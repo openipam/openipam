@@ -385,6 +385,9 @@ class MainWebService(XMLRPCController):
 			return Perms(cherrypy.session['user']['min_permissions']) & Perms(perms) == Perms(perms)
 		finally:
 			cherrypy.session.release_lock()
+
+	def check_perms( self, required, effective ):
+		return Perms(required) & Perms(effective) == Perms(required)
 	
 	def get_uid(self):
 		cherrypy.session.acquire_lock()
@@ -1717,12 +1720,18 @@ class MainWebService(XMLRPCController):
 				
 				new.append(form_row)
 				
+				domain_perms = self.get_min_perms()
+
 				if fqdn_perms.has_key(form_row['name']):
-					self.has_min_perms(fqdn_perms[form_row['name']])
+					domain_perms |= fqdn_perms[form_row['name']]
 				else:
 					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
 
-				if not self.has_min_perms(perms.ADD) and (dns_type_perms.has_key(str(form_row['tid']))):
+				rtype_perms = perms.ADD
+				if dns_type_perms.has_key(str(form_row['tid'])):
+					rtype_perms = Perms(dns_type_perms[str(form_row['tid'])))
+
+				if not (self.has_min_perms(rtype_perms) or self.check_perms(rtype_perms, domain_perms)):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])
 					
 				continue
