@@ -329,7 +329,6 @@ class MainWebService(XMLRPCController):
 	@cherrypy.expose
 	def add_structured_attribute_to_host(self, *args):
 		"""
-		Create a new host custom attribute
 		"""
 		
 		# Check permissions -- do this in every exposed function
@@ -338,15 +337,34 @@ class MainWebService(XMLRPCController):
 		return db.add_structured_attribute_to_host( **args[0] ).last_inserted_ids()
 	
 	@cherrypy.expose
+	def del_structured_attribute_to_host(self, *args):
+		"""
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		db.del_structured_attribute_to_host( **args[0] )
+	
+	@cherrypy.expose
 	def add_freeform_attribute_to_host(self, *args):
 		"""
-		Create a new host custom attribute
 		"""
 		
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
 		return db.add_freeform_attribute_to_host( **args[0] ).last_inserted_ids()
+	
+	@cherrypy.expose
+	def del_freeform_attribute_to_host(self, *args):
+		"""
+		"""
+		
+		# Check permissions -- do this in every exposed function
+		db = self.__check_session()
+		
+		db.del_freeform_attribute_to_host( **args[0] )
 	
 	#------------------------	 USERS	  ----------------------------
 	# User management
@@ -1729,7 +1747,8 @@ class MainWebService(XMLRPCController):
 
 				rtype_perms = perms.ADD
 				if dns_type_perms.has_key(str(form_row['tid'])):
-					rtype_perms = Perms(dns_type_perms[str(form_row['tid'])))
+					raw_rtype_perms = dns_type_perms[str(form_row['tid'])]
+					rtype_perms = Perms(raw_rtype_perms['min_permissions'])
 
 				if not (self.has_min_perms(rtype_perms) or self.check_perms(rtype_perms, domain_perms)):
 					messages.append('Insufficient permissions to add record %s' % form_row['name'])

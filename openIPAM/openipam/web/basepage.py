@@ -5,6 +5,8 @@ from openipam.utilities import error
 from openipam.utilities.perms import Perms
 from openipam.config import frontend
 
+import openipam.web.resource.utils
+
 import framework
 splash = framework.Splash()
 
@@ -20,6 +22,9 @@ perms = frontend.perms
 
 class BasePage(object):
 	_cp_config = {'tools.cgitb.on': True}
+
+	def redirect(self, path):
+		openipam.web.resource.utils.redirect(path)
 	def __init__(self):
 		"""Class constructor to create global objects"""
 		
@@ -73,10 +78,10 @@ class BasePage(object):
 		# FIXME: there has to be a better way...
 		if not logging_in and not self.webservice.have_session():
 			self.__do_logout()
-			raise cherrypy.HTTPRedirect("/login/?expired=true")
+			self.redirect("/login/?expired=true")
 
 		if not logging_in and not have_username:
-			raise cherrypy.HTTPRedirect("/login")
+			self.redirect("/login")
 	
 	#-----------------------------------------------------------------
 	
@@ -86,8 +91,8 @@ class BasePage(object):
 		cherrypy.session.acquire_lock()
 		try:
 			if cherrypy.session.has_key('transport'):
-				raise cherrypy.HTTPRedirect("/hosts/")
-			raise cherrypy.HTTPRedirect("/login")
+				self.redirect("/hosts/")
+			self.redirect("/login")
 		finally:
 			cherrypy.session.release_lock()
 
@@ -124,19 +129,25 @@ class BasePage(object):
 		return False
 
 	@cherrypy.expose
-	def login(self, username=None, password=None, expired=None, failed=None, logged_out=None, ne=None, email=None, **kw):
+	def login(self, username=None, password=None, expired=None, failed=None, logged_out=None, ne=None, email=None, referer=None, **kw):
 		'''The login page'''
 		
 		self.check_session(logging_in=True)
 		
 		if self.logged_in():
 			# They're already logged in
-			raise cherrypy.HTTPRedirect("/hosts")
+			self.redirect("/hosts")
+
+		if referer is None and cherrypy.request.headers.has_key('Referer'):
+			referer = cherrypy.request.headers['Referer']
 		
 		if not username and not password:
 			content = '''
 				<div id="login"><h1><a href="/" title="Powered by openIPAM" onfocus="this.blur()">openIPAM</a></h1>
 					<form name="login" action="/login" method="post">'''
+			if referer is not None:
+				content += """
+						<input type="hidden" name="referer" value="%s"/>""" % referer
 			if failed is not None:
 				content += '''
 						<p>Invalid credentials.</p>'''
@@ -192,7 +203,9 @@ class BasePage(object):
 				cherrypy.session['dns_records_limit'] = DEFAULT_DNS_RECORDS_LIMIT
 
 				# redirect to main page
-				raise cherrypy.HTTPRedirect('/')
+				if referer is not None and 'login' not in referer:
+					self.redirect(referer)
+				self.redirect('/')
 			except Exception, e:
 				error_string = error.parse_webservice_fault(e)
 				if error_string == "InvalidCredentials":
@@ -212,5 +225,5 @@ class BasePage(object):
 		
 		self.__do_logout()
 		
-		raise cherrypy.HTTPRedirect('/login')	
+		self.redirect('/login')	
 

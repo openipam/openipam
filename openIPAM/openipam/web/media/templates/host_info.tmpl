@@ -140,17 +140,22 @@
 	</div>
 	<div class="attributes">
 	    #if $attributes:
-		<table class="host_attributes">
+		<table id="attributes_$host.clean_mac" class="host_attributes">
 			<caption>Host attributes</caption>
-			<tr><th>Attribute</th><th>Value</th></tr>
+			<tr><th>Attribute</th><th>Value</th><th>Actions</th></tr>
 			#for i in $attributes
-			<tr><td>$i.name</td><td>$i.value</td></tr>
+				#set structured = "avid=%s" % $i.avid if $i.structured else "aid=%s&value=%s" % ($i.aid,$i.value)
+				#set links = '<a class="delete_value" href="/hosts/del_attribute?mac=%s&structured=%s&%s" target="_blank">delete</a>' % ($host.clean_mac,$i.structured,$structured)
+			<tr><td>$i.name</td><td>$i.value</td><td>$links</td></tr>
 			#end for
 		</table>
 	    #else
 		<div class="label">Host attributes</div>
 		<div class="value">No host attributes found</div>
 	    #end if
+		<div class="show_add" id="show_add_attribute_$host.clean_mac" name="$host.clean_mac">
+			<a class="show_add" id="show_add_attribute_link_$host.clean_mac" href="/hosts/add_attribute/?mac=$host.clean_mac" target="_blank" name="$host.clean_mac">add attribute</a>
+		</div>
 	</div>
 </div>
 

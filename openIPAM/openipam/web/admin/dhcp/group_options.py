@@ -217,7 +217,7 @@ class AdminDHCPGroupOptions(AdminDHCPGroups):
 		else:
 			self.webservice.add_dhcp_option_to_group({ 'oid' : oid, 'gid' : gid, 'value' : value })
 		
-		raise cherrypy.HTTPRedirect("/admin/dhcp/groups/options/?gid="+str(gid))
+		self.redirect("/admin/dhcp/groups/options/?gid="+str(gid))
 	
 	#-----------------------------------------------------------------
 	

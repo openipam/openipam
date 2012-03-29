@@ -44,7 +44,7 @@ class Service(BasePage):
 			cherrypy.session.release_lock()
 
 		if not group:
-			raise cherrypy.HTTPRedirect('/denied')
+			self.redirect('/denied')
 
 		text = []
 		
