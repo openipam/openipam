@@ -102,22 +102,20 @@ class Server():
 		self.seen_cleanup = []
 		self.dhcp_sockets = []
 		self.dhcp_socket_info = {}
+		self.dhcp_unicast_xmit_socket = socket.socket()
+		self.dhcp_xmit_socket = None # initialize this in the sender
 
 		if not dhcp.server_listen:
 			raise Exception("Missing configuration option: openipam_config.dhcp.server_listen")
 
 		for s in dhcp.server_listen:
-			reuse=False
-			if s['broadcast'] and s['unicast']:
-				reuse=True
 			if s['broadcast']:
 				bsocket_info = s.copy()
 				bsocket_info['unicast'] = False
 				bsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 				bsocket.setsockopt(socket.SOL_SOCKET,IN.SO_BINDTODEVICE, bsocket_info['interface'])
 				bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-				if reuse:
-					bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+				bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 				bsocket.bind( (self.listen_bcast, self.listen_port) )
 				self.dhcp_sockets.append(bsocket)
 				self.dhcp_socket_info[bsocket] = bsocket_info
@@ -126,8 +124,7 @@ class Server():
 				usocket_info['broadcast'] = False
 				usocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 				usocket.setsockopt(socket.SOL_SOCKET,IN.SO_BINDTODEVICE, usocket_info['interface'])
-				if reuse:
-					usocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+				usocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 				usocket.bind( (usocket_info['address'], self.listen_port) )
 				self.dhcp_sockets.append(usocket)
 				self.dhcp_socket_info[usocket] = usocket_info
@@ -147,6 +144,13 @@ class Server():
 
 	def SendPacket(self, packet, bootp = False):
 		"""Encode and send the packet."""
+
+		if not self.dhcp_xmit_socket:
+			s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+			s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			s.bind( (self.listen_bcast, self.listen_port) )
+			self.dhcp_xmit_socket = s
 
 		#sender = packet.get_sender()
 		giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
@@ -186,7 +190,7 @@ class Server():
 			log_packet(packet, prefix='IGN/SNDFAIL:', level=dhcp.logging.ERROR)
 			raise Exception('Cannot send packet without one of ciaddr, giaddr, or yiaddr.')
 
-		self.dhcp_socket.sendto( packet.EncodePacket(), dest )
+		self.dhcp_xmit_socket.sendto( packet.EncodePacket(), dest )
 
 		if show_packets:
 			print "------- Sending Packet ----------"
