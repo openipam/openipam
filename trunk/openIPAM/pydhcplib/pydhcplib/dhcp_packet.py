@@ -30,8 +30,8 @@ class DhcpPacket(DhcpBasicPacket):
     def get_sender( self ):
         return self.sender
 
-    def set_recv_interface( self, addr ):
-        self.recv_interface = addr
+    def set_recv_interface( self, info ):
+        self.recv_interface = info
 
     def get_recv_interface( self ):
         return self.recv_interface

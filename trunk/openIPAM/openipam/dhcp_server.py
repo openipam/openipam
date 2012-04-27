@@ -89,7 +89,7 @@ def get_packet_type( packet ):
 	
 class Server():
 	BUFLEN=8192
-	listen_address = '0.0.0.0'
+	listen_bcast = '0.0.0.0'
 	listen_port = 67
 	bootpc_port = 68
 	bootps_port = 67
@@ -98,25 +98,47 @@ class Server():
 		#self.last_seen = {}
 		self.seen = {}
 		self.seen_cleanup = []
-		self.dhcp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		self.dhcp_socket.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
-		if dhcp.server_interface:
-			self.interface = dhcp.server_interface
-			if self.interface[-1] != '\0':
-				iface=self.interface+'\0'
-			else:
-				iface=self.interface
-			self.dhcp_socket.setsockopt(socket.SOL_SOCKET,IN.SO_BINDTODEVICE,iface)
-		self.dhcp_socket.bind((self.listen_address, self.listen_port))
-		self.dhcp_socket_addr = dhcp.server_ip
+		self.dhcp_sockets = []
+		self.dhcp_socket_info = []
+
+		if not dhcp.server_listen:
+			raise Exception("Missing configuration option: openipam_config.dhcp.server_listen")
+
+		for s in dhcp.server_listen:
+			reuse=False
+			if s['broadcast'] and s['unicast']:
+				reuse=True
+			if s['broadcast']:
+				bsocket_info = s.copy()
+				bsocket_info['unicast'] = False
+				bsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+				bsocket.setsockopt(socket.SOL_SOCKET,IN.SO_BINDTODEVICE, bsocket_info['interface'])
+				bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+				if reuse:
+					bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+				bsocket.bind( (self.listen_bcast, self.listen_port) )
+				self.dhcp_sockets.append(bsocket)
+				self.dhcp_socket_info.append(bsocket_info)
+			if s['unicast']:
+				usocket_info = s.copy()
+				usocket_info['broadcast'] = False
+				usocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+				usocket.setsockopt(socket.SOL_SOCKET,IN.SO_BINDTODEVICE, usocket_info['interface'])
+				if reuse:
+					usocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+				usocket.bind( (usocket_info['address'], self.listen_port) )
+				self.dhcp_sockets.append(usocket)
+				self.dhcp_socket_info.append(usocket_info)
 
 	def HandlePacket( self ):
-		data,sender = self.dhcp_socket.recvfrom(self.BUFLEN)
+		rlist, wlist, xlist = select(self.dhcp_sockets, [], [])
+		sock_idx = rlist[0]
+		data,sender = self.dhcp_sockets[sock_idx].recvfrom(self.BUFLEN)
 
 		packet = dhcp_packet.DhcpPacket()
 		packet.DecodePacket(data)
 		packet.set_sender( sender )
-		packet.set_recv_interface( self.dhcp_socket_addr )
+		packet.set_recv_interface( self.dhcp_socket_info[sock_idx] )
 
 		packet_type = get_packet_type( packet )
 		self.QueuePacket( packet, packet_type )
@@ -430,9 +452,11 @@ def db_consumer( dbq, send_packet ):
 			mac = decode_mac( packet.GetOption('chaddr') )
 			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
 			
+			recv_if = packet.get_recv_interface()
 			if router == '0.0.0.0':
-				# hey, local DHCP traffic!
-				router = packet.get_recv_interface()
+				if recv_if['broadcast']:
+					# hey, local DHCP traffic!
+					router = recv_if['address']
 
 			if not requested_ip:
 				requested_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
@@ -504,9 +528,11 @@ def db_consumer( dbq, send_packet ):
 			mac = decode_mac( packet.GetOption('chaddr') )
 			ciaddr = '.'.join(map(str,packet.GetOption('ciaddr')))
 
+			recv_if = packet.get_recv_interface()
 			if router == '0.0.0.0':
-				# hey, local DHCP traffic!
-				router = packet.get_recv_interface()
+				if recv_if['broadcast']:
+					# hey, local DHCP traffic!
+					router = recv_if['address']
 
 			# FIXME: If ciaddr is set, we should use a unicast message to the client
 
@@ -515,6 +541,10 @@ def db_consumer( dbq, send_packet ):
 				requested_ip = ciaddr
 				if not requested_ip:
 					raise Exception("This really needs fixed...")
+
+			if router == '0.0.0.0' and recv_if['unicast']:
+				# this was a unicast packet, I hope...
+				router = requested_ip
 
 			giaddr = '.'.join(map(str, packet.GetOption('giaddr')))
 
