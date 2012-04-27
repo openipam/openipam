@@ -153,7 +153,8 @@ class Server():
 		chaddr = decode_mac( packet.GetOption('chaddr') )
 
 		if not bootp:
-			packet.SetOption("server_identifier",dhcp.server_ip_lst) # DHCP server IP
+			server_id = map(int, packet.get_recv_interface()['address'].split('.'))
+			packet.SetOption("server_identifier",server_id) # DHCP server IP
 
 		# See rfc1532 page 21
 		if ciaddr != '0.0.0.0':
@@ -463,7 +464,7 @@ def db_consumer( dbq, send_packet ):
 				if not requested_ip:
 					raise Exception("This really needs fixed...")
 
-			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True)
+			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
 			
 			print 'Got lease %s from database' % lease
 
@@ -471,7 +472,7 @@ def db_consumer( dbq, send_packet ):
 				print 'Address %s in use, marking lease %s as abandoned' % ( lease['address'], lease )
 				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s", 'ERR/IN_USE:', lease['address'] )
 				self.__db.mark_abandoned_lease( address=lease['address'] )
-				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True)
+				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
 				print 'Got new lease %s from database' % lease
 
 			# create an offer
@@ -551,7 +552,7 @@ def db_consumer( dbq, send_packet ):
 			print "mac: %s, requested address: %s" % (mac, requested_ip)
 			# make sure a valid lease exists
 
-			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=False)
+			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=False, server_address = recv_if['address'])
 			print "got lease: %s" % str(lease)
 			if lease['address'] != requested_ip:
 				# FIXME: Send a DHCP NAK if authoritative
