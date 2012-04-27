@@ -3,6 +3,5 @@
 static_lease_time = 86400
 
 # The IP address of this server
-server_ip = '192.168.0.1'
-server_interface = 'eth0'
+server_listen = [ { 'address': '192.168.0.1', 'interface': 'eth0', 'broadcast': True, 'unicast': True } ]
 
