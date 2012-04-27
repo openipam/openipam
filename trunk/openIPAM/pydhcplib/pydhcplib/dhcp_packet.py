@@ -143,6 +143,7 @@ class DhcpPacket(DhcpBasicPacket):
         self.SetOption("chaddr",src.GetOption("chaddr"))
         self.TransformToDhcpOfferPacket()
         self.SetOption("ip_address_lease_time",src.GetOption("ip_address_lease_time"))
+	self.set_recv_interface( src.get_recv_interface() )
 
     def TransformToDhcpOfferPacket(self):
         self.SetOption("dhcp_message_type",[2])
@@ -171,6 +172,7 @@ class DhcpPacket(DhcpBasicPacket):
         self.SetOption("chaddr",src.GetOption("chaddr"))
         self.TransformToDhcpAckPacket()
         self.SetOption("ip_address_lease_time",src.GetOption("ip_address_lease_time"))
+	self.set_recv_interface( src.get_recv_interface() )
 
     def TransformToDhcpAckPacket(self): # src = request or inform packet
         self.SetOption("op",[2])
@@ -194,6 +196,7 @@ class DhcpPacket(DhcpBasicPacket):
         self.SetOption("giaddr",src.GetOption("giaddr"))
         self.SetOption("chaddr",src.GetOption("chaddr"))
         self.TransformToDhcpNackPacket()
+	self.set_recv_interface( src.get_recv_interface() )
 
     def TransformToDhcpNackPacket(self):
         self.SetOption("op",[2])
