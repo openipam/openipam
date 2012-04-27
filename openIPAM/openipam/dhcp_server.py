@@ -101,7 +101,7 @@ class Server():
 		self.seen = {}
 		self.seen_cleanup = []
 		self.dhcp_sockets = []
-		self.dhcp_socket_info = []
+		self.dhcp_socket_info = {}
 
 		if not dhcp.server_listen:
 			raise Exception("Missing configuration option: openipam_config.dhcp.server_listen")
@@ -120,7 +120,7 @@ class Server():
 					bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 				bsocket.bind( (self.listen_bcast, self.listen_port) )
 				self.dhcp_sockets.append(bsocket)
-				self.dhcp_socket_info.append(bsocket_info)
+				self.dhcp_socket_info[bsocket] = bsocket_info
 			if s['unicast']:
 				usocket_info = s.copy()
 				usocket_info['broadcast'] = False
@@ -130,17 +130,17 @@ class Server():
 					usocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 				usocket.bind( (usocket_info['address'], self.listen_port) )
 				self.dhcp_sockets.append(usocket)
-				self.dhcp_socket_info.append(usocket_info)
+				self.dhcp_socket_info[usocket] = usocket_info
 
 	def HandlePacket( self ):
 		rlist, wlist, xlist = select.select(self.dhcp_sockets, [], [])
-		sock_idx = rlist[0]
-		data,sender = self.dhcp_sockets[sock_idx].recvfrom(self.BUFLEN)
+		s = rlist[0]
+		data,sender = s.recvfrom(self.BUFLEN)
 
 		packet = dhcp_packet.DhcpPacket()
 		packet.DecodePacket(data)
 		packet.set_sender( sender )
-		packet.set_recv_interface( self.dhcp_socket_info[sock_idx] )
+		packet.set_recv_interface( self.dhcp_socket_info[s] )
 
 		packet_type = get_packet_type( packet )
 		self.QueuePacket( packet, packet_type )
