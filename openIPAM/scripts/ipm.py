@@ -905,7 +905,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.iface.update_network(network=arg, new_network=new_net, **changed)
 
 	def do_add_network( self, arg ):
-		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id'),  ] )
+		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id'), ('gateway',),  ] )
 
 		name=vals['name']
 		if not name:
@@ -918,8 +918,9 @@ class IPMCmdInterface( cmd.Cmd ):
 		pool_id = None
 		if vals['pool_id']:
 			pool_id = vals['pool_id']
+		gateway = vals['gateway'] if vals['gateway'] else None
 		
-		self.iface.add_network( network=network, name=name, description=desc, shared_network=shared_id, pool=pool_id )
+		self.iface.add_network( network=network, name=name, description=desc, shared_network=shared_id, pool=pool_id, gateway=gateway )
 		print "Remember to add domain for PTRs"
 
 
