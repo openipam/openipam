@@ -20,6 +20,8 @@
 import sys
 import os
 
+import select
+
 from pydhcplib.dhcp_constants import DhcpOptions
 
 # FIXME: don't 'import *'
@@ -131,7 +133,7 @@ class Server():
 				self.dhcp_socket_info.append(usocket_info)
 
 	def HandlePacket( self ):
-		rlist, wlist, xlist = select(self.dhcp_sockets, [], [])
+		rlist, wlist, xlist = select.select(self.dhcp_sockets, [], [])
 		sock_idx = rlist[0]
 		data,sender = self.dhcp_sockets[sock_idx].recvfrom(self.BUFLEN)
 
