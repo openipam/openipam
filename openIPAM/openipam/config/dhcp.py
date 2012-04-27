@@ -6,7 +6,6 @@ import datetime
 static_lease_time = 86400
 
 listen_address='0.0.0.0'
-server_ip = None
 
 client_port=68
 server_port=67
@@ -36,8 +35,6 @@ syslog_connect='/dev/log'
 logger=None
 
 from openipam_config.dhcp import *
-
-server_ip_lst=map(int,server_ip.split('.'))
 
 def get_logger():
 	global logger

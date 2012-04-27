@@ -3797,7 +3797,6 @@ class DBDHCPInterface(DBInterface):
 	def __init__( self ):
 		# FIXME: this should come from the config file
 		DBInterface.__init__(self, uid=4, username='dhcp', min_perms=perms.DEITY)
-		self.server_ip = self.dhcp.server_ip
 
 	def _create_conn( self ):
 		conn = obj.engine.connect()
@@ -3815,7 +3814,7 @@ class DBDHCPInterface(DBInterface):
 			print query.compile()
 		return DBInterface._execute_set(self, query)
 
-	def update_or_create_lease_and_delete_conflicting(self, mac, address, expires):
+	def update_or_create_lease_and_delete_conflicting(self, mac, address, expires, server_address):
 		# FIXME: rename this to something like 'handle lease'
 		# FIXME: do the lease thing -- delete (set MAC -> NULL, expires -> old or NULL) existing leases for the host, then update address
 		
@@ -3844,7 +3843,7 @@ class DBDHCPInterface(DBInterface):
 					#'mac':mac, # The MAC here must be the same mac, RIGHT?
 					'address':address,
 					#'starts':sqlalchemy.sql.func.now(), # Doesn't really matter, since we are extending a lease; RIGHT?
-					'server':self.server_ip,
+					'server':server_address,
 					'ends':sqlalchemy.sql.func.now() + text("interval '%s sec'" % (expires + 300) ) # store an extra 5 minutes on the lease to reduce writes caused by stupid client software
 					}
 			# select * from leases where mac = mac, if exists: update where starts < NOW()-10 sec else, insert.
@@ -3924,7 +3923,7 @@ class DBDHCPInterface(DBInterface):
 		addrs = addrs.outerjoin(obj.leases, obj.leases.c.address == obj.addresses.c.address)
 		return (columns, addrs)
 
-	def make_dhcp_lease(self, mac, gateway, requested_address, discover):
+	def make_dhcp_lease(self, mac, gateway, requested_address, discover, server_address):
 		"""
 		Create a DHCP lease for the specific MAC in the proper network
 		"""
@@ -4150,7 +4149,7 @@ class DBDHCPInterface(DBInterface):
 					raise Exception("Bad lease time: %s (%s)" % (lease_time, dict(lease_time_option)))
 
 			# FIXME: we should check lease_time here, but oh well
-			self.update_or_create_lease_and_delete_conflicting(mac, address['address'], lease_time)
+			self.update_or_create_lease_and_delete_conflicting(mac, address['address'], lease_time, server_address)
 		
 		# This probably doesn't gain us anything, since clients should renew at random intervals anyway
 		#return make_lease_dict( address, random.randrange( lease_time*2/3, lease_time ), hostname )
