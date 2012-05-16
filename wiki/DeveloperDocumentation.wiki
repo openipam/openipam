@@ -7,12 +7,9 @@
 
 openIPAM is a suite of applications designed to provide an intuitive and powerful IP address management system and solution for DNS and DHCP. The development of these applications has been built with the open source philosophy in mind so that other universities and organizations can benefit from (and contribute to) these applications in order to efficiently manage their own network space.
 
-See the [Features openIPAM features] page for more information. We welcome your contributions to openIPAM and hope that any customizations you make for your own organization will be made in a generalized way so that they can be contributed back to the community.
+See the [Features openIPAM features] page for more information.
 
 = Developer introduction =
-
-WRITEME: Architecture explanation
-
 http://openipam.org/images/uploads/architecture.png
 
 = Coding conventions =
@@ -23,15 +20,4 @@ See the CodingConventions page for a style guide of how to write code for openIP
 
 For information about what the webservice API could do for you, see the webservice API section on the [Features features page].
 
-REWRITEME
-
-The structure of the system is broken up into two main pieces:
-
- * The openIPAM web interface, which should be everything in ./web
- * The openIPAM backend, which should be everything else in ./backend, including the database, authentication, webservices, etc.
-
-``The core interface foundation of openIPAM is built around a single, fully-functional webservice API. The web application and any other piece that exists outside the backend performs functionality by means of this webservice. All communication between the web layer and the backend or database goes through this webservice layer. For now, our choice of transport has been XMLRPC (no support for SOAP or others at this point). However, we are looking at implementing other standards as well, such as JSONRPC.,,
-
-== Customizing using Python ==
-
-WRITEME
+``The core interface foundation of openIPAM is built around a single, fully-functional webservice API. The web application and any other piece that exists outside the backend performs functionality by means of this webservice. All communication between the web layer and the backend or database goes through this webservice layer. For now, our choice of transport has been XMLRPC (no support for SOAP or others at this point). 
