@@ -22,6 +22,8 @@ For more information about how to customize openIPAM and create smaller sub-syst
 
 == Under the hood: PowerDNS, PostgreSQL, and SQLAlchemy ==
 
+http://openipam.org/images/uploads/architecture.png
+
 For its backend DNS, openIPAM uses PowerDNS; one of the most widely-used, robust, and secure DNS solutions available on the market today. Since PowerDNS relies on a database as its data storage mechanism, we can rapidly manage information about hosts without the pain of flat text file maintenance.
 
 For the database itself, PostgreSQL is the database of choice for systems that heavily rely on network data types such as IP addresses, MAC addresses, CIDR netmasks, etc. Postgres has built-in data types for all of these and is very efficient in querying and manipulating them, so Postgres was the natural choice of our team and the best tool for this project. Though PostgreSQL is the primary database choice of openIPAM, we use [http://www.sqlalchemy.org/ SQLAlchemy] (specifically, SQLAlchemy's [http://www.sqlalchemy.org/docs/05/sqlexpression.html SQL Expression Language]) as our interface to the database. SQLAlchemy allows for a system to be database-agnostic, so it could be a future goal for openIPAM to support other database backends (such as MySQL, Oracle or others). However, much of the internal code in openIPAM is Postgres-specific for efficiency's sake and it would require heavy modification to make it work with other databases. *At this time, there are no plans to support non-PostgreSQL databases in openIPAM.* 
