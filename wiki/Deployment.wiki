@@ -1,14 +1,6 @@
 #summary How to deploy openIPAM for production use (Apache, mod_wsgi, etc.)
 #labels Documentation,Future,Design
 
-= Deploying openIPAM =
-
-WRITEME
-
-= Built-in Webserver =
-
-WRITEME
-
 = Apache and mod_wsgi =
 
 Possible VirtualHost configuration (doesn't handle SSL):
