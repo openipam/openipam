@@ -2,19 +2,14 @@
 
 * [http://code.google.com/p/openipam/source/browse/ Browse Source] | [http://code.google.com/p/openipam/source/list View Changes] *
 
-== Source under development ==
-
-You can download our in-development alpha code below.
-
-Thanks for your interest; feel free to [http://openipam.org/htm/contact contact us] with questions.
-
+----
+=UNSUPPORTED=
+We are unfortunately unable to offer setup or support help. Getting openIPAM up and running for your institution is feasible, but would require a concerted effort to understand the internals and deal with bugs.
 ----
 
 = SVN =
 
 See the [Installation] instructions.
-
-== v0.1-alpha ==
 
 Use this command to anonymously check out the latest project source code:
 {{{
