@@ -3119,6 +3119,9 @@ class DBInterface( DBBaseInterface ):
 		# Check permissions
 		self.require_perms(perms.DEITY)
 
+		where = and_(obj.networks_to_groups.c.nid == nid,
+				obj.networks_to_groups.c.gid == gid)
+
 		return self._do_delete(table=obj.networks_to_groups, where=where,)
 	
 	def del_notification_to_host( self, id=None, mac=None ):

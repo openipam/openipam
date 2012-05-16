@@ -414,7 +414,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			net = vals['network']
 		results = self.iface.get_networks(network=net)
 		print "Network %s:"%net
-		self.show_dicts( results, [('name', 'name'),('network','network'),('gateway','gateway'),('shared_network', 'Shared Network ID'), ('dhcp_group', 'Dhcp Group ID')], prefix='\t')
+		self.show_dicts( results, [('name', 'name'),('network','network'),('gateway','gateway'),('shared_network', 'Shared Network ID'), ('dhcp_group', 'DHCP Group ID')], prefix='\t')
 #	def do_set_pool(self, arg):
 #		filter = self.mkdict(arg)
 #		if not filter or not filter.has_key('network') or not filter.has_key('pool'):
@@ -886,7 +886,7 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		network = match[0]
 
-		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id'), ('gateway',) ] , defaults=network)
+		vals = self.get_from_user( [ ('name',), ('network','network (CIDR)',), ('description',), ('shared_network','shared network id',), ('pool_id','pool id'), ('dhcp_group','DHCP Group ID'), ('gateway',) ] , defaults=network)
 		
 		changed = {}
 		new_net = None
