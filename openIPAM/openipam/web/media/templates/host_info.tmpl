@@ -59,18 +59,6 @@
 	</div>
 	#end if
 	<div class="addresses">
-	    #if $enable_gul and $arp_bymac:
-		<table class="arp">
-			<caption>ARP entries from MAC</caption>
-			<tr><th>Address</th><th>MAC</th><th>Last Seen</th></tr>
-			#for i in $arp_bymac:
-				#set addr_class = '' if $i.address in $addresses else ' class="nomatch"'
-			<tr><td$addr_class>$i.address</td><td>$i.mac</td><td>$i.stopstamp</td></tr>
-			#end for			
-	    #else if $enable_gul:
-		<div class="label">ARP entries from MAC</div>
-		<div class="value">No arp entries found</div>
-	    #end if
 	    #if $static:
 		<table class="static">
 			<caption>Static addresses</caption>
@@ -117,6 +105,18 @@
 	    #else
 		<div class="label">Leased addresses</div>
 		<div class="value">No leases found</div>
+	    #end if
+	    #if $enable_gul and $arp_bymac:
+		<table class="arp">
+			<caption>ARP entries from MAC</caption>
+			<tr><th>Address</th><th>MAC</th><th>Last Seen</th></tr>
+			#for i in $arp_bymac:
+				#set addr_class = '' if $i.address in $addresses else ' class="nomatch"'
+			<tr><td$addr_class>$i.address</td><td>$i.mac</td><td>$i.stopstamp</td></tr>
+			#end for			
+	    #else if $enable_gul:
+		<div class="label">ARP entries from MAC</div>
+		<div class="value">No arp entries found</div>
 	    #end if
 	</div>
 	<div class="dns">
