@@ -30,10 +30,6 @@ It may be valuable to note that there is *enterprise support* available for Post
 
 == DHCP shared leases ==
 
-WRITEME
-
 == Integration with LDAP for authentication ==
 
 openIPAM allows for the use of an LDAP server as a source for user accounts. There is also internal authentication, so LDAP is not required, especially if few user accounts will be needed.
-
-WRITEME
