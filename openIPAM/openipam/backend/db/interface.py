@@ -1407,7 +1407,7 @@ class DBBaseInterface(object):
 		
 		return select( [obj.internal_auth], obj.internal_auth.c.id == uid )
 
-	def _get_networks( self, nid=None, network=None, gid=None, address=None, additional_perms='00000000', exact=True ):
+	def _get_networks( self, nid=None, network=None, gid=None, address=None, shared_network_id=False, additional_perms='00000000', exact=True ):
 		'''
 		Return networks
 		@param nid: the database network id, returns one network
@@ -1442,8 +1442,17 @@ class DBBaseInterface(object):
 				query = query.where(obj.networks.c.network.op('<<=')(network))
 		if address:
 			query = query.where(obj.networks.c.network.op('>>=')(address))
+		if shared_network_id is not False:
+			query = query.where(obj.networks.c.shared_network == shared_network_id)
 		
 		return query 
+	
+	def _get_shared_networks( self, shared_network_id=False ):
+		self.require_perms(perms.READ)
+		q = select( [ obj.shared_networks ] )
+		if shared_network_id is not False:
+			q = q.where( obj.shared_networks.c.id == shared_network_id )
+		return q
 					
 	def _get_networks_to_groups( self, nid=None, gid=None ):
 		"""
@@ -1668,12 +1677,15 @@ class DBInterface( DBBaseInterface ):
 	def _assign_ip6_address(self, mac, network, dhcp_server_id=0, use_lowest=False, is_server=False):
 		# FIXME: how do we get this?
 		network = openipam.iptypes.IP(network)
-		# FIXME: the logic for choosing an address to try should go in a config file somewhere
-		address_prefix = network | ( dhcp_server_id << 48 )
-		if not is_server:
-			address_prefix |= 1 << 63
-		address_prefix = address_prefix.make_net(48)
-		if use_lowest:
+		if network.prefixlen == 64:
+			# FIXME: the logic for choosing an address to try should go in a config file somewhere
+			address_prefix = network | ( dhcp_server_id << 48 )
+			if not is_server:
+				address_prefix |= 1 << 63
+			address_prefix = address_prefix.make_net(48)
+		if network.prefixlen == 128:
+			address = network
+		elif use_lowest:
 			a = obj.addresses.alias('a')
 			q = select(columns = [(obj.addresses.c.address + 1).label('next'),], from_obj=obj.addresses).where(obj.addresses.c.address.op('<<')(str(network)))
 			sub_q =  sqlalchemy.sql.exists(whereclause=and_(a.c.address == obj.addresses.c.address + 1, (a.c.address + 1).op('<<')(str(network))))
@@ -1688,6 +1700,9 @@ class DBInterface( DBBaseInterface ):
 			lastbits = (macaddr & 0xffffff) ^ ( macaddr >> 24 ) | ( random.getrandbits(24) << 24 )
 			address = address_prefix | lastbits
 			# FIXME: check to see if it is used
+		addr = self.get_addresses(address=address)
+		if addr:
+			raise Exception("Address %r in use" % addr)
 		# assign address
 		network = self._execute(select(columns=[obj.networks.c.network,],from_obj=obj.networks).where(obj.networks.c.network.op('>>')(str(address))))[0][0]
 		self.add_address(mac=mac, network=network, address=str(address))
@@ -2431,7 +2446,8 @@ class DBInterface( DBBaseInterface ):
 						raise error.NoFreeAddresses()
 				else:
 					# FIXME: how do we determine 'is_server'?  should we always use_lowest for a static address?
-					address = self._assign_ip6_address(network=network, mac=mac, use_lowest=True, is_server=True, dhcp_server_id = 0)
+					ip6net = address if address else network
+					address = self._assign_ip6_address(network=ip6net, mac=mac, use_lowest=True, is_server=True, dhcp_server_id = 0)
 					created = True
 
 				

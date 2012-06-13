@@ -415,6 +415,16 @@ class IPMCmdInterface( cmd.Cmd ):
 		results = self.iface.get_networks(network=net)
 		print "Network %s:"%net
 		self.show_dicts( results, [('name', 'name'),('network','network'),('gateway','gateway'),('shared_network', 'Shared Network ID'), ('dhcp_group', 'DHCP Group ID')], prefix='\t')
+	def do_show_shared_network(self, arg=None):
+		if arg:
+			snid = int(arg.strip())
+		else:
+			vals = self.get_from_user( [ ('id','Shared network ID'), ])
+			snid = vals['id']
+		results = self.iface.get_shared_networks( id=snid )
+		self.show_dicts( results, [('id','id'),('name','name'),('description','description'),('changed','changed'),('changed_by','changed_by')] )
+		results = self.iface.get_networks(shared_network_id=snid)
+		self.show_dicts( results, [('name', 'name'),('network','network'),('gateway','gateway'),('shared_network', 'Shared Network ID'), ('dhcp_group', 'DHCP Group ID')], prefix='\t')
 #	def do_set_pool(self, arg):
 #		filter = self.mkdict(arg)
 #		if not filter or not filter.has_key('network') or not filter.has_key('pool'):
@@ -1042,25 +1052,26 @@ class IPMCmdInterface( cmd.Cmd ):
 			# mmm... network...
 			ip = self.iface.assign_static_address( mac=mac, hostname=hostname, network=net )
 		else:
-			# first, check addresses
-			print 'Searching for address %s' % net
-			addrs = self.iface.get_addresses( address=net )
-			if not addrs:
-				# FIXME: this is good for IPv6 addresses
-				raise Exception('Address %s not found.  Has the network been added?')
+			if openipam.iptypes.IP(net).version() == 4:
+				# first, check addresses
+				print 'Searching for address %s' % net
+				addrs = self.iface.get_addresses( address=net )
+				if not addrs:
+					# FIXME: this is good for IPv6 addresses
+					raise Exception('Address %s not found.  Has the network been added?')
 
-			print 'Address to be updated:'
-			self.show_dicts( addrs, prefix='\t' )
+				print 'Address to be updated:'
+				self.show_dicts( addrs, prefix='\t' )
 
-			# then, leases
-			leases = self.iface.get_leases( address=net )
-			if leases:
-				print 'WARNING: Address has a lease:'
-				self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
-				if self.get_bool_from_user( 'Delete this lease', default=False ):
-					self.iface.del_lease( address=net )
-				else:
-					raise Exception('Aborting because of lease on address.')
+				# then, leases
+				leases = self.iface.get_leases( address=net )
+				if leases:
+					print 'WARNING: Address has a lease:'
+					self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
+					if self.get_bool_from_user( 'Delete this lease', default=False ):
+						self.iface.del_lease( address=net )
+					else:
+						raise Exception('Aborting because of lease on address.')
 			ip = self.iface.assign_static_address( mac=mac, hostname=hostname, address=net )
 			print 'Assigned address %s to %s' % (ip,mac)
 
