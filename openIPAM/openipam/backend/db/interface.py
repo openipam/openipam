@@ -1700,7 +1700,7 @@ class DBInterface( DBBaseInterface ):
 			lastbits = (macaddr & 0xffffff) ^ ( macaddr >> 24 ) | ( random.getrandbits(24) << 24 )
 			address = address_prefix | lastbits
 			# FIXME: check to see if it is used
-		addr = self.get_addresses(address=address)
+		addr = self.get_addresses(address=str(address))
 		if addr:
 			raise Exception("Address %r in use" % addr)
 		# assign address
