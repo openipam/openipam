@@ -1677,13 +1677,13 @@ class DBInterface( DBBaseInterface ):
 	def _assign_ip6_address(self, mac, network, dhcp_server_id=0, use_lowest=False, is_server=False):
 		# FIXME: how do we get this?
 		network = openipam.iptypes.IP(network)
-		if network.prefixlen == 64:
+		if network.prefixlen() == 64:
 			# FIXME: the logic for choosing an address to try should go in a config file somewhere
 			address_prefix = network | ( dhcp_server_id << 48 )
 			if not is_server:
 				address_prefix |= 1 << 63
 			address_prefix = address_prefix.make_net(48)
-		if network.prefixlen == 128:
+		if network.prefixlen() == 128:
 			address = network
 		elif use_lowest:
 			a = obj.addresses.alias('a')
@@ -1693,7 +1693,7 @@ class DBInterface( DBBaseInterface ):
 			q = q.limit(1).order_by('next')
 			results = self._execute(q)
 			if not results:
-				raise Exception('Did not find an ip6 address?! network: %s mac: %s'%(network,mac))
+				raise Exception('Did not find an ip6 address?! network: %s prefixlen: %s mac: %s'%(network,network.prefixlen(),mac))
 			address = results[0][0]
 		else:
 			macaddr = int('0x' + re.sub(mac,'[^0-9A-Fa-f]+',''))
