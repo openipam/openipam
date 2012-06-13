@@ -1705,7 +1705,7 @@ class DBInterface( DBBaseInterface ):
 			raise Exception("Address %r in use" % addr)
 		# assign address
 		network = self._execute(select(columns=[obj.networks.c.network,],from_obj=obj.networks).where(obj.networks.c.network.op('>>')(str(address))))[0][0]
-		self.add_address(mac=mac, network=network, address=str(address))
+		self.add_address(mac=mac, network=str(network), address=str(address))
 
 		return address
 
@@ -2448,6 +2448,7 @@ class DBInterface( DBBaseInterface ):
 					# FIXME: how do we determine 'is_server'?  should we always use_lowest for a static address?
 					ip6net = address if address else network
 					address = self._assign_ip6_address(network=ip6net, mac=mac, use_lowest=True, is_server=True, dhcp_server_id = 0)
+					address = str(address)
 					created = True
 
 				
