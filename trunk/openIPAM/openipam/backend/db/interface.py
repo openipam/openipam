@@ -2049,6 +2049,9 @@ class DBInterface( DBBaseInterface ):
 				else:
 					raise error.InsufficientPermissions("Insufficient permissions to access domain containing %s" % name)
 			
+			if domains[0]['type'] == 'SLAVE':
+				raise error.InvalidArgument("Cannot create name %s: not authoritative for domain %s" % (name, domains[0]['name']))
+
 			values = { 
 				'name' : name,
 				'tid' : tid,
