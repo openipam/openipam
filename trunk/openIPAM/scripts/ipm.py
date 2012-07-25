@@ -735,14 +735,17 @@ class IPMCmdInterface( cmd.Cmd ):
 				mac,address,name,desc = record
 				print record
 				try:
+					args = {
+							'hostname'=name, 'mac'=mac, 'owners'=additional_owners, 'is_dynamic'=True,
+							'do_validation'=False, 'description'=desc, 'expires'=expiration
+						}
 					if address:
-				                self.iface.register_host( hostname=name, mac=mac, owners=additional_owners,
-								is_dynamic=False, address=address, do_validation=False,
-								description=desc, expires=expiration )
-					else:
-						self.iface.register_host( hostname=name, mac=mac, owners=additional_owners,
-								is_dynamic=True, do_validation=False, description=desc,
-								expires=expiration )
+						args['is_dynamic']=False
+						if '/' in address:
+							args['network'] = address
+						else:
+							args['address'] = address
+					self.iface.register_host( **args )
 				except Exception,e:
 					print_error()
 					failed.append( record )
