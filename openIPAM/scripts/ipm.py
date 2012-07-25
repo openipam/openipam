@@ -736,8 +736,8 @@ class IPMCmdInterface( cmd.Cmd ):
 				print record
 				try:
 					args = {
-							'hostname'=name, 'mac'=mac, 'owners'=additional_owners, 'is_dynamic'=True,
-							'do_validation'=False, 'description'=desc, 'expires'=expiration
+							'hostname':name, 'mac':mac, 'owners':additional_owners, 'is_dynamic':True,
+							'do_validation':False, 'description':desc, 'expires':expiration
 						}
 					if address:
 						args['is_dynamic']=False
