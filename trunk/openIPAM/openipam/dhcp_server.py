@@ -282,6 +282,9 @@ def parse_packet( packet ):
 	xid = bytes_to_int( packet.GetOption('xid') )
 	requested_options = packet.GetOption('parameter_request_list')
 
+	if hasattr(dhcp, 'force_options') and dhcp.force_options:
+		requested_options.extend(dhcp.force_options)
+
 	recvd_from = packet.get_sender()
 	giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 

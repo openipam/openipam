@@ -365,7 +365,7 @@ CREATE TABLE structured_attribute_values (
 
 CREATE TABLE structured_attributes_to_hosts (
 	id				SERIAL PRIMARY KEY,
-	mac				MACADDR NOT NULL REFERENCES hosts(mac),
+	mac				MACADDR NOT NULL REFERENCES hosts(mac) ON DELETE CASCADE ON UPDATE CASCADE,
 	avid				integer REFERENCES attribute_values(id) NOT NULL,
 	changed			timestamp DEFAULT NOW(),
 	changed_by		integer NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -376,7 +376,7 @@ CREATE UNIQUE INDEX structured_attributes_to_hosts_unique_default_idx ON structu
 
 CREATE TABLE freeform_attributes_to_hosts (
 	id				SERIAL PRIMARY KEY,
-	mac				MACADDR NOT NULL REFERENCES hosts(mac),
+	mac				MACADDR NOT NULL REFERENCES hosts(mac) ON DELETE CASCADE ON UPDATE CASCADE,
 	aid				integer NOT NULL REFERENCES attributes(id) ON DELETE RESTRICT,
 	value			text NOT NULL,
 	changed			timestamp DEFAULT NOW(),
