@@ -332,8 +332,8 @@ $(function() {
 		
 		var selectbox = $("#address_type");
 		
-		if (!(selectbox.val() == 'dynamic' || selectbox.val() == 'voice' || selectbox.val() == 'dynamic_nonroutable')  ) {
-			$('#changeIPLink')(function () {
+		if (!(selectbox.val() == 'dynamic' || selectbox.val() == 'voice' || selectbox.val() == 'dynamic_nonroutable') ) {
+			$('#changeIPLink').click(function () {
 				var selectbox = $("#address_type");
 				
 				$('#currentIPContent').css( { textDecoration : 'line-through' });
