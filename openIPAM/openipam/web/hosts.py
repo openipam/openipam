@@ -18,7 +18,13 @@ class Hosts(BasePage):
 	'''The hosts class. This includes all pages that are /hosts/*'''
 	address_types = {
 			'dynamic': { 'name': 'dynamic', 'description': 'Dynamic, routable address (preferred)', 'ranges': [], 'pool': 1 },
-			'nonroutable': { 'name': 'nonroutable', 'description': 'Static, non-routable address', 'ranges': [IP('172.17.0.0/16'),IP('172.21.0.0/16')] },
+			'voice': { 'name': 'voice', 'description': 'VoIP (shoretel) with dynamic address', 'ranges': [], 'pool': 8 },
+			'voice_static': { 'name': 'voice_static', 'description': 'VoIP (shoretel) with static address (voice switches, etc)',
+				'ranges': [ IP('172.22.0.0/16'), ], },
+			'dynamic_nonroutable': { 'name': 'dynamic_nonroutable', 'description': 'Dynamic, non-routable address',
+				'ranges': [], 'pool': 3 },
+			'nonroutable': { 'name': 'nonroutable', 'description': 'Static, non-routable address',
+				'ranges': [IP('172.17.0.0/16'),IP('172.21.0.0/16')] },
 			# Consider any other ranges 'routable', whether they are or not
 			'routable': { 'name': 'routable', 'description': 'Static, routable address',
 				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'),], 'default': True },
