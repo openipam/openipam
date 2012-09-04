@@ -9,7 +9,7 @@
 function loadAddresses() {
 			var atype = $('#address_type');
 			var adiv = $('#ipContent');
-			if ( atype.val() == 'dynamic' ) {
+			if ( atype.val() == 'dynamic' || atype.val() == 'voice' || atype.val() == 'dynamic_nonroutable' ) {
 				adiv.hide();
 			} else {
 				adiv.show();
@@ -239,7 +239,7 @@ function addAttributeForm(mac) {
  */
 
 $(function() {
-	if ($("#address_type").val() == 'dynamic') {
+	if ($("#address_type").val() == 'dynamic' || $("#address_type").val() == 'voice' || $("#address_type").val() == 'dynamic_nonroutable') {
 		$("#ipContent").hide();
 	};
 	
@@ -332,7 +332,7 @@ $(function() {
 		
 		var selectbox = $("#address_type");
 		
-		if (!selectbox.val() == 'dynamic') {
+		if (!(selectbox.val() == 'dynamic' || selectbox.val() == 'voice' || selectbox.val() == 'dynamic_nonroutable')  ) {
 			$('#changeIPLink')(function () {
 				var selectbox = $("#address_type");
 				
