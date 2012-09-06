@@ -102,6 +102,8 @@ func_get_pool_id = get_pool_id
 auth_user = 'auth'
 guest_user = 'guest'
 
+guest_pool = 1
+
 from openipam_config.backend import *
 
 if log_access is None: log_access = '%s/access' % log_dir

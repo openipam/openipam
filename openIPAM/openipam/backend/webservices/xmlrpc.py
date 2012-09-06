@@ -2164,6 +2164,7 @@ class MainWebService(XMLRPCController):
 								description = args[0]['description'],
 								expires = ticket['ends'],
 								is_dynamic = True,
+								pool = backend.guest_pool,
 								owners = ['user_%s' % backend.guest_user, ownergroupname],
 								add_host_to_my_group = False )
 				
