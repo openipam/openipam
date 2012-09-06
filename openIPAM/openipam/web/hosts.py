@@ -237,6 +237,9 @@ class Hosts(BasePage):
 		
 		# Confirm user authentication
 		self.check_session()
+
+		addr_type = self.address_types[kw['address_type']]
+		is_dynamic = addr_type['pool'] is not None and not addr_type['ranges']
 		
 		mac = self.webservice.register_host(
 			{
@@ -245,7 +248,7 @@ class Hosts(BasePage):
 			'domain' : int(kw['domain']) if kw['domain'] else None,
 			'description' : kw['description'],
 			'expiration' : int(kw['expiration']),
-			'is_dynamic' : kw['address_type'] == 'dynamic',
+			'is_dynamic' : is_dynamic,
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if kw.has_key('network') and kw['network'] else None),
 			'add_host_to_my_group' : False,
