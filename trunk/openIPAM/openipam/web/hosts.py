@@ -249,6 +249,7 @@ class Hosts(BasePage):
 			'description' : kw['description'],
 			'expiration' : int(kw['expiration']),
 			'is_dynamic' : is_dynamic,
+			'pool' : addr_type['pool'],
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if kw.has_key('network') and kw['network'] else None),
 			'add_host_to_my_group' : False,
