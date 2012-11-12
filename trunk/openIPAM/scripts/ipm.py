@@ -909,9 +909,14 @@ class IPMCmdInterface( cmd.Cmd ):
 					if k=='network':
 						new_net = vals[k]
 					else:
-						changed[k] = vals[k]
+						if vals[k] == 'None':
+							changed[k] = None
+						else:
+							changed[k] = vals[k]
 			else:
-				if vals[k]:
+				if vals[k] == 'None':
+					changed[k] = None
+				elif vals[k]:
 					changed[k] = vals[k]
 
 		print changed
@@ -1041,6 +1046,14 @@ class IPMCmdInterface( cmd.Cmd ):
 		mac = args[0]
 		
 		self.iface.enable_host( mac=mac )
+	def do_unassign_static_address( self, arg):
+		addrs = arg.strip().split()
+		for addr in addrs:
+			try:
+				self.iface.release_static_address( address=addr )
+				print "released %s" % addr
+			except:
+				print "Failed to release %s" % addr
 	def do_assign_static_address( self, arg ):
 		# arg should be empty
 		del arg
