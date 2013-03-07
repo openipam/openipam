@@ -576,7 +576,7 @@ class DBBaseInterface(object):
 
 		return query
 	
-	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None, did=None, columns=None ):
+	def _get_dns_records( self, tid=None, typename=None, id=None, name=None, content=None, mac=None, changed=None, address=None, did=None, columns=None, vid=False ):
 		"""
 		Get DNS Records
 		
@@ -631,6 +631,8 @@ class DBBaseInterface(object):
 				else:
 					# name = 'exact string'
 					whereclause.append( obj.dns_records.c.name == name )
+		if vid is not False:
+			whereclause.append( obj.dns_records.c.vid == vid )
 				
 				
 		if content:
@@ -2019,6 +2021,16 @@ class DBInterface( DBBaseInterface ):
 		# Require priority for MX and SRV
 		if ((tid == 15 or tid == 33) and priority==None) or ((tid != 15 and tid != 33) and priority!=None):
 			raise error.RequiredArgument("Must specify priority for MX(15) or SRV(33) records, but not others (tid=%s, prio=%s)" % (tid, priority))
+
+		if tid == 5: # CNAME
+			records = self.get_dns_records( name=name, vid=vid )
+			if records:
+				raise error.InvalidArgument("Trying to create CNAME record while other records exist: %r" % records)
+		else: # not CNAME
+			records = self.get_dns_records( name=name, vid=vid, tid=5 )
+			if records:
+				raise error.InvalidArgument("Trying to create record while CNAME record exists: %r" % records)
+
 		
 		self._begin_transaction()
 		try:
@@ -2542,7 +2554,7 @@ class DBInterface( DBBaseInterface ):
 		
 		
 	# FIXME: this function should require and id from expiration_types instead of an expiration date
-	def register_host(self, mac, hostname, description=None, dhcp_group=None, expires=None, expiration_format=None, is_dynamic=True, add_ptr=True, owners=None, pool=None, network=None, add_host_to_my_group=True, address=None):
+	def register_host(self, mac, hostname, description=None, dhcp_group=None, expires=None, expiration_format=None, is_dynamic=None, add_ptr=True, owners=None, pool=None, network=None, add_host_to_my_group=True, address=None):
 		"""
 		Registers a host. This is a smart function, it calls many DB functions to do
 		a full insert of a registration for a host.
@@ -2554,10 +2566,13 @@ class DBInterface( DBBaseInterface ):
 			raise Exception("No hostname given: %s" % hostname)
 		
 		# If this is a dynamic host and no pool is specified, use the default pool
-		if is_dynamic and not pool:
+		if is_dynamic==True and pool is None:
 			pool = backend.db_default_pool_id
 			address = None
-		
+
+		if pool is not None and (network or address):
+			raise error.InvalidArgument("Cannot assign a pool and an address: pool:%s,network:%s,address:%s" % (pool,network,address))
+
 		if add_host_to_my_group and owners:
 			raise error.NotImplemented("add_host_to_my_group must be False if owners is specified")
 		
@@ -2569,7 +2584,7 @@ class DBInterface( DBBaseInterface ):
 			mac = result
 			
 			# STATIC HOST
-			if not is_dynamic:
+			if pool is None:
 				# assign_static_address will check our args
 				address = self.assign_static_address(mac=mac, hostname=hostname, network=network, address=address)
 			
@@ -2852,6 +2867,17 @@ class DBInterface( DBBaseInterface ):
 		"""vlan_to_group"""
 		pass
 		
+	def del_host_to_pool( self, mac, pool_id=None ):
+		"""
+		Give the host permission to get addresses from pool
+		"""
+		if not self.has_min_perms( perms.DELETE ):
+				self._require_perms_on_host(permission=perms.DELETE, mac=mac, error_msg="Insufficient permissions to delete pool membership for MAC %s" % mac)
+		where = obj.hosts_to_pools.c.mac == mac
+		if pool_id:
+			where = and_(where, obj.hosts_to_pools.c.pool_id == pool_id)
+		return self._do_delete( table=obj.hosts_to_pools, where=where )
+
 	def del_attribute( self ):
 		"""attribute"""
 		pass
@@ -3315,6 +3341,9 @@ class DBInterface( DBBaseInterface ):
 		#if owners:
 		#	required_perms = perms.OWNER
 
+		if is_dynamic and pool is None:
+			pool = backend.db_default_pool_id
+
 		if address and network:
 			network = openipam.iptypes.IP(network)
 			if address in network:
@@ -3340,10 +3369,16 @@ class DBInterface( DBBaseInterface ):
 			old_host = old_host[0]
 			
 			# If this host was in any pools, we know it was dynamic
-			was_dynamic = bool( self.get_hosts_to_pools( mac=old_mac ) )
+			tmp_pool = self.get_hosts_to_pools( mac=old_mac )
+			if len(tmp_pool)>1:
+				raise Exception("Host has multiple pools assigned, cannot use register_host()")
+
+			old_pool = None
+			if tmp_pool:
+				old_pool = tmp_pool[0]['pool_id']
 			
 			# Ahh...hello states
-			if is_dynamic and not was_dynamic:
+			if pool is not None and old_pool is None:
 				if pool is None:
 					pool = backend.db_default_pool_id
 				# FIXME: maybe this should be an unsupported action...  Deleting the host is not an expected behavior
@@ -3394,13 +3429,16 @@ class DBInterface( DBBaseInterface ):
 
 				self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format, dhcp_group=dhcp_group)
 				
-			elif is_dynamic and was_dynamic:
+			elif pool is not None and old_pool is not None:
 				# STAYING DYNAMIC REGISTRATION
 				
 				# Update the host row information
+				if pool != old_pool:
+					self.del_host_to_pool(mac=old_mac)
+					self.add_host_to_pool(mac=old_mac,pool_id=pool)
 				self.update_host(old_mac=old_mac, mac=mac, hostname=hostname, description=description, expires=expires, expiration_format=expiration_format, dhcp_group=dhcp_group)
 				
-			elif not is_dynamic and was_dynamic:
+			elif pool is None and old_pool is not None:
 				# FIXME: Deleting the host is not an expected behavior.
 
 				# DYNAMIC REGISTRATION ---> STATIC REGISTRATION
@@ -3414,9 +3452,9 @@ class DBInterface( DBBaseInterface ):
 				description = description if description else old_host['description']
 				expires = expires if expires else old_host['expires']
 				
-				self.register_host(mac=mac, hostname=hostname, description=description, expires=expires, is_dynamic=False, owners=owners, add_host_to_my_group=False, network=network, address=address )
+				self.register_host(mac=mac, hostname=hostname, description=description, expires=expires, is_dynamic=False, pool=pool, owners=owners, add_host_to_my_group=False, network=network, address=address )
 				
-			elif not is_dynamic and not was_dynamic:
+			elif pool is None and old_pool is None:
 				# STAYING STATIC REGISTRATION
 
 				# Are we changing the IP address?
