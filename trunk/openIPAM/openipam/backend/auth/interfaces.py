@@ -210,15 +210,15 @@ class LDAPInterface(BaseAuthInterface):
 		self.__conn = LockingWrapper( obj = ldap.initialize( self.__uri, trace_level=0 ) )
 		
 		ldap.set_option( ldap.OPT_DEBUG_LEVEL, self.__debuglevel )
+		#ldap.set_option( ldap.OPT_NETWORK_TIMEOUT, self.__timeout)
 		self.__conn.set_option( ldap.OPT_PROTOCOL_VERSION, ldap.VERSION3 )
 		self.__conn.set_option( ldap.OPT_REFERRALS, 0 )
-		self.__conn.set_option( ldap.OPT_NETWORK_TIMEOUT, self.__timeout)
 		self.__conn.set_option( ldap.OPT_X_TLS, ldap.OPT_X_TLS_DEMAND )
 
 		# Die!!
-		self.__conn.timelimit = self.__timeout
-		self.__conn.timeout = self.__timeout
-		self.__conn.network_timeout = self.__timeout
+		#self.__conn.timelimit = self.__timeout
+		#self.__conn.timeout = self.__timeout
+		#self.__conn.network_timeout = self.__timeout
 
 		#if auth.ldap_tls_cacertfile:
 		#	self.__conn.set_option( ldap.OPT_X_TLS_CACERTFILE, local_config['ldap_tls_cacertfile'])

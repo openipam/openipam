@@ -106,7 +106,7 @@
 					<input type="hidden" name="was_dynamic" value="True" />
 				#end if
 				
-				#if ($have_networks and not $editing) or ($have_networks and $editing and $has_domain_access):
+				#if $have_networks:
 					<select name="address_type" id="address_type">
 					#for $addrtype,$descr in $address_types:
 						#set checked = ''
