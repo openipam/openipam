@@ -1604,8 +1604,8 @@ class MainWebService(XMLRPCController):
 			# Validate: Name
 			if row.has_key('name'):
 				# validate that each name is a fqdn. we are assuming that every name 'should' always be a fqdn...
-				if not validation.is_fqdn(row['name']):
-					temp_messages.append("Invalid name, use a fully qualified domain name: %s %s" % (row['name'], row['text_content']) )
+				if not validation.is_fqdn(row['name']) and row['tid'] not in [16,]:
+					temp_messages.append("Invalid name, use a fully qualified domain name: %s ( %s )" % (row['name'], row['text_content']) )
 			
 			# Validate: Text Content
 			if row.has_key('text_content'):
@@ -1624,6 +1624,8 @@ class MainWebService(XMLRPCController):
 				elif row['tid'] == 44:
 					if not re.match('^[12] 1 [0-9A-F]{40}',row['text_content']):
 						temp_messages.append("Invalid SSHFP content: %s" % row['text_content'])
+				elif row['tid'] == 16:
+					pass # freeform field
 				else:
 					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
 			

@@ -16,26 +16,7 @@ import cjson
 
 class Hosts(BasePage):
 	'''The hosts class. This includes all pages that are /hosts/*'''
-	address_types = {
-			'dynamic': { 'name': 'dynamic', 'description': 'Dynamic, routable address (preferred)', 'ranges': [], 'pool': 1 },
-			'voice': { 'name': 'voice', 'description': 'VoIP (shoretel) with dynamic address', 'ranges': [], 'pool': 8 },
-			'voice_static': { 'name': 'voice_static', 'description': 'VoIP (shoretel) with static address (voice switches, etc)',
-				'ranges': [ IP('172.22.0.0/16'), ], },
-			'dynamic_nonroutable': { 'name': 'dynamic_nonroutable', 'description': 'Dynamic, non-routable address',
-				'ranges': [], 'pool': 3 },
-			'nonroutable': { 'name': 'nonroutable', 'description': 'Static, non-routable address',
-				'ranges': [IP('172.17.0.0/16'),IP('172.21.0.0/16')] },
-			# Consider any other ranges 'routable', whether they are or not
-			'routable': { 'name': 'routable', 'description': 'Static, routable address',
-				'ranges': [IP('129.123.0.0/16'),IP('144.39.0.0/16'),], 'default': True },
-			'management': { 'name': 'management', 'description': 'device management',
-				'ranges': [IP('172.20.0.0/16'),] },
-			'protected': { 'name': 'protected', 'description': 'Protected devices (ie. HIPAA, PCI)',
-				'ranges': [IP('172.19.0.0/16'),] },
-			'quarantine': { 'name': 'quarantine', 'description': 'Quarantine networks',
-				'ranges': [IP('172.16.0.0/16'),IP('172.18.0.0/16'),] },
-			'ipv6': { 'name': 'ipv6', 'description': 'Routable IPv6 address', 'ranges': [IP('2001:1948:110::/44'),] }
-			}
+	address_types = frontend.address_types
 
 
 	def __init__(self):
@@ -188,7 +169,7 @@ class Hosts(BasePage):
 			nets_by_type[net_type].append(net)
 
 		nets_by_type_keys = []
-		for k in sorted(nets_by_type.keys()):
+		for v,k in sorted( [ (self.address_types[i]['description'],i) for i in nets_by_type.keys() ]):
 			if nets_by_type[k] or not self.address_types[k]['ranges']:
 				nets_by_type_keys.append(k)
 
@@ -267,7 +248,9 @@ class Hosts(BasePage):
 		# Confirm user authentication
 		self.check_session()
 
-		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not kw['address_type'] == 'dynamic')
+		addr_type = self.address_types[kw['address_type']]
+		is_dynamic = addr_type.has_key('pool') and addr_type['pool'] is not None and not addr_type['ranges']
+		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not is_dynamic)
 		
 		self.webservice.change_registration(
 			{
@@ -278,6 +261,7 @@ class Hosts(BasePage):
 			'description' : kw['description'],
 			'expiration' : (int(kw['expiration']) if kw.has_key('did_renew_host') else None),
 			'is_dynamic' : kw['address_type'] == 'dynamic',
+			'pool' : addr_type['pool'] if addr_type.has_key('pool') else None,
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if changed_to_static else None),
 			'address' : (kw['ip'] if changed_to_static else None),
