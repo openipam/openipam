@@ -26,7 +26,8 @@ class AdminGroupsDomain(AdminGroups):
 		domains = ''
 		
 		if len(search):
-			domains = self.webservice.get_domains({ 'name' : '%%%s%%' % search })
+			name = search.replace('*','%')
+			domains = self.webservice.get_domains({ 'name' : name })
 			used_domains_temp = self.webservice.get_domains({ 'gid' : gid })
 			
 			# Put all used domain names into a list for comparison
