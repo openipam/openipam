@@ -50,3 +50,31 @@ enable_gul = False
 
 default_dns_records_limit = 100
 
+address_types = {
+		# only specify pool if ranges == []
+		# Use a user-friendly name and descriptio (will be displayed
+		#   in a drop-down box in the web frontend)
+		#'typename': {
+		#	'name': 'typename',
+		#	'description': 'Short description',
+		#	'ranges': list of CIDR blocks,
+		#	'pool': pool_ID },
+		'dynamic': {
+			'name': 'dynamic',
+			'description': 'Dynamic address',
+			'ranges': [],
+			'pool': 1, # previously created "pool" id in database
+			'default': True
+		},
+		'static192': {
+			'name': 'static192',
+			'description': 'Static 192.168 address',
+			'ranges': ['192.168.0.0/16',],
+		},
+		'static10or172': {
+			'name': 'static10or172',
+			'description': 'static 10.0.0.0/8 or 172.16.0.0/12 address',
+			'ranges': ['10.0.0.0/8', '172.16.0.0/12'],
+		},
+	}
+
