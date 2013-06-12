@@ -27,22 +27,22 @@ class BasePage(object):
 		openipam.web.resource.utils.redirect(path)
 	def __init__(self):
 		"""Class constructor to create global objects"""
-		
+
 		if (frontend.xmlrpc_ssl_enabled):
 			# Remember the trailing slash! /
 			self.__url = 'https://%s:%s/api/' % (frontend.xmlrpc_host, frontend.xmlrpc_port)
 		else:
 			# Remember the trailing slash! /
 			self.__url = 'http://%s:%s/api/' % (frontend.xmlrpc_host, frontend.xmlrpc_port)
-			
+
 		# Object for wrapping HTML into the template
 		self.__template = framework.Basics("")
-		
+
 	def __do_logout(self):
 		cherrypy.session.acquire_lock()
 		try:
-			cherrypy.lib.sessions.expire() 
-			cherrypy.session.delete()	
+			cherrypy.lib.sessions.expire()
+			cherrypy.session.delete()
 
 			if hasattr(cherrypy.session, 'username'):
 				raise error.FatalException("Still have session username ... this shouldn't ever happen ... please tell the openIPAM developers about this error and the conditions under which it happened.")
@@ -82,9 +82,9 @@ class BasePage(object):
 
 		if not logging_in and not have_username:
 			self.redirect("/login")
-	
+
 	#-----------------------------------------------------------------
-	
+
 	@cherrypy.expose
 	def index(self, **kw):
 		"""The home page."""
@@ -99,22 +99,22 @@ class BasePage(object):
 	@cherrypy.expose
 	def default(self, *args, **kw):
 		"""Page for handling 404, page not found."""
-		
+
 		# Confirm user authentication
 		self.check_session()
-	
+
 		maincontent = '''<h1>Page not found</h1>
 						The page you were looking for could not be found.
 						'''
 		return self.__template.wrap(maincontent)
-	
+
 	@cherrypy.expose
 	def denied(self, *args, **kw):
 		"""Redirect here for pages the person doesn't have access to view."""
-		
+
 		# Confirm user authentication
 		self.check_session()
-	
+
 		maincontent = '''<h1>Forbidden</h1>
 						You do not have permission to access this page.
 						'''
@@ -131,16 +131,16 @@ class BasePage(object):
 	@cherrypy.expose
 	def login(self, username=None, password=None, expired=None, failed=None, logged_out=None, ne=None, email=None, referer=None, **kw):
 		'''The login page'''
-		
+
 		self.check_session(logging_in=True)
-		
+
 		if self.logged_in():
 			# They're already logged in
 			self.redirect("/hosts")
 
-		if referer is None and cherrypy.request.headers.has_key('Referer'):
-			referer = cherrypy.request.headers['Referer']
-		
+		#if referer is None and cherrypy.request.headers.has_key('Referer'):
+		#	referer = cherrypy.request.headers['Referer']
+
 		if not username and not password:
 			content = '''
 				<div id="login"><h1><a href="/" title="Powered by openIPAM" onfocus="this.blur()">openIPAM</a></h1>
@@ -186,7 +186,7 @@ class BasePage(object):
 			cherrypy.session.acquire_lock()
 			try:
 				info = self.webservice.login(username, password)
-				
+
 				# set session variables
 				cherrypy.session['uid'] = info['uid']
 				cherrypy.session['username'] = info['username']
@@ -216,14 +216,14 @@ class BasePage(object):
 					raise
 			finally:
 				cherrypy.session.save() # releases lock, it would appear
-		
+
 		raise error.FatalException()
-	
+
 	@cherrypy.expose
 	def logout(self, **kw):
 		"""User logout function to clear session"""
-		
+
 		self.__do_logout()
-		
-		self.redirect('/login')	
+
+		self.redirect('/login')
 
