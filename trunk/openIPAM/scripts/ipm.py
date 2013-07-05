@@ -562,10 +562,14 @@ class IPMCmdInterface( cmd.Cmd ):
 
 	def do_del_network( self, arg ):
 		net = arg.strip()
+		if not net:
+			raise ValueError("Must supply network")
 		self.onecmd( 'show_network %s' % net )
 		if self.get_bool_from_user( 'delete this network', default=False ):
 			print 'deleting...'
-			self.iface.del_network( network=net )
+            # FIXME: change dhcp_dns_records.ip_content to 'on delete cascade'
+            self.iface.del_dhcp_dns_records(network=net)
+			self.iface.del_network(network=net)
 	
 	def do_add_domain( self, arg ):
 		typename='MASTER'

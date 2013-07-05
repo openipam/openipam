@@ -2979,18 +2979,23 @@ class DBInterface( DBBaseInterface ):
 		@param gid: the group database id"""
 		pass
 	
-	def del_dhcp_dns_record(self, name=None, ip=None):
+	def del_dhcp_dns_record(self, name=None, ip=None, network=None):
 		"""
 		Delete a DHCP DNS record based on its name or IP address
 		"""
+
+		# normal users shouldn't be calling this...
+		self.require_perms(perms.DEITY)
 		
-		if name and ip:
-			raise error.RequiredArgument("Specify exactly one of name or IP address")
+		if (bool(name) + bool(ip) + bool(network)) != 1:
+			raise error.RequiredArgument("Specify exactly one of name or IP address or network")
 		
 		if ip:
 			where = obj.dhcp_dns_records.c.ip_content==ip
 		if name:
 			where = obj.dhcp_dns_records.c.name==name
+		if network:
+			where = obj.dhcp_dns_records.c.ip_content.op('>>')(network)
 		
 		return self._do_delete( table=obj.dhcp_dns_records, where=where )
 
