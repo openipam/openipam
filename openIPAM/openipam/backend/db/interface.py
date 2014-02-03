@@ -2263,9 +2263,9 @@ class DBInterface( DBBaseInterface ):
 		"""
 
 		hostname = hostname.lower()
-        
-        if len(hostname) < 3:
-            raise error.InvalidArgument("hostname (%s) is too short" % hostname)
+		
+		if len(hostname) < 3:
+			raise error.InvalidArgument("hostname (%s) is too short" % hostname)
 
 		if re.search(r'\.arpa$',hostname):
 			raise error.InvalidArgument("hostname (%s) appears to be in a reverse-lookup domain" % hostname)
