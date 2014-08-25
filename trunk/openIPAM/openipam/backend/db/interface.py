@@ -3902,12 +3902,12 @@ class DBDHCPInterface(DBInterface):
 			q = select([obj.leases.c.address], or_(del_cond, update_cond, lease_cond), for_update = True)
 			self._execute(q)
 
-			q = obj.leases.delete(del_cond)
-			self._execute_set(q)
-
 			query = obj.leases.update(update_cond, values = {'ends': sqlalchemy.sql.func.now()})
 			self._execute_set(query)
 			
+			q = obj.leases.delete(del_cond)
+			self._execute_set(q)
+
 			sel_cols = [obj.leases,
 					    ((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),
 						(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))
