@@ -3902,6 +3902,9 @@ class DBDHCPInterface(DBInterface):
 			q = select([obj.leases.c.address], or_(del_cond, update_cond, lease_cond), for_update = True)
 			self._execute(q)
 
+			q = obj.leases.delete(del_cond)
+			self._execute_set(q)
+
 			query = obj.leases.update(update_cond, values = {'ends': sqlalchemy.sql.func.now()})
 			self._execute_set(query)
 			
