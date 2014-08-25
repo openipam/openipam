@@ -3883,28 +3883,33 @@ class DBDHCPInterface(DBInterface):
 			print query.compile()
 		return DBInterface._execute_set(self, query)
 
-	def update_or_create_lease_and_delete_conflicting(self, mac, address, expires, server_address):
+	def update_or_create_lease_and_expire_conflicting(self, mac, address, expires, server_address):
 		# FIXME: rename this to something like 'handle lease'
 		# FIXME: do the lease thing -- delete (set MAC -> NULL, expires -> old or NULL) existing leases for the host, then update address
 		
 		# delete from leases where (mac = mac and address != address) or (mac != mac and address = address) and starts < NOW() - interval '10 sec' or so?
-		print "update_or_create_lease_and_delete_conflicting(mac=%s,address=%s,expires=%s)" % (mac,address,expires)
+		print "update_or_create_lease_and_expire_conflicting(mac=%s,address=%s,expires=%s)" % (mac,address,expires)
 		
 		min_lease_age = 10 # If the lease was given out less than this many seconds ago, don't touch it.
 		print 'got %s for expires' % expires
 
 		self._begin_transaction()
 		try:
-			query = obj.leases.delete( and_(
-													or_(
-														and_( obj.leases.c.mac == mac, obj.leases.c.address != address ),
-														and_( and_( obj.leases.c.mac != mac, obj.leases.c.ends < sqlalchemy.sql.func.now() ), obj.leases.c.address==address )
-													),
-													obj.leases.c.starts < ago(min_lease_age )
-												) )
+			del_cond = and_(and_(obj.leases.c.mac != mac, obj.leases.c.ends < sqlalchemy.sql.func.now()), obj.leases.c.address==address, obj.leases.c.starts < ago(min_lease_age))
+			update_cond = and_(obj.leases.c.mac == mac, obj.leases.c.address != address, obj.leases.c.ends > sqlalchemy.sql.func.now(), obj.leases.c.starts < ago(min_lease_age))
+			lease_cond = obj.leases.c.mac==mac
+
+			q = select([obj.leases.c.address], or_(del_cond, update_cond, lease_cond), for_update = True)
+			self._execute(q)
+
+			query = obj.leases.update(obj.leases.c.ends == sqlalchemy.sql.func.now(), update_cond)
 			self._execute_set(query)
 			
-			query = select([obj.leases,((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))], obj.leases.c.mac==mac, for_update=True)
+			sel_cols = [obj.leases,
+					    ((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),
+						(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))
+					   ]
+			query = select(sel_cols, lease_cond, for_update=True)
 			result = self._execute(query)
 			
 			# If this lease is < 10 seconds old, don't bother updating it
@@ -4218,7 +4223,7 @@ class DBDHCPInterface(DBInterface):
 					raise Exception("Bad lease time: %s (%s)" % (lease_time, dict(lease_time_option)))
 
 			# FIXME: we should check lease_time here, but oh well
-			self.update_or_create_lease_and_delete_conflicting(mac, address['address'], lease_time, server_address)
+			self.update_or_create_lease_and_expire_conflicting(mac, address['address'], lease_time, server_address)
 		
 		# This probably doesn't gain us anything, since clients should renew at random intervals anyway
 		#return make_lease_dict( address, random.randrange( lease_time*2/3, lease_time ), hostname )
