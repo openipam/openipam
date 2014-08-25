@@ -1,0 +1,32 @@
+@charset "UTF-8";
+/**
+ * "Yet Another Multicolumn Layout" - (X)HTML/CSS Framework
+ * (en) Example of a patch stylesheet for the Internet Explorer
+ * (de) Beispiel für ein Anpassungs-Stylesheet für den Internet Explorer
+ *
+ * @file            patch_layout_draft.css
+ * @creator         YAML Builder v0.3 Preview
+ * @link	        http://builder.yaml.de
+ */
+
+
+/* Layout independent adjustments | Layout-unabhängige Anpassungen  */
+@import url(/yaml/core/iehacks.css);
+
+/* Layout-dependent adjustments | Layout-abhängige Anpassungen */
+@media screen
+{
+/**
+  * Bugfix for IE 3-Pixel-Jog Bug
+  *
+  * @bugfix
+  * @affected   IE 5.x/Win, IE6
+  * @css-for    IE 5.x/Win, IE6
+  * @valid      yes
+  */
+
+  * html #col3 {height: 1%}
+  * html #col1 {margin-right: -3px}
+  * html #col3 {margin-left: 24%}
+
+}
