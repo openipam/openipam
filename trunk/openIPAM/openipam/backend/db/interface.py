@@ -3908,7 +3908,7 @@ class DBDHCPInterface(DBInterface):
 			update_cond = and_(obj.leases.c.mac == mac, obj.leases.c.address != address, obj.leases.c.ends > sqlalchemy.sql.func.now(), obj.leases.c.starts < ago(min_lease_age))
 			lease_cond = and_(obj.leases.c.mac==mac, obj.leases.c.address == address)
 
-			q = select([obj.leases], or_(del_cond, update_cond, lease_cond, obj.leases.c.address == address), for_update = True)
+			q = select([obj.leases], or_(del_cond, update_cond, lease_cond, obj.leases.c.address == address))
 			data = self._execute(q)
 			if self.debug:
 				print "Current state:"
@@ -3925,7 +3925,7 @@ class DBDHCPInterface(DBInterface):
 					    ((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),
 						(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))
 					   ]
-			query = select(sel_cols, lease_cond, for_update=True)
+			query = select(sel_cols, lease_cond)
 			result = self._execute(query)
 			
 			if self.debug:
@@ -4027,6 +4027,7 @@ class DBDHCPInterface(DBInterface):
 		return r
 
 	def lock_address(self, address):
+		#return True  # for debug
 		bin_addr = 0
 		for i in address.split('.'):
 			bin_addr = bin_addr << 8 | int(i)
@@ -4060,9 +4061,8 @@ class DBDHCPInterface(DBInterface):
 			addr = None
 			for a in addrs:
 				if self.lock_address(a['address']):
-					addr = self._execute(addresses_q.where(address==a['address']))
+					addr = a
 					if addr:
-						addr = addr[0]
 						if self.debug:
 							print found_debug_msg % (mac, addr['address'])
 							print 'addresses = %s' % addresses
@@ -4166,14 +4166,14 @@ class DBDHCPInterface(DBInterface):
 				addresses_q = registered_q.where( or_( obj.leases.c.ends == None, obj.leases.c.mac == mac ) ).limit(20)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
-				search_addresses(addresses, "Found unused address. %s %s")
+				address = search_addresses(addresses, "Found unused address. %s %s")
 
 			# We have to re-use an address, let's get the LRU address
 			if not address:
 				addresses_q = registered_q.order_by( obj.leases.c.ends.asc() ).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
-				search_addresses(addresses, "Reusing expired lease. %s %s")
+				address = search_addresses(addresses, "Reusing expired lease. %s %s")
 
 			if address:
 				if not self.lock_address(address['address']):
@@ -4235,13 +4235,13 @@ class DBDHCPInterface(DBInterface):
 				# Look for unassigned lease
 				addresses_q = unregistered_q.where(obj.leases.c.ends == None).limit(20)
 				addresses = self._execute( addresses_q )
-				search_addresses(addresses, "Found unused unregistered address. %s %s")
+				address = search_addresses(addresses, "Found unused unregistered address. %s %s")
 
 			if not address:
 				# LRU lease
 				addresses_q = unregistered_q.order_by( obj.leases.c.ends ).limit(5)
 				addresses = self._execute( addresses_q )
-				search_addresses(addresses, "Using expired unregistered lease. %s %s")
+				address = search_addresses(addresses, "Using expired unregistered lease. %s %s")
 
 		# get network info about the address we are giving out
 		if not address:
