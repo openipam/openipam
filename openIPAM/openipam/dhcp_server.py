@@ -143,7 +143,7 @@ class Server():
 		packet_type = get_packet_type( packet )
 		self.QueuePacket( packet, packet_type )
 
-	def SendPacket(self, packet, bootp = False):
+	def SendPacket(self, packet, bootp = False, giaddr=None):
 		"""Encode and send the packet."""
 
 		if not self.dhcp_xmit_socket:
@@ -154,7 +154,8 @@ class Server():
 			self.dhcp_xmit_socket = s
 
 		#sender = packet.get_sender()
-		giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
+		if giaddr is None:
+			giaddr = '.'.join(map(str,packet.GetOption('giaddr')))
 		ciaddr = '.'.join(map(str,packet.GetOption('ciaddr')))
 		yiaddr = '.'.join(map(str,packet.GetOption('yiaddr')))
 		chaddr = decode_mac( packet.GetOption('chaddr') )
@@ -578,7 +579,7 @@ def db_consumer( dbq, send_packet ):
 				hops = packet.GetOption('hops')
 				if hops:
 					nak.SetOption('hops',hops)
-				self.SendPacket( nak )
+				self.SendPacket(nak, giaddr=router)
 				return
 
 			ack = DhcpPacket()
