@@ -42,6 +42,11 @@ import openipam.utilities.perms
 
 from openipam.utilities.function_wrapper import fcn_wrapper
 
+
+class DHCPRetryError(Exception):
+	pass
+
+
 my_conn = obj.engine.connect()
 query= select([obj.permissions.c.id,obj.permissions.c.name])
 try:
@@ -3861,7 +3866,8 @@ class DBDHCPInterface(DBInterface):
 	"""
 	from openipam.config import dhcp
 	show_queries = False
-	debug = False
+	#debug = False
+	debug = True
 
 	def __init__( self ):
 		# FIXME: this should come from the config file
@@ -4011,6 +4017,20 @@ class DBDHCPInterface(DBInterface):
 		addrs = addrs.outerjoin(obj.leases, obj.leases.c.address == obj.addresses.c.address)
 		return (columns, addrs)
 
+	def lock_mac(self, mac):
+		bin_mac = int(re.sub('[:.-]', '', mac), 16)
+		q = select([sqlalchemy.sql.func.pg_try_advisory_xact_lock(bin_mac)])
+		r = self._execute(q)[0][0]
+		return r
+
+	def lock_address(self, address):
+		bin_addr = 0
+		for i in address.split('.'):
+			bin_addr = bin_addr << 8 | int(i)
+		q = select([sqlalchemy.sql.func.pg_try_advisory_xact_lock(bin_addr)])
+		r = self._execute(q)[0][0]
+		return r
+
 	def make_dhcp_lease(self, mac, gateway, requested_address, discover, server_address):
 		"""
 		Create a DHCP lease for the specific MAC in the proper network
@@ -4022,7 +4042,10 @@ class DBDHCPInterface(DBInterface):
 			
 		# False for static addresses
 		make_lease = True
-		
+
+		if not self.lock_mac(mac):
+			raise DHCPRetryError(mac)
+
 		#debug = True
 		if hasattr( self, '_trans_stack' ):
 			raise Exception("Running make_dhcp_lease from inside a transaction!!")
@@ -4032,6 +4055,20 @@ class DBDHCPInterface(DBInterface):
 
 		if self.debug:
 			print "valid networks for %s: %s" % (gateway,str(networks))
+
+		def search_addresses(addrs, found_debug_msg):
+			addr = None
+			for a in addrs:
+				if self.lock_address(a['address']):
+					addr = self._execute(addresses_q.where(address==a['address']))
+					if addr:
+						addr = addr[0]
+						if self.debug:
+							print found_debug_msg % (mac, addr['address'])
+							print 'addresses = %s' % addresses
+						break
+					addr = None
+			return addr
 
 		# FIXME: check to see if there is an existing lease that works, since that is the easiest (and should be the most common) case
 		# is this host registered?
@@ -4094,6 +4131,9 @@ class DBDHCPInterface(DBInterface):
 				else:
 					if self.debug:
 						print "lease is dynamic"
+			elif not discover:
+				# not discovering, but requested a disallowed address
+				raise error.InvalidIPAddress("Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
 
 			# check for any valid static leases
 			if not address:
@@ -4126,31 +4166,20 @@ class DBDHCPInterface(DBInterface):
 				addresses_q = registered_q.where( or_( obj.leases.c.ends == None, obj.leases.c.mac == mac ) ).limit(20)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
-				if addresses:
-					if len(addresses) > 1:
-						address = addresses[random.randrange(0,len(addresses)-1)]
-					else:
-						address = addresses[0]
-
-					if self.debug:
-						print "Found new (no existing lease) or existing dynamic lease for this host."
-						print 'addresses = %s' % addresses
-					address = addresses[0]
+				search_addresses(addresses, "Found unused address. %s %s")
 
 			# We have to re-use an address, let's get the LRU address
 			if not address:
-				addresses_q = registered_q.order_by( obj.leases.c.ends.asc() ).limit(1)
+				addresses_q = registered_q.order_by( obj.leases.c.ends.asc() ).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
-				if addresses:
-					if self.debug:
-						print "Reusing an expired dynamic lease for this host."
-						print 'addresses = %s' % addresses
-					address = addresses[0]
+				search_addresses(addresses, "Reusing expired lease. %s %s")
 
 			if address:
+				if not self.lock_address(address['address']):
+					raise DHCPRetryError('%s -> %s (locked)' % (mac, address))
 				if not is_static and not discover:
-					# Update the DNS records
+					# Lease accepted by client -- update the DNS records
 					q = select( [obj.dhcp_dns_records], for_update=True ).where( or_( obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name == hostname ) )
 					exists = False
 					records = self._execute( q )
@@ -4188,6 +4217,10 @@ class DBDHCPInterface(DBInterface):
 				address = requested[0]
 				if address['address'] != requested_address:
 					print "(unregistered) This is really strange... %s != %s, but it should be." % (address, requested[0]['address'])
+			elif not discover:
+				# not discovering, but requested a disallowed address
+				raise error.InvalidIPAddress("Requested address %s for unregistered host %s from gateway %s not allowed" % (requested_address, mac, gateway))
+
 
 			if not address:
 				leased_q = select(columns, from_obj = unreg_addrs).where( obj.leases.c.mac == mac ).order_by(obj.leases.c.starts).where(obj.addresses.c.reserved == False ).where( obj.pools.c.allow_unknown == True ) 
@@ -4202,22 +4235,13 @@ class DBDHCPInterface(DBInterface):
 				# Look for unassigned lease
 				addresses_q = unregistered_q.where(obj.leases.c.ends == None).limit(20)
 				addresses = self._execute( addresses_q )
-				if addresses:
-					if self.debug:
-						print "Found new dynamic lease for this unregistered host."
-					if len(addresses) > 1:
-						address = addresses[random.randrange(0,len(addresses)-1)]
-					else:
-						address = addresses[0]
+				search_addresses(addresses, "Found unused unregistered address. %s %s")
 
 			if not address:
 				# LRU lease
-				addresses_q = unregistered_q.order_by( obj.leases.c.ends ).limit(1)
+				addresses_q = unregistered_q.order_by( obj.leases.c.ends ).limit(5)
 				addresses = self._execute( addresses_q )
-				if addresses:
-					if self.debug:
-						print "Found new dynamic lease for this unregistered host."
-					address = addresses[0]
+				search_addresses(addresses, "Using expired unregistered lease. %s %s")
 
 		# get network info about the address we are giving out
 		if not address:
