@@ -20,6 +20,8 @@ traceback_file='/tmp/openipam_dhcpd.tracebacks'
 
 syslog=True
 
+init_delay_seconds=0
+
 syslog_facility='local0'
 # Log everything
 syslog_level=logging.DEBUG

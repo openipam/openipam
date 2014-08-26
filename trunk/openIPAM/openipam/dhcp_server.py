@@ -227,6 +227,14 @@ class Server():
 		mac = decode_mac( packet.GetOption('chaddr') )
 		c_time=datetime.datetime.now()
 
+		IGNORE_FOR=dhcp.init_delay_seconds  # seconds
+		wait_time = packet.GetOption('secs')
+		if wait_time < IGNORE_FOR:
+			log_packet( packet, prefix='IGN/IGN_FOR:', level=dhcp.logging.INFO )
+			print "ignoring request type %s from mac %s because we are waiting for %d secs" % (pkttype, mac, IGNORE_FOR)
+			return
+			
+
 		# Minimum time between allowing a user to make the same kind of request
 		#BETWEEN_REQUESTS = datetime.timedelta(days=0,minutes=0,seconds=10)
 		TIME_PERIOD = datetime.timedelta(days=0,minutes=1,seconds=0)
