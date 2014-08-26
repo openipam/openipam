@@ -4181,15 +4181,12 @@ class DBDHCPInterface(DBInterface):
 				address = search_addresses(addresses, "Reusing expired lease. %s %s")
 
 			if address:
-				if not self.lock_address(address['address']):
-					raise DHCPRetryError('%s -> %s (locked)' % (mac, address))
-				if not is_static and not discover:
+				if self.lock_address(address['address']) and not is_static and not discover:
 					# Lease accepted by client -- update the DNS records
 					q = obj.dhcp_dns_records.delete(or_(and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name != hostname),
-									    and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name != hostname), ))
-
+									    and_(obj.dhcp_dns_records.c.ip_content != address['address'], obj.dhcp_dns_records.c.name == hostname), ))
 					self._execute_set(q)
-					
+
 					q = select([obj.dhcp_dns_records]).where(and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name == hostname))
 					exists = False
 					records = self._execute( q )
