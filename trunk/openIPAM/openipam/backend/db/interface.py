@@ -3866,8 +3866,7 @@ class DBDHCPInterface(DBInterface):
 	"""
 	from openipam.config import dhcp
 	show_queries = False
-	#debug = False
-	debug = True
+	debug = False
 
 	def __init__( self ):
 		# FIXME: this should come from the config file
