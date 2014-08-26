@@ -639,7 +639,7 @@ def db_consumer( dbq, send_packet ):
 				if pkt.retry_count <= 5:
 					# if the queue is full, we probably want to ignore this packet anyway
 					print 're-queueing packet for retry: %r' % e
-					time.sleep(0.06)
+					#time.sleep(0.06)
 					dbq.put_nowait((pkttype, pkt, ))
 					log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.ERROR )
 				else:
