@@ -3986,7 +3986,10 @@ class DBDHCPInterface(DBInterface):
 		for i in self._execute(net_query):
 			networks.append( i['network'] )
 		if not networks:
-			raise error.NotFound('No networks found for gateway %s' % gateway)
+			for i in self._execute(select([obj.networks.c.network], obj.networks.c.network.op('>>')(gateway))):
+				networks.append(i['network'])
+			if not networks:
+				raise error.NotFound('No networks found for gateway %s' % gateway)
 		return networks
 
 #	def check_valid_lease( self, mac, address, networks ):
