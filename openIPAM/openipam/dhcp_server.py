@@ -263,6 +263,7 @@ class Server():
 				return
 		
 		packet.retry_count = 0
+		packet.last_retry = 0
 
 		try:
 			log_packet( packet, prefix='QUEUED:' )
@@ -627,21 +628,38 @@ def db_consumer( dbq, send_packet ):
 	# FIXME: don't create sqlalchemy db connection foo at global module level so we don't have to hack like this
 	from openipam.backend.db import interface
 
-	while True:
+	REQUEUE_DELAY=0.2  # seconds
+	REQUEUE_MAX=5  # number of attempts
+
+	def requeue(p_type, packet):
+		success = False
 		try:
-			# FIXME: for production, this should be in a try/except block
-			pkttype, pkt = dbq.get()
+			dbq.put_nowait((p_type, packet))
+			success = True
+		except Full as e:
+			print "Queue full, not requeueing"
+			log_packet( packet, prefix='IGN/REQFAIL:', level=dhcp.logging.ERROR)
+		return success
+
+	while True:
+		# FIXME: for production, this should be in a try/except block
+		pkttype, pkt = dbq.get()
+		try:
 			# Handle request
 			try:
-				dhcp_handler.handle_packet( pkt, type=pkttype )	
+				if (time.time() - pkt.last_retry) > REQUEUE_DELAY:
+					dhcp_handler.handle_packet( pkt, type=pkttype )	
+				else:
+					requeue(pkttype, pkt)
 			except interface.DHCPRetryError as e:
 				pkt.retry_count += 1
-				if pkt.retry_count <= 5:
+
+				if pkt.retry_count <= REQUEUE_MAX:
+					pkt.last_retry = time.time()
 					# if the queue is full, we probably want to ignore this packet anyway
 					print 're-queueing packet for retry: %r' % e
-					#time.sleep(0.06)
-					dbq.put_nowait((pkttype, pkt, ))
-					log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.ERROR )
+					if requeue(pkttype, pkt):
+						log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.ERROR )
 				else:
 					print "dropping packet after too many retries: %r" % e
 					log_packet( pkt, prefix='IGN/TOOMANY:', level=dhcp.logging.ERROR )
