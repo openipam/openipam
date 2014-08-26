@@ -19,7 +19,7 @@ parser.add_option("-p","--pidfile",action="store",type='string',dest="pidfile",h
 (options,args) = parser.parse_args()
 
 def consumer(*args, **kwargs):
-	libc = ctypes.CDLL('/lib/libc.so.6')
+	libc = ctypes.CDLL('libc.so.6')
 	# 1 = PR_SET_PDEATHSIG, 15 = TERM
 	# Should send a TERM to this child when the parent dies
 	libc.prctl( 1, 15)

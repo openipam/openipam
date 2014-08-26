@@ -3895,12 +3895,16 @@ class DBDHCPInterface(DBInterface):
 
 		self._begin_transaction()
 		try:
-			del_cond = and_(and_(obj.leases.c.mac != mac, obj.leases.c.ends < sqlalchemy.sql.func.now()), obj.leases.c.address==address, obj.leases.c.starts < ago(min_lease_age))
+			del_cond    = and_(obj.leases.c.mac != mac, obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.address==address)
 			update_cond = and_(obj.leases.c.mac == mac, obj.leases.c.address != address, obj.leases.c.ends > sqlalchemy.sql.func.now(), obj.leases.c.starts < ago(min_lease_age))
-			lease_cond = obj.leases.c.mac==mac
+			lease_cond = and_(obj.leases.c.mac==mac, obj.leases.c.address == address)
 
-			q = select([obj.leases.c.address], or_(del_cond, update_cond, lease_cond), for_update = True)
-			self._execute(q)
+			q = select([obj.leases], or_(del_cond, update_cond, lease_cond, obj.leases.c.address == address), for_update = True)
+			data = self._execute(q)
+			if self.debug:
+				print "Current state:"
+				for d in data:
+					print '\t%s' % d
 
 			query = obj.leases.update(update_cond, values = {'ends': sqlalchemy.sql.func.now()})
 			self._execute_set(query)
@@ -3915,6 +3919,9 @@ class DBDHCPInterface(DBInterface):
 			query = select(sel_cols, lease_cond, for_update=True)
 			result = self._execute(query)
 			
+			if self.debug:
+				print "existing lease:", result
+
 			# If this lease is < 10 seconds old, don't bother updating it
 			values={
 					#'mac':mac, # The MAC here must be the same mac, RIGHT?
@@ -3933,10 +3940,14 @@ class DBDHCPInterface(DBInterface):
 						print "Longer existing lease found (requested %s): %s" % (expires,str(result))
 					self._commit()
 					return result
-				query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age) ),
+				query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age), obj.leases.c.address==address),
 									values=values )
 				result = self._execute_set(query)
 			else:
+				if self.debug:
+					a = self._execute(select([obj.leases], obj.leases.c.address == address))
+					print 'no existing lease found, adding new', a
+					print datetime.datetime.now()
 				values['mac'] = mac
 				values['starts'] = sqlalchemy.sql.func.now()
 				query = obj.leases.insert( values=values )
@@ -3950,7 +3961,7 @@ class DBDHCPInterface(DBInterface):
 		query = select([obj.leases]).where( and_( obj.leases.c.mac==mac, obj.leases.c.address == address))
 		result = self._execute(query)
 		if not result:
-			raise Exception('Could not create lease for mac: %s address: %s' % mac, address)
+			raise Exception('Could not create lease for mac: %s address: %s' % (mac, address))
 		else:
 			if self.debug:
 				print "mac: %s address: %s matching lease: %s" % (mac, address, result)
@@ -4161,14 +4172,14 @@ class DBDHCPInterface(DBInterface):
 			# find addresses pools that allow unregistered hosts
 			columns, unreg_addrs = self.valid_addresses_q( networks, registered=False )
 			# check the requested address and see if it 'works'
-			unregistered_q = select( columns, from_obj = unreg_addrs).where( or_( or_( obj.leases.c.mac == mac, obj.leases.c.mac == None ), obj.leases.c.ends < sqlalchemy.sql.func.now() ) )
+			unregistered_q = select(columns, from_obj = unreg_addrs).where(or_(or_(obj.leases.c.mac == mac, obj.leases.c.mac == None), obj.leases.c.ends < sqlalchemy.sql.func.now()))
 			unregistered_q = unregistered_q.where(obj.addresses.c.reserved == False ) 
 			unregistered_q = unregistered_q.where( or_( obj.leases.c.abandoned == False, obj.leases.c.abandoned == None ) ).where( obj.pools.c.allow_unknown == True )
 			requested = None
 
 			if requested_address:
 				requested_q = unregistered_q
-				requested_q = requested_q.where( obj.addresses.c.address == requested_address )
+				requested_q = requested_q.where(obj.addresses.c.address == requested_address)
 				requested = self._execute(requested_q)
 
 			if requested:
@@ -4179,7 +4190,7 @@ class DBDHCPInterface(DBInterface):
 					print "(unregistered) This is really strange... %s != %s, but it should be." % (address, requested[0]['address'])
 
 			if not address:
-				leased_q = select( columns, from_obj = unreg_addrs ).where( obj.leases.c.mac == mac ).order_by(obj.leases.c.starts).where(obj.addresses.c.reserved == False ).where( obj.pools.c.allow_unknown == True ) 
+				leased_q = select(columns, from_obj = unreg_addrs).where( obj.leases.c.mac == mac ).order_by(obj.leases.c.starts).where(obj.addresses.c.reserved == False ).where( obj.pools.c.allow_unknown == True ) 
 				leased_q = leased_q.where( or_( obj.leases.c.abandoned == False, obj.leases.c.abandoned == None ) ).limit(1)
 				leased = self._execute( leased_q )
 				if leased:
@@ -4189,7 +4200,7 @@ class DBDHCPInterface(DBInterface):
 
 			if not address:
 				# Look for unassigned lease
-				addresses_q = unregistered_q.where( obj.leases.c.ends == None ).limit(20)
+				addresses_q = unregistered_q.where(obj.leases.c.ends == None).limit(20)
 				addresses = self._execute( addresses_q )
 				if addresses:
 					if self.debug:
