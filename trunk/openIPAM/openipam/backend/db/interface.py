@@ -3899,7 +3899,11 @@ class DBDHCPInterface(DBInterface):
 		print 'got %s for expires' % expires
 
 		self._begin_transaction()
+
 		try:
+			if not self.lock_mac(mac):
+				raise DHCPRetryError(mac)
+
 			del_cond    = and_(obj.leases.c.mac != mac, obj.leases.c.ends < sqlalchemy.sql.func.now(), obj.leases.c.address==address)
 			update_cond = and_(obj.leases.c.mac == mac, obj.leases.c.address != address, obj.leases.c.ends > sqlalchemy.sql.func.now(), obj.leases.c.starts < ago(min_lease_age))
 			lease_cond = and_(obj.leases.c.mac==mac, obj.leases.c.address == address)
@@ -4017,7 +4021,7 @@ class DBDHCPInterface(DBInterface):
 		return (columns, addrs)
 
 	def lock_mac(self, mac):
-		bin_mac = int(re.sub('[:.-]', '', mac), 16)
+		bin_mac = int(re.sub('[:.-]', '', mac), 16) | 0xff000000000000
 		q = select([sqlalchemy.sql.func.pg_try_advisory_xact_lock(bin_mac)])
 		r = self._execute(q)[0][0]
 		return r
@@ -4041,9 +4045,6 @@ class DBDHCPInterface(DBInterface):
 			
 		# False for static addresses
 		make_lease = True
-
-		if not self.lock_mac(mac):
-			raise DHCPRetryError(mac)
 
 		#debug = True
 		if hasattr( self, '_trans_stack' ):
