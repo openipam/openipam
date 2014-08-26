@@ -49,6 +49,7 @@ import subprocess
 
 from Queue import Full, Empty
 
+
 DhcpRevOptions = {}
 for key in DhcpOptions.keys():
 	DhcpRevOptions[ DhcpOptions[key] ] = key
@@ -259,6 +260,8 @@ class Server():
 				print "ignoring request type %s from mac %s because we have seen %s requests in %s" % (pkttype, mac, len(seen), str(TIME_PERIOD))
 				return
 		
+		packet.retry_count = 0
+
 		try:
 			log_packet( packet, prefix='QUEUED:' )
 			self.__dbq.put_nowait( (pkttype, packet) )
@@ -561,7 +564,10 @@ def db_consumer( dbq, send_packet ):
 			print "mac: %s, requested address: %s" % (mac, requested_ip)
 			# make sure a valid lease exists
 
-			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=False, server_address = recv_if['address'])
+			try:
+				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=False, server_address = recv_if['address'])
+			except error.InvalidIPAddress, e:
+				lease = {'address': None, 'error': 'address not allowed for client'}
 			print "got lease: %s" % str(lease)
 			if lease['address'] != requested_ip:
 				# FIXME: Send a DHCP NAK if authoritative
@@ -616,12 +622,22 @@ def db_consumer( dbq, send_packet ):
 	#logfile.write('Starting worker process.\n')
 	#os.dup2( logfile.fileno(), sys.stdout.fileno() )
 
+	# FIXME: don't create sqlalchemy db connection foo at global module level so we don't have to hack like this
+	from openipam.backend.db import interface
+
 	while True:
 		try:
 			# FIXME: for production, this should be in a try/except block
 			pkttype, pkt = dbq.get()
 			# Handle request
-			dhcp_handler.handle_packet( pkt, type=pkttype )	
+			try:
+				dhcp_handler.handle_packet( pkt, type=pkttype )	
+			except interface.DHCPRetryError as e:
+				pkt.retry_count += 1
+				if pkt.retry_count >= 5:
+					# if this fails, we probably want to ignore this packet anyway
+					dbq.put_nowait((pkttype, pkt, ))
+
 		except error.NotFound, e:
 			#print_exception( e, traceback=False )
 			print 'sorry, no lease found'
