@@ -4059,6 +4059,8 @@ class DBDHCPInterface(DBInterface):
 
 		if self.debug:
 			print "valid networks for %s: %s" % (gateway,str(networks))
+		if not self.lock_mac(mac):
+			raise DHCPRetryError(mac)
 
 		def search_addresses(addrs, found_debug_msg):
 			addr = None
@@ -4183,15 +4185,16 @@ class DBDHCPInterface(DBInterface):
 					raise DHCPRetryError('%s -> %s (locked)' % (mac, address))
 				if not is_static and not discover:
 					# Lease accepted by client -- update the DNS records
-					q = select( [obj.dhcp_dns_records], for_update=True ).where( or_( obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name == hostname ) )
+					q = obj.dhcp_dns_records.delete(or_(and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name != hostname),
+									    and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name != hostname), ))
+
+					self._execute_set(q)
+					
+					q = select([obj.dhcp_dns_records]).where(and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name == hostname))
 					exists = False
 					records = self._execute( q )
-					for record in records:
-						if record['ip_content'] == address['address'] and record['name'] == hostname:
-							exists = True
-						else:
-							d = obj.dhcp_dns_records.delete( obj.dhcp_dns_records.c.id == record['id'] )
-							self._execute_set( d )
+					if records:
+						exists = True
 					if not exists:
 						dynamic_address_ttl = 120
 						self.add_dhcp_dns_record( name=hostname, ip_content = address['address'], ttl = dynamic_address_ttl )
