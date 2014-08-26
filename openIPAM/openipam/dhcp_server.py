@@ -635,9 +635,14 @@ def db_consumer( dbq, send_packet ):
 				dhcp_handler.handle_packet( pkt, type=pkttype )	
 			except interface.DHCPRetryError as e:
 				pkt.retry_count += 1
-				if pkt.retry_count >= 5:
-					# if this fails, we probably want to ignore this packet anyway
+				if pkt.retry_count <= 5:
+					# if the queue is full, we probably want to ignore this packet anyway
+					print 're-queueing packet for retry: %r' % e
 					dbq.put_nowait((pkttype, pkt, ))
+					log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.ERROR )
+				else:
+					print "dropping packet after too many retries: %r" % e
+					log_packet( pkt, prefix='IGN/TOOMANY:', level=dhcp.logging.ERROR )
 
 		except error.NotFound, e:
 			#print_exception( e, traceback=False )
