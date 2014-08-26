@@ -37,6 +37,7 @@ import IN
 #from pydhcplib.type_ipv4 import ipv4
 
 import datetime
+import time
 
 #from pydhcplib.dhcp_backend import *
 #from event_logger import Log
@@ -638,6 +639,7 @@ def db_consumer( dbq, send_packet ):
 				if pkt.retry_count <= 5:
 					# if the queue is full, we probably want to ignore this packet anyway
 					print 're-queueing packet for retry: %r' % e
+					time.sleep(0.02)
 					dbq.put_nowait((pkttype, pkt, ))
 					log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.ERROR )
 				else:
