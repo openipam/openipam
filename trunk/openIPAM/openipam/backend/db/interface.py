@@ -3925,7 +3925,7 @@ class DBDHCPInterface(DBInterface):
 					    ((sqlalchemy.sql.func.now() - obj.leases.c.starts) < text("interval '%s sec'" % min_lease_age)).label('recent'),
 						(text('extract( epoch from leases.ends - NOW() )::int AS time_left'))
 					   ]
-			query = select(sel_cols, lease_cond)
+			query = select(sel_cols, lease_cond, for_update=True)
 			result = self._execute(query)
 			
 			if self.debug:
@@ -3950,7 +3950,7 @@ class DBDHCPInterface(DBInterface):
 					self._commit()
 					return result
 				query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age), obj.leases.c.address==address),
-									values=values )
+								values={'server': values['server'], 'ends': values['ends']})
 				result = self._execute_set(query)
 			else:
 				if self.debug:
