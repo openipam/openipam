@@ -4024,12 +4024,16 @@ class DBDHCPInterface(DBInterface):
 		return (columns, addrs)
 
 	def lock_mac(self, mac):
+		if not hasattr( self, '_trans_stack' ):
+			raise Exception("Trying to lock mac outside of a transaction!!")
 		bin_mac = int(re.sub('[:.-]', '', mac), 16) | 0xff000000000000
 		q = select([sqlalchemy.sql.func.pg_try_advisory_xact_lock(bin_mac)])
 		r = self._execute(q)[0][0]
 		return r
 
 	def lock_address(self, address):
+		if not hasattr( self, '_trans_stack' ):
+			raise Exception("Trying to lock address outside of a transaction!!")
 		#return True  # for debug
 		bin_addr = 0
 		for i in address.split('.'):
@@ -4038,7 +4042,21 @@ class DBDHCPInterface(DBInterface):
 		r = self._execute(q)[0][0]
 		return r
 
-	def make_dhcp_lease(self, mac, gateway, requested_address, discover, server_address):
+	def make_dhcp_lease(self, *args, **kw):
+		if hasattr( self, '_trans_stack' ):
+			raise Exception("Running make_dhcp_lease from inside a transaction!!")
+		self._begin_transaction()
+		try:
+			lease = self._make_dhcp_lease(*args, **kw)
+			self._commit()
+		except Exception as e:
+			self._rollback()
+			print "Error in _make_dhcp_lease: %r" % e
+			raise
+		return lease
+
+
+	def _make_dhcp_lease(self, mac, gateway, requested_address, discover, server_address):
 		"""
 		Create a DHCP lease for the specific MAC in the proper network
 		"""
@@ -4049,10 +4067,6 @@ class DBDHCPInterface(DBInterface):
 			
 		# False for static addresses
 		make_lease = True
-
-		#debug = True
-		if hasattr( self, '_trans_stack' ):
-			raise Exception("Running make_dhcp_lease from inside a transaction!!")
 
 		# First, get valid networks
 		networks = self.get_valid_nets( gateway )
