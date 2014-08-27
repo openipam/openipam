@@ -4150,12 +4150,9 @@ class DBDHCPInterface(DBInterface):
 				else:
 					if self.debug:
 						print "lease is dynamic"
-			elif not discover:
-				# not discovering, but requested a disallowed address
-				raise error.InvalidIPAddress("Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
 
 			# check for any valid static leases
-			if not address:
+			if not address and discover:
 				static_q = select( columns, from_obj = registered_addrs).where(obj.addresses.c.mac == mac).where(obj.addresses.c.reserved == False )
 				static_q = static_q.limit(1)
 				static = self._execute(static_q)
@@ -4171,7 +4168,7 @@ class DBDHCPInterface(DBInterface):
 
 			# check for valid dynamic leases... this is our last chance
 			# First, check for existing addresses or that aren't in the leases table
-			if not address:
+			if not address and discover:
 				addresses_q = registered_q.where( obj.leases.c.mac == mac )
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
@@ -4181,20 +4178,20 @@ class DBDHCPInterface(DBInterface):
 						print 'addresses = %s' % addresses
 					address = addresses[0]
 
-			if not address:
+			if not address and discover:
 				addresses_q = registered_q.where( or_( obj.leases.c.ends == None, obj.leases.c.mac == mac ) ).limit(20)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				address = search_addresses(addresses, "Found unused address. %s %s")
 
 			# We have to re-use an address, let's get the LRU address
-			if not address:
+			if not address and discover:
 				addresses_q = registered_q.order_by( obj.leases.c.ends.asc() ).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				address = search_addresses(addresses, "Reusing expired lease. %s %s")
 
-			if address:
+			if address and not discover:
 				if self.lock_address(address['address']) and not is_static and not discover:
 					# Lease accepted by client -- update the DNS records
 					q = obj.dhcp_dns_records.delete(or_(and_(obj.dhcp_dns_records.c.ip_content == address['address'], obj.dhcp_dns_records.c.name != hostname),
@@ -4209,6 +4206,7 @@ class DBDHCPInterface(DBInterface):
 					if not exists:
 						dynamic_address_ttl = 120
 						self.add_dhcp_dns_record( name=hostname, ip_content = address['address'], ttl = dynamic_address_ttl )
+						
 		if unregistered or disabled or (is_static and not address):
 			if address:
 				raise  Exception('FIXME: unregistered or disabled host got an address: %s' % address)
@@ -4236,8 +4234,7 @@ class DBDHCPInterface(DBInterface):
 					print "(unregistered) This is really strange... %s != %s, but it should be." % (address, requested[0]['address'])
 			elif not discover:
 				# not discovering, but requested a disallowed address
-				raise error.InvalidIPAddress("Requested address %s for unregistered host %s from gateway %s not allowed" % (requested_address, mac, gateway))
-
+				raise error.InvalidIPAddress("Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
 
 			if not address:
 				leased_q = select(columns, from_obj = unreg_addrs).where( obj.leases.c.mac == mac ).order_by(obj.leases.c.starts).where(obj.addresses.c.reserved == False ).where( obj.pools.c.allow_unknown == True ) 
