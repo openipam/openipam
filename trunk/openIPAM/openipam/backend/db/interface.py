@@ -4169,7 +4169,7 @@ class DBDHCPInterface(DBInterface):
 			# check for valid dynamic leases... this is our last chance
 			# First, check for existing addresses or that aren't in the leases table
 			if not address and discover:
-				addresses_q = registered_q.where( obj.leases.c.mac == mac )
+				addresses_q = registered_q.where( obj.leases.c.mac == mac ).order_by(obj.leases.c.ends.desc()).limit(1)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				if addresses:
@@ -4178,8 +4178,9 @@ class DBDHCPInterface(DBInterface):
 						print 'addresses = %s' % addresses
 					address = addresses[0]
 
+			# Look for never-before-used lease
 			if not address and discover:
-				addresses_q = registered_q.where( or_( obj.leases.c.ends == None, obj.leases.c.mac == mac ) ).limit(20)
+				addresses_q = registered_q.where(obj.leases.c.ends == None)).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				address = search_addresses(addresses, "Found unused address. %s %s")
@@ -4238,7 +4239,7 @@ class DBDHCPInterface(DBInterface):
 
 			if not address:
 				leased_q = select(columns, from_obj = unreg_addrs).where( obj.leases.c.mac == mac ).order_by(obj.leases.c.starts).where(obj.addresses.c.reserved == False ).where( obj.pools.c.allow_unknown == True ) 
-				leased_q = leased_q.where( or_( obj.leases.c.abandoned == False, obj.leases.c.abandoned == None ) ).limit(1)
+				leased_q = leased_q.order_by(obj.leases.c.ends.desc()).limit(1)
 				leased = self._execute( leased_q )
 				if leased:
 					if self.debug:
