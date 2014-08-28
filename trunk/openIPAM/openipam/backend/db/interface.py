@@ -4180,7 +4180,7 @@ class DBDHCPInterface(DBInterface):
 
 			# Look for never-before-used lease
 			if not address and discover:
-				addresses_q = registered_q.where(obj.leases.c.ends == None)).limit(5)
+				addresses_q = registered_q.where(obj.leases.c.ends == None).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				address = search_addresses(addresses, "Found unused address. %s %s")
