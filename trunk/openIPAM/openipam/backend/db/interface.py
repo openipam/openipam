@@ -3915,8 +3915,8 @@ class DBDHCPInterface(DBInterface):
 				for d in data:
 					print '\t%s' % d
 
-			query = obj.leases.update(update_cond, values = {'ends': sqlalchemy.sql.func.now()})
-			self._execute_set(query)
+			#query = obj.leases.update(update_cond, values = {'ends': sqlalchemy.sql.func.now()})
+			#self._execute_set(query)
 			
 			q = obj.leases.delete(del_cond)
 			self._execute_set(q)
