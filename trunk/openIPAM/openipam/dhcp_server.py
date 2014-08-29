@@ -50,6 +50,8 @@ import subprocess
 
 from Queue import Full, Empty
 
+import raven
+
 
 DhcpRevOptions = {}
 for key in DhcpOptions.keys():
@@ -651,8 +653,10 @@ def db_consumer( dbq, send_packet ):
 
 	while True:
 		# FIXME: for production, this should be in a try/except block
-		pkttype, pkt = dbq.get()
+		pkttype = None
+		pkt = None
 		try:
+			pkttype, pkt = dbq.get()
 			# Handle request
 			try:
 				if (time.time() - pkt.last_retry) > REQUEUE_DELAY:
@@ -677,8 +681,28 @@ def db_consumer( dbq, send_packet ):
 			print 'sorry, no lease found'
 			log_packet( pkt, prefix='IGN/UNAVAIL:', level=dhcp.logging.ERROR )
 			print str(e)
-		except Exception,e:
-			print_exception( e )
+		except Exception as e:
+			print_exception(e)
+			if dhcp.sentry_url:
+				try:
+					c = raven.Client(dhcp.sentry_url)
+					pkttype,mac,xid,client,giaddr,recvd_from,req_opts = (None,)*7
+					if pkt is not None:
+						pkttype,mac,xid,client,giaddr,recvd_from,req_opts = parse_packet(pkt)
+					c.captureException(data={'extra': {
+									   'mac': mac,
+									   'pkttype': pkttype,
+									   'xid': xid,
+									   'client': client,
+									   'giaddr': giaddr,
+									   'recvd_from': recvd_from,
+									   'req_opts': req_opts,
+									   'dhcp_packet': pkt
+									  }})
+				except Exception as e:
+					print "failed to send exception to raven"
+					print_exception(e)
+
 	
 	#logfile.close()
 

@@ -34,6 +34,8 @@ syslog_port=514
 
 syslog_connect='/dev/log'
 
+sentry_url=None
+
 logger=None
 
 from openipam_config.dhcp import *
