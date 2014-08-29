@@ -4152,7 +4152,7 @@ class DBDHCPInterface(DBInterface):
 						print "lease is dynamic"
 
 			# check for any valid static leases
-			if not address and discover:
+			if not address:
 				static_q = select( columns, from_obj = registered_addrs).where(obj.addresses.c.mac == mac).where(obj.addresses.c.reserved == False )
 				static_q = static_q.limit(1)
 				static = self._execute(static_q)
@@ -4168,7 +4168,7 @@ class DBDHCPInterface(DBInterface):
 
 			# check for valid dynamic leases... this is our last chance
 			# First, check for existing addresses or that aren't in the leases table
-			if not address and discover:
+			if not address:
 				addresses_q = registered_q.where( obj.leases.c.mac == mac ).order_by(obj.leases.c.ends.desc()).limit(1)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
@@ -4179,14 +4179,14 @@ class DBDHCPInterface(DBInterface):
 					address = addresses[0]
 
 			# Look for never-before-used lease
-			if not address and discover:
+			if not address:
 				addresses_q = registered_q.where(obj.leases.c.ends == None).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
 				address = search_addresses(addresses, "Found unused address. %s %s")
 
 			# We have to re-use an address, let's get the LRU address
-			if not address and discover:
+			if not address:
 				addresses_q = registered_q.order_by( obj.leases.c.ends.asc() ).limit(5)
 				# addresses_q = addresses_q.order_by(obj.addresses.c.address.desc()).limit(1) # Adds ~ 11 seconds to this ~3 ms query
 				addresses = self._execute( addresses_q )
