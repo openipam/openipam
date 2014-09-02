@@ -4192,6 +4192,10 @@ class DBDHCPInterface(DBInterface):
 				addresses = self._execute( addresses_q )
 				address = search_addresses(addresses, "Reusing expired lease. %s %s")
 
+			if (not discover and address and requested_address != address['address']):
+				# need to send a NAK rather than actually allocate the address
+				raise error.InvalidIPAddress("Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
+
 			if address and not discover:
 				if self.lock_address(address['address']) and not is_static and not discover:
 					# Lease accepted by client -- update the DNS records
@@ -4235,7 +4239,7 @@ class DBDHCPInterface(DBInterface):
 					print "(unregistered) This is really strange... %s != %s, but it should be." % (address, requested[0]['address'])
 			elif not discover:
 				# not discovering, but requested a disallowed address
-				raise error.InvalidIPAddress("Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
+				raise error.InvalidIPAddress("(unregistered) Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
 
 			if not address:
 				leased_q = select(columns, from_obj = unreg_addrs).where( obj.leases.c.mac == mac ).order_by(obj.leases.c.starts).where(obj.addresses.c.reserved == False ).where( obj.pools.c.allow_unknown == True ) 
