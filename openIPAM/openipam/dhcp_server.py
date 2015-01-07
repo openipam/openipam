@@ -336,7 +336,11 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 	if raven_client and level >= raven_client_min_level:
-		raven_client.captureMessage("%s %s from %s" % (prefix, t_name.upper(), mac,),
+		if 'IGN' in prefix and 'TOOMANY' not in prefix:
+			message = prefix[:-1]
+		else:
+			message = "%s %s from %s" % (prefix, t_name.upper(), mac,)
+		raven_client.captureMessage(message,
 									tags={
 										'server': packet.get_recv_interface(),
 										 },
