@@ -46,6 +46,13 @@ import time
 from openipam.utilities import error
 from openipam.config import dhcp
 
+raven_client = None
+if dhcp.sentry_url:
+	import raven
+	raven_client = raven.Client(dhcp.sentry_url)
+
+raven_client_min_level = dhcp.logging.WARNING
+
 import subprocess
 
 from Queue import Full, Empty
@@ -330,6 +337,21 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 		client_foo = str(client)
 
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
+	if raven_client and level >= raven_client_min_level:
+		raven_client.captureMessage("DHCPDECLINE from %s" % mac,
+									tags={
+										'server': packet.get_recv_interface(),
+										 },
+									level=level,
+									extra={
+										'server_interface': packet.get_recv_interface(),
+										't_name': t_name,
+										'mac': mac,
+										'xid': xid,
+										'client': client,
+										'giaddr': giaddr,
+										'recvd_from': recvd_from,
+										},)
 
 def db_consumer( dbq, send_packet ):
 	class dhcp_packet_handler:
