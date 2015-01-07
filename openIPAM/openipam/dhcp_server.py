@@ -51,7 +51,7 @@ if dhcp.sentry_url:
 	import raven
 	raven_client = raven.Client(dhcp.sentry_url)
 
-raven_client_min_level = dhcp.logging.WARNING
+raven_client_min_level = dhcp.logging.ERROR
 
 import subprocess
 
