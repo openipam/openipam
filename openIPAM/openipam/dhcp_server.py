@@ -57,8 +57,6 @@ import subprocess
 
 from Queue import Full, Empty
 
-import raven
-
 
 DhcpRevOptions = {}
 for key in DhcpOptions.keys():
@@ -338,7 +336,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 	if raven_client and level >= raven_client_min_level:
-		raven_client.captureMessage("DHCPDECLINE from %s" % mac,
+		raven_client.captureMessage("%s from %s" % (t_name.upper(), mac,),
 									tags={
 										'server': packet.get_recv_interface(),
 										 },
@@ -705,13 +703,12 @@ def db_consumer( dbq, send_packet ):
 			print str(e)
 		except Exception as e:
 			print_exception(e)
-			if dhcp.sentry_url:
+			if raven_client:
 				try:
-					c = raven.Client(dhcp.sentry_url)
 					pkttype,mac,xid,client,giaddr,recvd_from,req_opts = (None,)*7
 					if pkt is not None:
 						pkttype,mac,xid,client,giaddr,recvd_from,req_opts = parse_packet(pkt)
-					c.captureException(data={'extra': {
+					raven_client.captureException(data={'extra': {
 									   'mac': mac,
 									   'pkttype': pkttype,
 									   'xid': xid,
