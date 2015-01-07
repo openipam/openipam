@@ -197,7 +197,7 @@ class Server():
 					log_packet(packet, prefix='SND/HACK:')
 					dest = ( '255.255.255.255', self.bootpc_port )
 		else:
-			log_packet(packet, prefix='IGN/SNDFAIL:', level=dhcp.logging.ERROR)
+			log_packet(packet, prefix='IGN/SNDFAIL:', level=dhcp.logging.WARNING)
 			raise Exception('Cannot send packet without one of ciaddr, giaddr, or yiaddr.')
 
 		self.dhcp_xmit_socket.sendto( packet.EncodePacket(), dest )
@@ -285,7 +285,7 @@ class Server():
 			self.__dbq.put_nowait( (pkttype, packet) )
 		except Full, e:
 			# The queue is full, try again later.
-			log_packet( packet, prefix='IGN/FULL:', level=dhcp.logging.ERROR )
+			log_packet( packet, prefix='IGN/FULL:', level=dhcp.logging.WARNING )
 			print "ignoring request type %s from mac %s because the queue is full ... be afraid" % (pkttype,mac)
 			return
 		
@@ -336,7 +336,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 	if raven_client and level >= raven_client_min_level:
-		raven_client.captureMessage("%s from %s" % (t_name.upper(), mac,),
+		raven_client.captureMessage("%s %s from %s" % (prefix, t_name.upper(), mac,),
 									tags={
 										'server': packet.get_recv_interface(),
 										 },
@@ -691,7 +691,7 @@ def db_consumer( dbq, send_packet ):
 					# if the queue is full, we probably want to ignore this packet anyway
 					print 're-queueing packet for retry: %r' % e
 					if requeue(pkttype, pkt):
-						log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.ERROR )
+						log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.WARNING )
 				else:
 					print "dropping packet after too many retries: %r" % e
 					log_packet( pkt, prefix='IGN/TOOMANY:', level=dhcp.logging.ERROR )
