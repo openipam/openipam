@@ -336,13 +336,27 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 	if raven_client and level >= raven_client_min_level:
-		if 'IGN' in prefix and 'TOOMANY' not in prefix:
-			message = prefix[:-1]
+		if 'IGN' in prefix:
+			if 'TOOMANY' in prefix:
+				message = 'request from %s ignored due to rate limiting' % mac
+			elif 'UNAVAIL' in prefix:
+				message = 'unable to find appropriate lease: giaddr=%s' % giaddr
+			else:
+				message = prefix[:-1]
 		else:
 			message = "%s %s from %s" % (prefix, t_name.upper(), mac,)
+
+		try:
+			requested_ip = packet.GetOption('request_ip_address')
+		except:
+			requested_ip = None
+
+		if requested_ip:
+			requested_ip = '.'.join(map(str, requested_ip))
+		
 		raven_client.captureMessage(message,
 									tags={
-										'server': packet.get_recv_interface(),
+										'server': packet.get_recv_interface()['address'],
 										 },
 									level=level,
 									extra={
@@ -352,6 +366,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 										'xid': xid,
 										'client': client,
 										'giaddr': giaddr,
+										'requested_ip': requested_ip,
 										'recvd_from': recvd_from,
 										},)
 
