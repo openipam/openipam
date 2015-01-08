@@ -337,7 +337,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 	if raven_client and level >= raven_client_min_level:
 		if 'IGN' in prefix:
-			if 'TOOMANY' in prefix:
+			if 'LIMIT' in prefix:
 				message = 'request from %s ignored due to rate limiting' % mac
 			elif 'UNAVAIL' in prefix:
 				message = 'unable to find appropriate lease: giaddr=%s' % giaddr
