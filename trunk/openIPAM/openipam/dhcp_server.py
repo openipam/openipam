@@ -336,7 +336,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 
 	if packet.IsOption('host_name'):
 		host_name=packet.GetOption('host_name')
-		client_foo = '%s [option 12: %s]' % (client_foo, host_name)
+		client_foo = '%s [option 12: %s]' % (client_foo, ''.join(map(chr,host_name)))
 
 	dhcp.get_logger().log(level, "%-12s %-8s %s 0x%08x (%s)", prefix, t_name, mac, xid, client_foo )
 	if raven_client and level >= raven_client_min_level or t_name=='decline':
