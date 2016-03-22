@@ -140,6 +140,16 @@ class Server():
 				self.dhcp_sockets.append(usocket)
 				self.dhcp_socket_info[usocket] = usocket_info
 
+	def get_requested_ip( self, packet ):
+		try:
+			requested_ip = map(str,packet.GetOption('request_ip_address'))
+			if len(requested_ip == 4):
+				requested_ip = '.'.join(requested_ip)
+				return requested_ip
+		except:
+			pass
+		return None
+
 	def HandlePacket( self ):
 		rlist, wlist, xlist = select.select(self.dhcp_sockets, [], [])
 		s = rlist[0]
@@ -315,9 +325,9 @@ def parse_packet( packet ):
 	if client_ip == '0.0.0.0':
 		client_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
 		if client_ip == '0.0.0.0':
-			x = packet.GetOption('request_ip_address')
+			x = self.get_requested_ip(packet)
 			if x:
-				client_ip = '.'.join(map(str,x))
+				client_ip = x
 			else:
 				client_ip = packet.get_sender()[0]
 	
@@ -354,10 +364,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 		else:
 			message = "%s %s from %s" % (prefix, t_name.upper(), mac,)
 
-		try:
-			requested_ip = packet.GetOption('request_ip_address')
-		except:
-			requested_ip = None
+		requested_ip = self.get_requested_ip(packet)
 
 		if requested_ip:
 			requested_ip = '.'.join(map(str, requested_ip))
@@ -440,7 +447,10 @@ def db_consumer( dbq, send_packet ):
 			
 		def dhcp_decline(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
-			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
+			requested_ip = self.get_requested_ip(packet)
+			if not requested_ip:
+				requested_ip = '0.0.0.0'
+
 			if requested_ip != '0.0.0.0':
 				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL:', requested_ip )
 				self.__db.mark_abandoned_lease( mac=mac, address=requested_ip )
@@ -523,7 +533,7 @@ def db_consumer( dbq, send_packet ):
 		def dhcp_discover(self, packet):
 			router = '.'.join(map(str,packet.GetOption('giaddr')))
 			mac = decode_mac( packet.GetOption('chaddr') )
-			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
+			requested_ip = self.get_requested_ip(packet)
 			
 			recv_if = packet.get_recv_interface()
 			if router == '0.0.0.0':
@@ -609,7 +619,7 @@ def db_consumer( dbq, send_packet ):
 
 			# FIXME: If ciaddr is set, we should use a unicast message to the client
 
-			requested_ip = '.'.join(map(str,packet.GetOption('request_ip_address')))
+			requested_ip = self.get_requested_ip(packet)
 			if not requested_ip:
 				requested_ip = ciaddr
 				if not requested_ip:
