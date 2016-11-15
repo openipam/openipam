@@ -22,6 +22,8 @@ import os
 
 import select
 
+import base64
+
 from pydhcplib.dhcp_constants import DhcpOptions
 
 # FIXME: don't 'import *'
@@ -58,6 +60,26 @@ raven_client_min_level = dhcp.logging.ERROR
 import subprocess
 
 from Queue import Full, Empty
+
+def bytes_to_ip(packet, opt_name):
+	try:
+		addr = packet.GetOption(opt_name)
+	except:
+		addr = None
+	
+	if not addr:
+		return None
+
+	if type(addr) != list:
+		raise Exception("Eh?")
+
+	if len(addr) != 4:
+		logger = dhcp.get_logger()
+		dhcp.get_logger().log(dhcp.logging.ERROR,"INVALID: %r invalid for %s from %s" % (addr, opt_name, decode_mac(packet.GetOption('chaddr'))))
+
+		return None
+	return '.'.join(map(str, addr))
+		
 
 
 DhcpRevOptions = {}
@@ -140,23 +162,20 @@ class Server():
 				self.dhcp_sockets.append(usocket)
 				self.dhcp_socket_info[usocket] = usocket_info
 
-	def get_requested_ip( self, packet ):
-		try:
-			requested_ip = map(str,packet.GetOption('request_ip_address'))
-			if len(requested_ip == 4):
-				requested_ip = '.'.join(requested_ip)
-				return requested_ip
-		except:
-			pass
-		return None
-
 	def HandlePacket( self ):
 		rlist, wlist, xlist = select.select(self.dhcp_sockets, [], [])
 		s = rlist[0]
 		data,sender = s.recvfrom(self.BUFLEN)
 
 		packet = dhcp_packet.DhcpPacket()
-		packet.DecodePacket(data)
+		try:
+			packet.DecodePacket(data)
+		except Exception, e:
+			b64_data = base64.b64encode(data)
+			print "FAILED TO PARSE: %r" % b64_data
+			dhcp.get_logger().log(dhcp.logging.ERROR,"INVALID DHCP PACKET: %r" % b64_data)
+			raise e
+
 		packet.set_sender( sender )
 		packet.set_recv_interface( self.dhcp_socket_info[s] )
 
@@ -325,10 +344,8 @@ def parse_packet( packet ):
 	if client_ip == '0.0.0.0':
 		client_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
 		if client_ip == '0.0.0.0':
-			x = self.get_requested_ip(packet)
-			if x:
-				client_ip = x
-			else:
+			client_ip = bytes_to_ip(packet, 'request_ip_address')
+			if not client_ip:
 				client_ip = packet.get_sender()[0]
 	
 	return (pkttype, mac, xid, client_ip, giaddr, recvd_from, requested_options)
@@ -339,7 +356,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 	# This should be called for every incoming or outgoing packet.
 	pkttype,mac,xid,client,giaddr,recvd_from,req_opts = parse_packet(packet)
 
-	t_name = types[pkttype]
+	t_name = types[pkttype] if pkttype in types else "INVALID"
 
 	if giaddr != '0.0.0.0':
 		client_foo = '%s via %s' % (client, giaddr)
@@ -364,10 +381,7 @@ def log_packet( packet, prefix='', level=dhcp.logging.INFO):
 		else:
 			message = "%s %s from %s" % (prefix, t_name.upper(), mac,)
 
-		requested_ip = self.get_requested_ip(packet)
-
-		if requested_ip:
-			requested_ip = '.'.join(map(str, requested_ip))
+		requested_ip = bytes_to_ip(packet, 'request_ip_address')
 		
 		raven_client.captureMessage(message,
 									tags={
@@ -447,11 +461,9 @@ def db_consumer( dbq, send_packet ):
 			
 		def dhcp_decline(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
-			requested_ip = self.get_requested_ip(packet)
-			if not requested_ip:
-				requested_ip = '0.0.0.0'
+			requested_ip = bytes_to_ip(packet, 'request_ip_address')
 
-			if requested_ip != '0.0.0.0':
+			if requested_ip and requested_ip != '0.0.0.0':
 				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL:', requested_ip )
 				self.__db.mark_abandoned_lease( mac=mac, address=requested_ip )
 			else:
@@ -533,7 +545,7 @@ def db_consumer( dbq, send_packet ):
 		def dhcp_discover(self, packet):
 			router = '.'.join(map(str,packet.GetOption('giaddr')))
 			mac = decode_mac( packet.GetOption('chaddr') )
-			requested_ip = self.get_requested_ip(packet)
+			requested_ip = bytes_to_ip(packet, 'request_ip_address')
 			
 			recv_if = packet.get_recv_interface()
 			if router == '0.0.0.0':
@@ -542,9 +554,7 @@ def db_consumer( dbq, send_packet ):
 					router = recv_if['address']
 
 			if not requested_ip:
-				requested_ip = '.'.join(map(str,packet.GetOption('ciaddr')))
-				if not requested_ip:
-					raise Exception("This really needs fixed...")
+				requested_ip = '0.0.0.0'
 
 			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
 			
@@ -618,8 +628,8 @@ def db_consumer( dbq, send_packet ):
 					router = recv_if['address']
 
 			# FIXME: If ciaddr is set, we should use a unicast message to the client
+			requested_ip = bytes_to_ip(packet, 'request_ip_address')
 
-			requested_ip = self.get_requested_ip(packet)
 			if not requested_ip:
 				requested_ip = ciaddr
 				if not requested_ip:
@@ -769,8 +779,10 @@ def print_exception( exc, traceback = True ):
 		#traceback_file = '/var/log/dhcp/tracebacks'
 		traceback_file = dhcp.traceback_file
 		tb_file = open( traceback_file, 'a' )
+		tb_file.write("\n----- start %s -----\n" % datetime.datetime.now())
 		traceback.print_exc( file = tb_file )
 		tb_file.write( str(exc) )
+		tb_file.write("\n----- end -----\n")
 		tb_file.close()
 		traceback.print_exc()
 	print str(exc)
