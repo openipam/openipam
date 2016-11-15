@@ -30,6 +30,7 @@ class odict(UserDict):
         self._keys = []
         self._preferred_order = None
         UserDict.__init__(self, _dict)
+        self._raw_data = None
 
     def __delitem__(self, key):
         UserDict.__delitem__(self, key)
@@ -217,9 +218,9 @@ class DhcpBasicPacket:
 
         packet = self.packet_data[:240] + options
         packet.append(255) # add end option
-	pktlen = len(packet)
-	if pktlen < 300:
-		packet.extend([0] * (300-pktlen)) # RFC says min packet size is 300
+        pktlen = len(packet)
+        if pktlen < 300:
+            packet.extend([0] * (300-pktlen)) # RFC says min packet size is 300
 
         packet = map(chr,packet)
 
@@ -230,6 +231,7 @@ class DhcpBasicPacket:
 
     # Insert packet in the object
     def DecodePacket(self,data,debug=False):
+        self._raw_data = data[:] if data else None
         self.packet_data = []
         self.options_data = {}
 
