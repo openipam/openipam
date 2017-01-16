@@ -184,7 +184,7 @@ class Server():
 					tags={
 						'server': self.dhcp_socket_info[s]['address'],
 					},
-					level=level,
+					level=dhcp.logging.ERROR,
 					extra={
 						'b64_data': b64_data,
 						'server_ip_address': self.dhcp_socket_info[s]['address'],
