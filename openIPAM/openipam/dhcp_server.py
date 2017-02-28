@@ -200,9 +200,9 @@ class Server():
 
 		packet_type = get_packet_type( packet )
 		if packet_type is False:
-			self.log_packet(packet, prefix="IGN/INVALID TYPE:", raw=True)
+			log_packet(packet, prefix="IGN/INVALID TYPE:", raw=True)
 		if not packet.IsDhcpPacket():
-			self.log_packet(packet, prefix="IGN/INVALID PKT:", raw=True)
+			log_packet(packet, prefix="IGN/INVALID PKT:", raw=True)
 		self.QueuePacket( packet, packet_type )
 
 	def SendPacket(self, packet, bootp = False, giaddr=None):
