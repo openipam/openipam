@@ -498,11 +498,11 @@ def db_consumer( dbq, send_packet ):
 			requested_ip = bytes_to_ip(packet, 'request_ip_address')
 
 			if requested_ip and requested_ip != '0.0.0.0':
-				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL:', requested_ip )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s (from: %s)", 'ERR/DECL:', requested_ip, mac )
 				self.__db.mark_abandoned_lease( mac=mac, address=requested_ip )
 			else:
-				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL2:', mac )
-				self.__db.mark_abandoned_lease( mac=mac )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: (from: %s)", 'ERR/DECL2:', mac )
+				#self.__db.mark_abandoned_lease( mac=mac )
 
 		def dhcp_release(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
@@ -596,7 +596,7 @@ def db_consumer( dbq, send_packet ):
 
 			while self.address_in_use( lease['address'] ):
 				print 'Address %s in use, marking lease %s as abandoned' % ( lease['address'], lease )
-				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s", 'ERR/IN_USE:', lease['address'] )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s (client: %s)", 'ERR/IN_USE:', lease['address'], mac )
 				self.__db.mark_abandoned_lease( address=lease['address'] )
 				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
 				print 'Got new lease %s from database' % lease
