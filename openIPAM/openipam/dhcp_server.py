@@ -498,11 +498,11 @@ def db_consumer( dbq, send_packet ):
 			requested_ip = bytes_to_ip(packet, 'request_ip_address')
 
 			if requested_ip and requested_ip != '0.0.0.0':
-				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL:', requested_ip )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s (from: %s)", 'ERR/DECL:', requested_ip, mac )
 				self.__db.mark_abandoned_lease( mac=mac, address=requested_ip )
 			else:
-				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %s", 'ERR/DECL2:', mac )
-				self.__db.mark_abandoned_lease( mac=mac )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: (from: %s)", 'ERR/DECL2:', mac )
+				#self.__db.mark_abandoned_lease( mac=mac )
 
 		def dhcp_release(self, packet):
 			mac = decode_mac( packet.GetOption('chaddr') )
