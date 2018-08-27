@@ -596,7 +596,7 @@ def db_consumer( dbq, send_packet ):
 
 			while self.address_in_use( lease['address'] ):
 				print 'Address %s in use, marking lease %s as abandoned' % ( lease['address'], lease )
-				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s", 'ERR/IN_USE:', lease['address'] )
+				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s (client: %s)", 'ERR/IN_USE:', lease['address'], mac )
 				self.__db.mark_abandoned_lease( address=lease['address'] )
 				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
 				print 'Got new lease %s from database' % lease
