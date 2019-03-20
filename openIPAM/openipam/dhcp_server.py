@@ -138,7 +138,7 @@ class Server():
 		self.dhcp_sockets = []
 		self.dhcp_socket_info = {}
 		self.dhcp_unicast_xmit_socket = socket.socket()
-		self.dhcp_xmit_socket = None # initialize this in the sender
+		self.dhcp_xmit_socket = {} # initialize this in the sender
 
 		if not dhcp.server_listen:
 			raise Exception("Missing configuration option: openipam_config.dhcp.server_listen")
@@ -208,12 +208,19 @@ class Server():
 	def SendPacket(self, packet, bootp = False, giaddr=None):
 		"""Encode and send the packet."""
 
-		if not self.dhcp_xmit_socket:
+		local_if = packet.get_recv_interface()
+
+		local_addr = local_if.get('address', socket.INADDR_ANY)
+		local_bcast = local_if.get('broadcast', False)
+		s_key = (local_addr, local_bcast)
+
+		if s_key not in self.dhcp_xmit_socket:
 			s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-			s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+			if local_if['broadcast']:
+				s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 			s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-			s.bind( (self.listen_bcast, self.listen_port) )
-			self.dhcp_xmit_socket = s
+			s.bind( (local_addr, self.listen_port) )
+			self.dhcp_xmit_socket[s_key] = s
 
 		#sender = packet.get_sender()
 		if giaddr is None:
@@ -254,11 +261,13 @@ class Server():
 			log_packet(packet, prefix='IGN/SNDFAIL:', level=dhcp.logging.WARNING)
 			raise Exception('Cannot send packet without one of ciaddr, giaddr, or yiaddr.')
 
-		self.dhcp_xmit_socket.sendto( packet.EncodePacket(), dest )
+		self.dhcp_xmit_socket[s_key].sendto( packet.EncodePacket(), dest )
 
 		if show_packets:
 			print "------- Sending Packet ----------"
-			print sender
+			#print sender
+			print "local_if:", local_if
+			print "local_addr:", local_addr
 			packet.PrintHeaders()
 			packet.PrintOptions()
 			print "---------------------------------"
