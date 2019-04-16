@@ -21,41 +21,65 @@ DSTDIFF = DSTOFFSET - STDOFFSET
 
 class LocalTimezone(datetime.tzinfo):
     """A class capturing the platform's idea of local time."""
+
     def utcoffset(self, dt):
         return self._isdst(dt) and DSTOFFSET or STDOFFSET
+
     def dst(self, dt):
         return self._isdst(dt) and DSTDIFF or datetime.timedelta(0)
+
     def tzname(self, dt):
         return time.tzname[self._isdst(dt)]
+
     def _isdst(self, dt):
-        tt = (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.weekday(), 0, -1)
+        tt = (
+            dt.year,
+            dt.month,
+            dt.day,
+            dt.hour,
+            dt.minute,
+            dt.second,
+            dt.weekday(),
+            0,
+            -1,
+        )
         stamp = time.mktime(tt)
         tt = time.localtime(stamp)
         return tt.tm_isdst > 0
+
     def __repr__(self):
         """Show local timezone name and current offset from UTC."""
         local_now = datetime.datetime.now(self)
         local_tz_name = self.tzname(local_now)
         local_tz_utcoffset = str(local_now)[-6:]
-        return '%s(UTC%s)' % (local_tz_name, local_tz_utcoffset)
+        return "%s(UTC%s)" % (local_tz_name, local_tz_utcoffset)
+
+
 local_timezone = LocalTimezone()
 
 
 class UTC(datetime.tzinfo):
     """UTC time zone class."""
+
     def utcoffset(self, dt):
         return datetime.timedelta(0)
+
     def tzname(self, dt):
-        return 'UTC'
+        return "UTC"
+
     def dst(self, dt):
         return datetime.timedelta(0)
+
     def __repr__(self):
-        return 'UTC'
+        return "UTC"
+
+
 utc = UTC()
 
 
 class JsonDateError(Exception):
     """Exception for JSON conversion errors."""
+
     pass
 
 
@@ -77,20 +101,25 @@ def datetime2json(dt):
         # Apply UTC if datetime is naive, otherwise convert to UTC
         # FIXME: this probably isn't a reasonable assumption... if we don't have a
         #   timetz, it usually means that this is localtime...
-        dt = (dt.tzinfo is None) and dt.replace(tzinfo = utc) or dt.astimezone(utc)
+        dt = (dt.tzinfo is None) and dt.replace(tzinfo=utc) or dt.astimezone(utc)
         # Truncate (not round) to milliseconds
         milliseconds = dt.microsecond / 1000
-        return 'new Date(Date.UTC(%i,%i,%i,%i,%i,%i,%i))' % (dt.year, dt.month - 1,
-                                                             dt.day, dt.hour,
-                                                             dt.minute, dt.second,
-                                                             milliseconds)
+        return "new Date(Date.UTC(%i,%i,%i,%i,%i,%i,%i))" % (
+            dt.year,
+            dt.month - 1,
+            dt.day,
+            dt.hour,
+            dt.minute,
+            dt.second,
+            milliseconds,
+        )
     elif isinstance(dt, datetime.date):
-        return 'new Date(Date.UTC(%i,%i,%i))' % (dt.year, dt.month - 1, dt.day)
+        return "new Date(Date.UTC(%i,%i,%i))" % (dt.year, dt.month - 1, dt.day)
     else:
-        raise JsonDateError('datetime2json() argument must be a datetime or a date')
+        raise JsonDateError("datetime2json() argument must be a datetime or a date")
 
 
-def json2datetime(json_dt, timezone = utc, date_only = False):
+def json2datetime(json_dt, timezone=utc, date_only=False):
     """Convert a json date string to a corresponding datetime or date object.
     
     json_dt is expected to be in the format
@@ -118,46 +147,46 @@ def json2datetime(json_dt, timezone = utc, date_only = False):
     """
     if not json_dt:
         raise JsonDateError("Empty date - use 'null' to indicate no date")
-    elif json_dt=='null':
+    elif json_dt == "null":
         return None
-    
+
     try:
-        assert json_dt.startswith('new Date(Date.UTC(') and json_dt.endswith('))')
+        assert json_dt.startswith("new Date(Date.UTC(") and json_dt.endswith("))")
     except AssertionError:
-        raise JsonDateError('Invalid date format')
-    
+        raise JsonDateError("Invalid date format")
+
     # Parse JSON string
     try:
-        parts = [int(part) for part in json_dt[18:-2].split(',')]
+        parts = [int(part) for part in json_dt[18:-2].split(",")]
         num_parts = len(parts)
     except (IndexError, ValueError):
-        raise JsonDateError('Invalid date format')
+        raise JsonDateError("Invalid date format")
     if num_parts < 2:
-        raise JsonDateError('Not enough arguments')
+        raise JsonDateError("Not enough arguments")
     elif num_parts > 7:
-        raise JsonDateError('Too many arguments')
-    
+        raise JsonDateError("Too many arguments")
+
     # datetime constructor will expect month starting at 1, not 0
     parts[1] += 1
-    
+
     if num_parts == 2:
         # datetime constructor will need a day
         parts.append(1)
     elif num_parts == 7:
         # datetime constructor will take microseconds, not milliseconds
         parts[6] *= 1000
-    
+
     # Construct a timezone-aware UTC datetime
     try:
         # The specified date could be invalid (29 Feb in non-leap year etc.)
         dt = datetime.datetime(tzinfo=utc, *parts)
     except ValueError as msg:
-        raise JsonDateError('Invalid date: %s' % msg)
-    
+        raise JsonDateError("Invalid date: %s" % msg)
+
     # Convert to specified timezone
     if timezone is None:
-        dt = dt.replace(tzinfo = None)
-    elif timezone!=utc:
+        dt = dt.replace(tzinfo=None)
+    elif timezone != utc:
         dt = dt.astimezone(timezone)
-    
+
     return date_only and datetime.date(dt.year, dt.month, dt.day) or dt

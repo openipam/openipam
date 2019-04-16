@@ -10,19 +10,21 @@ ssl_cert = None
 ssl_key = None
 
 # NETWORK BINDINGS
-bind_port = 8080         # Port the backend will listen on.
-bind_host = '127.0.0.1'  # Address the backend will bind to. If you use anything but 127.0.0.1, we strongly recommend enabling SSL.
+bind_port = 8080  # Port the backend will listen on.
+bind_host = (
+    "127.0.0.1"
+)  # Address the backend will bind to. If you use anything but 127.0.0.1, we strongly recommend enabling SSL.
 
 # For some of our cron jobs
-smtp_host = '127.0.0.1'
-digest_dest = 'openipam@localhost'
-digest_from = 'noreply@localhost'
-expiration_from = 'openipam@localhost'
+smtp_host = "127.0.0.1"
+digest_dest = "openipam@localhost"
+digest_from = "noreply@localhost"
+expiration_from = "openipam@localhost"
 expiration_reply_to = None
 bounce_addr = None
 
 # What min_perms are required to see usernames + names?
-show_user_perms = Perms('00000100')
+show_user_perms = Perms("00000100")
 
 # DATABASE
 db_host = None
@@ -31,15 +33,15 @@ db_database = "openipam"
 db_username = "openipam"
 db_password = None
 db_show_sql = False
-db_connect_args = { 'sslmode' : 'require' }
+db_connect_args = {"sslmode": "require"}
 
 # SESSIONS
 session_storage = "file"
 session_dir = "/var/lib/openipam/sessions/backend"
-session_timeout = 60	# Minutes
+session_timeout = 60  # Minutes
 
 # PROXY SETTINGS
-proxied = False # Are requests coming through a proxy?
+proxied = False  # Are requests coming through a proxy?
 proxy_base = None
 proxy_client_ip_header = None
 
@@ -49,7 +51,7 @@ log_access = None
 log_error = None
 log_stdout = None
 log_stderr = None
- 
+
 enable_gul = False
 
 # SYSTEM CONFIGURATION
@@ -57,7 +59,7 @@ enable_gul = False
 # Enable or disable the use of dynamic IP addresses
 allow_dynamic_ip = True
 
-# If someone doesn't have minimum ADMIN rights, can they create a new host under someone else's name? 
+# If someone doesn't have minimum ADMIN rights, can they create a new host under someone else's name?
 allow_non_admin_host_transfer = False
 
 # Default time to live for normal resource records and for dynamic registrations
@@ -67,7 +69,7 @@ default_ttl = 86400
 default_gateway_address_index = -2
 
 # FIXME: use names here
-db_default_min_permissions = '00000100'
+db_default_min_permissions = "00000100"
 
 # FIXME: eliminate the need for these
 db_default_pool_id = 1
@@ -78,37 +80,41 @@ db_service_group_id = 3
 # WRITEME
 pool_map = []
 
-assignable_pools = [] # pools to be treated as free addresses
+assignable_pools = []  # pools to be treated as free addresses
 
 # When adding a user to a group, what will host_permissions default to?
-default_host_permissions	= '00001111'
+default_host_permissions = "00001111"
+
 
 def get_pool_id(address):
-	"""
+    """
 	Take an address and return a pool ID ...
 	
 	This should contain your mapping for pools so that an address, when released
 	from being static can be placed into the correct pool.
 	"""
-	
-	for pool, network in pool_map:
-		if address in network:
-			return pool
-		
-	return None
+
+    for pool, network in pool_map:
+        if address in network:
+            return pool
+
+    return None
+
 
 func_get_pool_id = get_pool_id
 
-auth_user = 'auth'
-guest_user = 'guest'
+auth_user = "auth"
+guest_user = "guest"
 
 guest_pool = 1
 
 from openipam_config.backend import *
 
-if log_access is None: log_access = '%s/access' % log_dir
-if log_error is None: log_error = '%s/error' % log_dir
-if log_stdout is None: log_stdout = '%s/stdout' % log_dir
-if log_stderr is None: log_stderr = '%s/stderr' % log_dir
-
-
+if log_access is None:
+    log_access = "%s/access" % log_dir
+if log_error is None:
+    log_error = "%s/error" % log_dir
+if log_stdout is None:
+    log_stdout = "%s/stdout" % log_dir
+if log_stderr is None:
+    log_stderr = "%s/stderr" % log_dir
