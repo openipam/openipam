@@ -1,18 +1,18 @@
 import os
 import base64
-import xmlrpclib
-import urllib2
-import cookielib
+import xmlrpc.client
+import urllib.request, urllib.error, urllib.parse
+import http.cookiejar
 
 import pickle
 
 from tempfile import mkstemp
 from openipam.utilities import error
 
-class PickleCookieJar( cookielib.CookieJar ):
+class PickleCookieJar( http.cookiejar.CookieJar ):
 	def __init__( self, *args ):
 		self._initargs = args
-		cookielib.CookieJar.__init__(self, *args)
+		http.cookiejar.CookieJar.__init__(self, *args)
 		
 	def __getinitargs__( self ):
 		return self._initargs
@@ -27,7 +27,7 @@ class PickleCookieJar( cookielib.CookieJar ):
                 for cookie_str in cookie_list:
 			self.set_cookie( pickle.loads( cookie_str ) )
 
-class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
+class CookieAuthXMLRPCSafeTransport(xmlrpc.client.Transport):
 	"""xmlrpclib.Transport that sends HTTP(S) Authentication"""
 
 	user_agent = '*py*'
@@ -38,7 +38,7 @@ class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
 	_extra_headers = None
 	
 	def __init__(self, cookiejar=None, ssl=True, use_datetime=True):
-		xmlrpclib.Transport.__init__(self, use_datetime=use_datetime)
+		xmlrpc.client.Transport.__init__(self, use_datetime=use_datetime)
 		if not ssl:
 			self.ssl = False
 			self.transport = 'http'
@@ -52,11 +52,11 @@ class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
 		# create a HTTPS connection object from a host descriptor
 		# host may be a string, or a (host, x509-dict) tuple
 		if not self.ssl:
-			return xmlrpclib.Transport.make_connection( self, host )
-		import httplib
+			return xmlrpc.client.Transport.make_connection( self, host )
+		import http.client
 		host, extra_headers, x509 = self.get_host_info(host)
 		try:
-			HTTPS = httplib.HTTPS
+			HTTPS = http.client.HTTPS
 		except AttributeError:
 			raise NotImplementedError(
 				"your version of httplib doesn't support HTTPS"
@@ -83,7 +83,7 @@ class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
 
 	## override the send_host hook to also send authentication info
 	def send_host(self, connection, host):
-		xmlrpclib.Transport.send_host(self, connection, host)
+		xmlrpc.client.Transport.send_host(self, connection, host)
 		if self.cj:
 			self.send_cookie_auth(connection)
 #		elif self.credentials != ():
@@ -91,7 +91,7 @@ class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
 				
 	def request(self, host, handler, request_body, verbose=0):
 		# dummy request class for extracting cookies 
-		class CookieRequest(urllib2.Request):
+		class CookieRequest(urllib.request.Request):
 			pass
 			
 		# dummy response class for extracting cookies 
@@ -124,7 +124,7 @@ class CookieAuthXMLRPCSafeTransport(xmlrpclib.Transport):
 		self.cj.extract_cookies(cresponse, crequest)
 
 		if errcode != 200:
-			raise xmlrpclib.ProtocolError(
+			raise xmlrpc.client.ProtocolError(
 				host + handler,
 				errcode, errmsg,
 				headers

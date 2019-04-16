@@ -210,7 +210,7 @@ class AdminDHCPGroups(Admin):
 			# We're adding a new group
 			try:
 				self.webservice.add_dhcp_group( { 'name':kw['name'], 'description':kw['description'] } )
-			except Exception, detail:
+			except Exception as detail:
 				raise Exception("Could not add group\n"+str(detail))
 		else:
 			# We're updating a group

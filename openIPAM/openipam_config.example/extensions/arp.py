@@ -1,11 +1,11 @@
 # Needs to be thread-safe, whatever we do...
 
-import thread
+import _thread
 import psycopg2
 import types
 from openipam.utilities import error
 
-arp_lock = thread.allocate_lock()
+arp_lock = _thread.allocate_lock()
 
 min_permissions = '00000100'
 
@@ -59,11 +59,11 @@ def mk_dicts(data):
 
 
 def bymac(mac):
-	print 'bymac(%s)' % mac
-	if type(mac) == types.ListType:
+	print('bymac(%s)' % mac)
+	if type(mac) == list:
 		for i in mac:
 			i = str(i)
-			print i
+			print(i)
 			if not validation.is_mac(i):
 				raise error.InvalidArgument('Not a valid mac address: %s' % i)
 		cond = "mac IN ('%s')" % "','".join(mac)
@@ -76,11 +76,11 @@ def bymac(mac):
 	return mk_dicts(data)
 
 def byip(ip):
-	print 'byip(%s)' % ip
-	if type(ip) == types.ListType:
+	print('byip(%s)' % ip)
+	if type(ip) == list:
 		for i in ip:
 			i = str(i)
-			print i
+			print(i)
 			if not validation.is_ip(i):
 				raise error.InvalidArgument('Not a valid ip address: %s' % i)
 		cond = "ip IN ('%s')" % "','".join(ip)

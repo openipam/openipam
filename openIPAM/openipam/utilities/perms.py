@@ -17,12 +17,12 @@ class Perms( object ):
 		self.__integer=None
 		self.__len = 8 # bits
 		
-		if type(bits) == types.StringType:
+		if type(bits) == bytes:
 			if len( bits ) != self.__len:
 				raise Exception("wrong length: '%s' is not %s characters" % (bits, self.__len) )
 			self.__bits = bits
 			int(self)
-		elif type(bits) == types.IntType:
+		elif type(bits) == int:
 			self.__integer = bits
 			str(self)
 		elif type(bits) == type(self):
@@ -60,22 +60,22 @@ class Perms( object ):
 		return self.__bits
 	
 	def __eq__(self, a ):
-		if type(a) is types.NoneType:
+		if type(a) is type(None):
 			return False
 		return int(self) == int(Perms(a))
 	
 	def __ne__(self, a ):
-		if type(a) is types.NoneType:
+		if type(a) is type(None):
 			return True
 		return int(self) != int(Perms(a))
 	
 	def __and__( self, a ):
-		if type(a) is types.StringType:
+		if type(a) is bytes:
 			a = Perms(a)
 		return Perms( int(self) & int(Perms(a)) )
 	
 	def __or__( self, a ):
-		if type(a) is types.StringType:
+		if type(a) is bytes:
 			a = Perms(a)
 		return Perms( int(self) | int(Perms(a)) )
 

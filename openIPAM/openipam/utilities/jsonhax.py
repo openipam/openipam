@@ -87,7 +87,7 @@ def datetime2json(dt):
     elif isinstance(dt, datetime.date):
         return 'new Date(Date.UTC(%i,%i,%i))' % (dt.year, dt.month - 1, dt.day)
     else:
-        raise JsonDateError, 'datetime2json() argument must be a datetime or a date'
+        raise JsonDateError('datetime2json() argument must be a datetime or a date')
 
 
 def json2datetime(json_dt, timezone = utc, date_only = False):
@@ -117,25 +117,25 @@ def json2datetime(json_dt, timezone = utc, date_only = False):
     JSON string did not contain any time components.
     """
     if not json_dt:
-        raise JsonDateError, "Empty date - use 'null' to indicate no date"
+        raise JsonDateError("Empty date - use 'null' to indicate no date")
     elif json_dt=='null':
         return None
     
     try:
         assert json_dt.startswith('new Date(Date.UTC(') and json_dt.endswith('))')
     except AssertionError:
-        raise JsonDateError, 'Invalid date format'
+        raise JsonDateError('Invalid date format')
     
     # Parse JSON string
     try:
         parts = [int(part) for part in json_dt[18:-2].split(',')]
         num_parts = len(parts)
     except (IndexError, ValueError):
-        raise JsonDateError, 'Invalid date format'
+        raise JsonDateError('Invalid date format')
     if num_parts < 2:
-        raise JsonDateError, 'Not enough arguments'
+        raise JsonDateError('Not enough arguments')
     elif num_parts > 7:
-        raise JsonDateError, 'Too many arguments'
+        raise JsonDateError('Too many arguments')
     
     # datetime constructor will expect month starting at 1, not 0
     parts[1] += 1
@@ -151,8 +151,8 @@ def json2datetime(json_dt, timezone = utc, date_only = False):
     try:
         # The specified date could be invalid (29 Feb in non-leap year etc.)
         dt = datetime.datetime(tzinfo=utc, *parts)
-    except ValueError, msg:
-        raise JsonDateError, 'Invalid date: %s' % msg
+    except ValueError as msg:
+        raise JsonDateError('Invalid date: %s' % msg)
     
     # Convert to specified timezone
     if timezone is None:

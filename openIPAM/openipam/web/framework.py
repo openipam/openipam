@@ -56,7 +56,7 @@ class Basics(object):
 			# and makes it so that all variables in a template are NOT required to pass in every time
 			cherrypy.session.acquire_lock()
 			try:
-				values['template_keys'] = values.keys()
+				values['template_keys'] = list(values.keys())
 				values['has_admin_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.ADMIN) == perms.ADMIN)
 				values['has_owner_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.OWNER) == perms.OWNER)
 				values['has_deity_perms'] = ((Perms(cherrypy.session['min_permissions']) & perms.DEITY) == perms.DEITY)
@@ -87,7 +87,7 @@ class Basics(object):
 		text.append('''
 					<div id="col3_content" class="clearfix">
 					''')
-		if values and values.has_key("global_success"):
+		if values and "global_success" in values:
 			text.append('''
 							<div class="successMessage">'''+values['global_success']+'''</div>
 						''')
@@ -150,7 +150,7 @@ class Basics(object):
 		
 		cherrypy.session.acquire_lock()
 		try:
-			if not cherrypy.session.has_key('min_permissions'):
+			if 'min_permissions' not in cherrypy.session:
 				raise error.SessionExpired("Permissions not in session, can't continue")
 			
 			if cherrypy.session['min_permissions'] == perms.DEITY:
@@ -212,7 +212,7 @@ class Basics(object):
 	def footer(self):
 		includes = []
 		
-		if type(self.__javascript) is types.TupleType:
+		if type(self.__javascript) is tuple:
 			for inc in self.__javascript:
 				includes.append('<script type="text/javascript" src="%s"></script>' % inc)
 		else:

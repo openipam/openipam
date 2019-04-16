@@ -7,14 +7,14 @@ class fcn_wrapper( object ):
 				obj = object.__getattribute__(self, name)
 				#print 'fcn_wrapper: getattr(%s) -> %s' % (repr(name), repr(obj),)
 				return obj
-			except Exception, e:
+			except Exception as e:
 				#print 'meh'
 				#print e
 				raise
 		try:
 			fcn = object.__getattribute__(self,'fcn_wrapper_fcn')
-		except Exception, e:
-			print e
+		except Exception as e:
+			print(e)
 			raise
 		#print '--------'
 		obj = getattr(fcn,name)
@@ -25,7 +25,7 @@ class fcn_wrapper( object ):
 		name = self.fcn_wrapper_name
 		#print '********->%s' % name
 		for k in self.fcn_wrapper_kwargs:
-			if kw.has_key(k):
+			if k in kw:
 				raise Exception('Bad programmer.  No donut.  %s was given twice (%s, %s).' % (k,kw[k],self.fcn_wrapper_kwargs[k]))
 			kw[k] = self.fcn_wrapper_kwargs[k]
 		if hasattr(self.fcn_wrapper_obj, 'log_call'):

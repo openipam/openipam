@@ -18,7 +18,7 @@
 
 import sys
 import socket
-import dhcp_packet
+from . import dhcp_packet
 
 
 class DhcpNetwork:
@@ -73,35 +73,35 @@ class DhcpNetwork:
 
     # Server side Handle methods
     def HandleDhcpDiscover(self, packet):
-        print "HandleDhcpRequest : method not implemented"
+        print("HandleDhcpRequest : method not implemented")
 
     def HandleDhcpRequest(self, packet):
-        print "HandleDhcpRequest : method not implemented"
+        print("HandleDhcpRequest : method not implemented")
 
     def HandleDhcpDecline(self, packet):
-        print "HandleDhcpDecline : method not implemented"
+        print("HandleDhcpDecline : method not implemented")
 
     def HandleDhcpRelease(self, packet):
-        print "HandleDhcpRelease : method not implemented"
+        print("HandleDhcpRelease : method not implemented")
 
     def HandleDhcpInform(self, packet):
-        print "HandleDhcpInform : method not implemented"
+        print("HandleDhcpInform : method not implemented")
 
 
     # client-side Handle methods
     def HandleDhcpOffer(self, packet):
-        print "HandleDhcpOffer : method not implemented"
+        print("HandleDhcpOffer : method not implemented")
         
     def HandleDhcpAck(self, packet):
-        print "HandleDhcpAckhandling : method not implemented"
+        print("HandleDhcpAckhandling : method not implemented")
 
     def HandleDhcpNack(self, packet):
-        print "HandleDhcpNack : method not implemented"
+        print("HandleDhcpNack : method not implemented")
 
 
     # Handle unknown options or all options
     def HandleDhcpUnknown(self, packet):
-        print "HandleDhcpUnknown : method not implemented"
+        print("HandleDhcpUnknown : method not implemented")
 
     def HandleDhcpAll(self, packet):
         pass
@@ -133,7 +133,7 @@ class DhcpRawClient(DhcpNetwork) :
     def __init__(self, interface="eth0", client_listen_port=67,server_listen_port=68) :
 
         DhcpNetwork.__init__(self,interface,client_listen_port,server_listen_port)
-        print interface
+        print(interface)
                 # 0x800 : ETH_P_IP, 0x003 : ETH_P_ALL
         # See Linux/if_ether.h 
         self.dhcp_socket = socket.socket(socket.AF_PACKET, socket.SOCK_DGRAM,socket.ntohs(0x0800))

@@ -7,13 +7,13 @@ from openipam.config import frontend
 
 import openipam.web.resource.utils
 
-import framework
+from . import framework
 splash = framework.Splash()
 
 # Import the XMLRPC Library for consuming the webservices
-import xmlrpclib
+import xmlrpc.client
 
-from resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
+from .resource.xmlrpcclient import CookieAuthXMLRPCSafeTransport
 
 DEFAULT_HOSTS_LIMIT = 100
 DEFAULT_DNS_RECORDS_LIMIT = 50
@@ -65,12 +65,12 @@ class BasePage(object):
 		cherrypy.session.acquire_lock()
 
 		try:
-			if not cherrypy.session.has_key('transport'):
+			if 'transport' not in cherrypy.session:
 				cherrypy.session['transport'] = CookieAuthXMLRPCSafeTransport( ssl=frontend.xmlrpc_ssl_enabled )
 
-			self.webservice = xmlrpclib.ServerProxy(self.__url, transport=cherrypy.session['transport'], allow_none=True)
+			self.webservice = xmlrpc.client.ServerProxy(self.__url, transport=cherrypy.session['transport'], allow_none=True)
 
-			have_username = cherrypy.session.has_key('username')
+			have_username = 'username' in cherrypy.session
 		finally:
 			cherrypy.session.release_lock()
 
@@ -90,7 +90,7 @@ class BasePage(object):
 		"""The home page."""
 		cherrypy.session.acquire_lock()
 		try:
-			if cherrypy.session.has_key('transport'):
+			if 'transport' in cherrypy.session:
 				self.redirect("/hosts/")
 			self.redirect("/login")
 		finally:
@@ -123,7 +123,7 @@ class BasePage(object):
 	def logged_in(self):
 		cherrypy.session.acquire_lock()
 		try:
-			return cherrypy.session.has_key('user') and cherrypy.session['user']['username']
+			return 'user' in cherrypy.session and cherrypy.session['user']['username']
 		finally:
 			cherrypy.session.release_lock()
 		return False
@@ -206,7 +206,7 @@ class BasePage(object):
 				if referer is not None and 'login' not in referer:
 					self.redirect(referer)
 				self.redirect('/')
-			except Exception, e:
+			except Exception as e:
 				error_string = error.parse_webservice_fault(e)
 				if error_string == "InvalidCredentials":
 					raise cherrypy.InternalRedirect('/login?failed=true')

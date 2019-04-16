@@ -11,7 +11,7 @@ class submenu:
 		'''
 		
 		# make sure links and titles are both tuples
-		if (type(values) is not types.TupleType) or (type(links) is not types.TupleType) :
+		if (type(values) is not tuple) or (type(links) is not tuple) :
 			raise Exception("Values or links passed to submenu is not a tuple")
 				
 		self.__values = values
@@ -52,7 +52,7 @@ class OptionsSubmenu:
 		'''
 		
 		# make sure links and titles are both tuples
-		if (type(values) is not types.TupleType) or (type(links) is not types.TupleType) or (type(selected) is not types.TupleType):
+		if (type(values) is not tuple) or (type(links) is not tuple) or (type(selected) is not tuple):
 			raise Exception("Values or links passed to submenu is not a tuple")
 		
 		self.__values = values

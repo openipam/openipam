@@ -107,7 +107,7 @@ row_fmt = "%(hostname)-40s %(mac)-22s %(days)3s days      %(description)s"
 # Create a dictionary with keys of an A Number and values of the hosts about to expire.
 for rowitem in notification_list:
 	row_text = row_fmt % rowitem
-	if contactlist.has_key(rowitem['username']):
+	if rowitem['username'] in contactlist:
 		if not contactlist[rowitem['username']]['is_static'] and rowitem['is_static']:
 			contactlist[rowitem['username']]['is_static'] = True
 		contactlist[rowitem['username']]['rows'].append(row_text)
@@ -131,7 +131,7 @@ for item in contactlist:
 			raise Exception('User %s does not have preferred email set' % item)
 		if not email_re.search(user.email):
 			raise Exception('User %s has an invalid preferred email address (%s)' % (item,user.email) )
-	except Exception, e:
+	except Exception as e:
 		if contactlist[item]['is_static']:
 			failed_static.append( '%s: %s\n%s\n\n' % (e,item,'\n'.join(contactlist[item]['rows'])) )
 		else:

@@ -1,9 +1,9 @@
 import ldap
-import thread
+import _thread
 
 from openipam.config import auth
 from openipam.config import backend
-from internal import hash_password
+from .internal import hash_password
 from openipam.utilities import error
 
 class BaseAuthInterface:
@@ -130,7 +130,7 @@ class LockingWrapper(object):
 	def __init__( self, obj ):
 		# Make a lock
 		# store the object
-		self.obj_lock = thread.allocate_lock()
+		self.obj_lock = _thread.allocate_lock()
 		self.obj = obj
 		self.obj_fcn = None
 	def __getattr__( self, name ):
@@ -286,7 +286,7 @@ class LDAPInterface(BaseAuthInterface):
 		else:
 			ldap_user = self._search_ldap( username )
 		
-		if not ldap_user.has_key('email') or (ldap_user.has_key('email') and not ldap_user['email'].strip()):
+		if 'email' not in ldap_user or ('email' in ldap_user and not ldap_user['email'].strip()):
 			if auth.ldap_require_email:
 				raise error.NoEmail()
 			else:

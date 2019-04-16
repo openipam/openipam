@@ -1,9 +1,9 @@
 import cherrypy
 import datetime
 import cjson
-import thread
+import _thread
 
-from basepage import BasePage
+from .basepage import BasePage
 from cherrypy._cptools import XMLRPCController
 from openipam.utilities import error, jsonhax
 
@@ -43,7 +43,7 @@ class AjaxTransport(BasePage, XMLRPCController):
 		
 		BasePage.__init__(self)
 		XMLRPCController.__init__(self)
-		self.__name_lock = thread.allocate_lock()
+		self.__name_lock = _thread.allocate_lock()
 		
 	#-----------------------------------------------------------------
 
@@ -79,7 +79,7 @@ class AjaxTransport(BasePage, XMLRPCController):
 		
 		self.check_session()
 		function = getattr(self.webservice, name)
-		if kw.has_key('json'):
+		if 'json' in kw:
 			kw = cjson.decode(kw['json'])
 		
 		result = function(kw)
@@ -91,7 +91,7 @@ class AjaxTransport(BasePage, XMLRPCController):
 				# Loop through our self.__datetime_columns and convert those datetime objects 
 				for column in self.__datetime_columns:
 					
-					if row.has_key(column) and isinstance(row[column], datetime.datetime):
+					if column in row and isinstance(row[column], datetime.datetime):
 						# Wow...ok...
 						# We're on a datetime object, JSON-haxify it to be a JSON string compatible with JavaScript:
 						
@@ -99,8 +99,8 @@ class AjaxTransport(BasePage, XMLRPCController):
 		
 		try:
 			return cjson.encode(result)
-		except Exception, e:
-			print e, result
+		except Exception as e:
+			print(e, result)
 			raise
 
 	@cherrypy.expose

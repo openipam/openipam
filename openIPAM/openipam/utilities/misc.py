@@ -8,7 +8,7 @@ def fix_timedelta(datum):
     return datum
 
 def fix_checkbox(form, key):
-    if not form.has_key(key):
+    if key not in form:
         return False
     else:
         return True
@@ -40,4 +40,4 @@ def make_time_delta(s):
             r'((?P<days>\d+) days?, )?(?P<hours>\d+):'
             r'(?P<minutes>\d+):(?P<seconds>\d+)',
             str(s)).groupdict(0)
-    return datetime.timedelta(**dict(( (key, int(value)) for key, value in d.items() )))
+    return datetime.timedelta(**dict(( (key, int(value)) for key, value in list(d.items()) )))

@@ -18,10 +18,10 @@
 import operator
 from struct import unpack
 from struct import pack
-from dhcp_basic_packet import *
-from dhcp_constants import *
-from type_ipv4 import ipv4
-from type_strlist import strlist
+from .dhcp_basic_packet import *
+from .dhcp_constants import *
+from .type_ipv4 import ipv4
+from .type_strlist import strlist
 class DhcpPacket(DhcpBasicPacket):
 
     def set_sender(self, sender):
@@ -38,8 +38,8 @@ class DhcpPacket(DhcpBasicPacket):
 
     # Useful function for debugging
     def PrintHeaders(self):
-        print "# Header fields\n"
-        print "readable_dhcp_headers = {"
+        print("# Header fields\n")
+        print("readable_dhcp_headers = {")
         for opt in  ['op','htype','hlen','hops','xid','secs','flags',
                      'ciaddr','yiaddr','siaddr','giaddr','chaddr','sname','file'] :
             begin = DhcpFields[opt][0]
@@ -53,14 +53,14 @@ class DhcpPacket(DhcpBasicPacket):
             if DhcpFieldsTypes[opt] == "hwmac" : result = "".join(map(chr,data))
 
             line = "\t'"+opt+"':"+str(data)+",\t# "+result
-            print line
-        print "\t'end':'true'}"
+            print(line)
+        print("\t'end':'true'}")
 
     # Useful function for debugging
     def PrintOptions(self):
-        print "# Options fields"
-        print "readable_dhcp_options = {"
-        for opt in self.options_data.keys():
+        print("# Options fields")
+        print("readable_dhcp_options = {")
+        for opt in list(self.options_data.keys()):
             data = self.options_data[opt]
             result = ""
             optnum  = DhcpOptions[opt]
@@ -74,8 +74,8 @@ class DhcpPacket(DhcpBasicPacket):
                     if len(data[i:i+4]) == 4 :
                         result += ipv4(data[i:i+4]).str() + " - "
             line = "\t'"+opt+"':"+str(data)+",\t# "+result
-            print line
-        print "\t'end':'true'}"
+            print(line)
+        print("\t'end':'true'}")
         
 
             
@@ -122,7 +122,7 @@ class DhcpPacket(DhcpBasicPacket):
         return result
 
     def SetMultipleOptions(self,options={}):
-        for each in options.keys():
+        for each in list(options.keys()):
             self.SetOption(each,options[each])
 
 

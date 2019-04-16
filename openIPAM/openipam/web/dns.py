@@ -1,4 +1,4 @@
-from basepage import BasePage
+from .basepage import BasePage
 from openipam.web.resource.submenu import submenu, OptionsSubmenu
 from openipam.utilities import misc, error, validation
 from openipam.utilities.perms import Perms
@@ -8,8 +8,8 @@ from openipam.config import frontend
 import types
 
 import cherrypy
-import framework
-from resource.submenu import submenu
+from . import framework
+from .resource.submenu import submenu
 
 class DNS(BasePage):
 	'''
@@ -50,9 +50,9 @@ class DNS(BasePage):
 			limit = frontend.default_dns_records_limit
 		
 		# Replace any wildcard stars with DB capable wildcards
-		if type(name) == types.StringType:
+		if type(name) == bytes:
 			name = name.replace("*", "%")
-		if type(content) == types.StringType:
+		if type(content) == bytes:
 			content = content.replace("*", "%")
 
 		# Initialization

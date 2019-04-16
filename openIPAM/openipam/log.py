@@ -15,7 +15,7 @@ class IPAMLogManager( cherrypy._GlobalLogManager ):
 		outheaders = response.headers
 		tmpl = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 		client_ip = None
-		if self.client_ip_header and request.headers.has_key(self.client_ip_header):
+		if self.client_ip_header and self.client_ip_header in request.headers:
 			client_ip = request.headers[self.client_ip_header].strip()
 		s = tmpl % {'h': client_ip or remote.name or remote.ip,
 			    'l': '-',

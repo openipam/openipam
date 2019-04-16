@@ -28,7 +28,7 @@ class AdminGroupsNetwork(AdminGroups):
 		if len(search):
 			try:
 				networks = self.webservice.get_networks({ 'network' : search, 'exact': False })
-			except Exception, e:
+			except Exception as e:
 				err = error.parse_webservice_fault(e)
 				if err == 'InvalidCIDRNetwork':
 					return '<div class="message"><div>Invalid network specified. Please search using a full CIDR network descriptor.</div></div>'

@@ -31,7 +31,7 @@ for group in ipam_groups:
 			user = ipam_interface.get_users(username=name)
 			ldap_ids.add(user[0]['id'])
 		except:
-			print "name=%s Failed to look up user %s for group %s" % (name,u,group)
+			print("name=%s Failed to look up user %s for group %s" % (name,u,group))
 	ipam_users = ipam_interface.get_users_to_groups( gid=group['id'] )
 	ipam_ids = set()
 	for u in ipam_users:
@@ -41,25 +41,25 @@ for group in ipam_groups:
 	to_add = ldap_ids.difference(ipam_ids)
 
 	for uid in to_remove:
-		print "Removing %s from group %s" % (ipam_interface.get_users(uid=uid),group)
+		print("Removing %s from group %s" % (ipam_interface.get_users(uid=uid),group))
 		try:
 			ipam_interface.del_user_to_group(uid=uid, gid=group['id'])
 		except:
-			print "Failed"
+			print("Failed")
 
 	for uid in to_add:
-		print "Adding %s to group %s" % (ipam_interface.get_users(uid=uid),group)
+		print("Adding %s to group %s" % (ipam_interface.get_users(uid=uid),group))
 		try:
 			ipam_interface.add_user_to_group(uid=uid, gid=group['id'], permissions=str(interface.perms.OWNER))
 		except:
-			print "Failed"
+			print("Failed")
 
-	if os.environ.has_key('DEBUG') and os.environ['DEBUG']:
-		print "LDAP filter: %s" % ldap_filter
-		print "LDAP users:"
-		print ldap_users
-		print "IPAM users:"
-		print ipam_users
-		print "To remove: %s, to add: %s" % (to_remove,to_add)
+	if 'DEBUG' in os.environ and os.environ['DEBUG']:
+		print("LDAP filter: %s" % ldap_filter)
+		print("LDAP users:")
+		print(ldap_users)
+		print("IPAM users:")
+		print(ipam_users)
+		print("To remove: %s, to add: %s" % (to_remove,to_add))
 
 

@@ -4,13 +4,13 @@ from openipam import dhcp_server
 import random
 import datetime
 
-from Queue import Empty
+from queue import Empty
 
 def get_rand_item(lst):
 	rp = lst[ random.randrange( 0, len(lst) ) ]
 	item = { 'address':None }
 	for i in [ 'mac', 'address', 'gateway', ]:
-		if rp.has_key(i):
+		if i in rp:
 			item[i] = rp[i]
 	return item
 
@@ -79,7 +79,7 @@ class PacketGenerator( object ):
 				packet, send_to, bootp = pkt
 				self.handle_result_packet( packet, send_to, bootp )
 				pkt = self.recvq.get_nowait()
-		except Empty, e:
+		except Empty as e:
 			pass
 
 		discover = ( random.random() < .25 ) or ( len( self.leased_dynamics ) < 100 )
@@ -114,7 +114,7 @@ def hex2int( s ):
 	return int( s.strip(), 16 )
 
 def breakmac( m ):
-	mac = map( hex2int, m.split(':') )
+	mac = list(map( hex2int, m.split(':') ))
 	for i in range( 16 - len(mac) ):
 		mac.append(0)
 	return mac
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
 	nreq = 2000
 	start = datetime.datetime.now()
-	print "starting at %s" % start
+	print("starting at %s" % start)
 	for i in range( nreq ):
 	#while True:
 		# Sleep an appropriate amount of time to get the appropriate number of packets per second
@@ -167,7 +167,7 @@ if __name__ == '__main__':
 		# Now, put it there
 		server.GetNextDhcpPacket( )
 	end = datetime.datetime.now()
-	print "ending at %s" % end
+	print("ending at %s" % end)
 	duration = end-start
-	print "requests: %s duration: %s" % (nreq,duration)
+	print("requests: %s duration: %s" % (nreq,duration))
 

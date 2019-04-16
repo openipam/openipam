@@ -17,7 +17,7 @@ lockfile = open(lockfile_name,'w')
 
 try:
 	fcntl.flock(lockfile,fcntl.LOCK_EX|fcntl.LOCK_NB)
-except IOError,e:
+except IOError as e:
 	syslog.syslog(syslog.LOG_ERR, 'dns_update: not checking rules since it appears another instance is running')
 	exit(1)
 
@@ -59,9 +59,9 @@ def check_update():
 	cur['dns_records'] = (date,id,)
 
 	changed = False
-	for i in cur.keys():
+	for i in list(cur.keys()):
 		date,id = cur[i]
-		if last.has_key(i):
+		if i in last:
 			datechecked,idchecked = last[i]
 		else:
 			changed = True
@@ -183,7 +183,7 @@ GRANT SELECT ON records TO pdns;
 
 	#print 'updating status'
 	new_checked = []
-	for i in cur.keys():
+	for i in list(cur.keys()):
 		new_checked.append( (i,cur[i][0],cur[i][1],) )
 
 	def quot(d):

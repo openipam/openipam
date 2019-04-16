@@ -59,7 +59,7 @@ raven_client_min_level = dhcp.logging.ERROR
 
 import subprocess
 
-from Queue import Full, Empty
+from queue import Full, Empty
 
 def bytes_to_ip(packet, opt_name):
 	try:
@@ -83,7 +83,7 @@ def bytes_to_ip(packet, opt_name):
 
 
 DhcpRevOptions = {}
-for key in DhcpOptions.keys():
+for key in list(DhcpOptions.keys()):
 	DhcpRevOptions[ DhcpOptions[key] ] = key
 
 ####
@@ -105,10 +105,10 @@ def int_to_4_bytes( num ):
 	return x
 
 def ip_to_list( address ):
-	return map( int, address.split('.') )
+	return list(map( int, address.split('.') ))
 
 def bytes_to_ints( bytes ):
-	return map(ord, bytes)
+	return list(map(ord, bytes))
 
 def bytes_to_int( bytes ):
 	x = 0
@@ -178,10 +178,10 @@ class Server():
 		packet = dhcp_packet.DhcpPacket()
 		try:
 			packet.DecodePacket(data)
-		except Exception, e:
+		except Exception as e:
 			print_exception(e)
 			b64_data = base64.b64encode(data)
-			print "FAILED TO PARSE: %r: %r" % (e, b64_data)
+			print("FAILED TO PARSE: %r: %r" % (e, b64_data))
 			dhcp.get_logger().log(dhcp.logging.ERROR,"IGN/UNPARSABLE: %r" % b64_data)
 
 			if raven_client:
@@ -236,7 +236,7 @@ class Server():
 		chaddr = decode_mac( packet.GetOption('chaddr') )
 
 		if not bootp:
-			server_id = map(int, packet.get_recv_interface()['address'].split('.'))
+			server_id = list(map(int, packet.get_recv_interface()['address'].split('.')))
 			packet.SetOption("server_identifier",server_id) # DHCP server IP
 
 		# See rfc1532 page 21
@@ -270,16 +270,16 @@ class Server():
 		self.dhcp_xmit_socket[s_key].sendto( packet.EncodePacket(), dest )
 
 		if show_packets:
-			print "------- Sending Packet ----------"
+			print("------- Sending Packet ----------")
 			#print sender
-			print "local_if:", local_if
-			print "local_addr:", local_addr
+			print("local_if:", local_if)
+			print("local_addr:", local_addr)
 			packet.PrintHeaders()
 			packet.PrintOptions()
-			print "---------------------------------"
+			print("---------------------------------")
 	
 	def do_seen_cleanup( self, mac, min_timestamp ):
-		if not self.seen.has_key( mac ):
+		if mac not in self.seen:
 			self.seen[mac] = []
 		seen = self.seen[ mac ]
 
@@ -295,7 +295,7 @@ class Server():
 			if not self.seen[ cleanup_mac ]:
 				del self.seen[ cleanup_mac ]
 		else:
-			self.seen_cleanup = self.seen.keys()
+			self.seen_cleanup = list(self.seen.keys())
 
 		return seen
 
@@ -307,7 +307,7 @@ class Server():
 		wait_time = packet.GetOption('secs')
 		if wait_time < IGNORE_FOR:
 			log_packet( packet, prefix='IGN/IGN_FOR:', level=dhcp.logging.INFO )
-			print "ignoring request type %s from mac %s because we are waiting for %d secs" % (pkttype, mac, IGNORE_FOR)
+			print("ignoring request type %s from mac %s because we are waiting for %d secs" % (pkttype, mac, IGNORE_FOR))
 			return
 			
 
@@ -318,7 +318,7 @@ class Server():
 		#types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
 		MESSAGE_TYPE_LIMIT = { None:2, 1:6, 3:10, 4:12, 7:20, 8:16  } # we are only counting serviced packets, regardless of type
 		
-		if MESSAGE_TYPE_LIMIT.has_key(pkttype):
+		if pkttype in MESSAGE_TYPE_LIMIT:
 			MAX_REQUESTS = MESSAGE_TYPE_LIMIT[pkttype]
 		else:
 			MAX_REQUESTS = 0
@@ -343,7 +343,7 @@ class Server():
 
 		if len(seen) > MAX_REQUESTS:
 				log_packet( packet, prefix='IGN/LIMIT:', level=dhcp.logging.INFO )
-				print "ignoring request type %s from mac %s because we have seen %s requests in %s" % (pkttype, mac, len(seen), str(TIME_PERIOD))
+				print("ignoring request type %s from mac %s because we have seen %s requests in %s" % (pkttype, mac, len(seen), str(TIME_PERIOD)))
 				return
 		
 		packet.retry_count = 0
@@ -352,10 +352,10 @@ class Server():
 		try:
 			log_packet( packet, prefix='QUEUED:' )
 			self.__dbq.put_nowait( (pkttype, packet) )
-		except Full, e:
+		except Full as e:
 			# The queue is full, try again later.
 			log_packet( packet, prefix='IGN/FULL:', level=dhcp.logging.WARNING )
-			print "ignoring request type %s from mac %s because the queue is full ... be afraid" % (pkttype,mac)
+			print("ignoring request type %s from mac %s because the queue is full ... be afraid" % (pkttype,mac))
 			return
 		
 		# If we get here, the packet should be in the queue, so we can
@@ -476,20 +476,20 @@ def db_consumer( dbq, send_packet ):
 				action = self.type_map[ type ]
 
 			if show_packets:
-				print "############################# Recieved DHCP %s" % tname
+				print("############################# Recieved DHCP %s" % tname)
 				packet.PrintHeaders()
 				packet.PrintOptions()
-				print "#############################"
+				print("#############################")
 
 			if action:
 				action( packet )
 			else:
-				print "Don't know how to handle %s packet" % tname
+				print("Don't know how to handle %s packet" % tname)
 
 		def address_in_use(self, address):
 			if True:
 				return False
-			if len( map( int, address.split('.') ) ) != 4:
+			if len( list(map( int, address.split('.') )) ) != 4:
 					raise Exception( "'%s' is not a valid IP address" ) % address
 			cmd = [ '/bin/ping', '-q', '-i0.1', '-c2', '-W1',  address, ]
 			retval = subprocess.call( cmd )
@@ -528,37 +528,37 @@ def db_consumer( dbq, send_packet ):
 			for o in options:
 				if o['value'] is None: # unset this option, plz
 					packet.DeleteOption(DhcpRevOptions[o['oid']])
-					if opt_vals.has_key(int(o['oid'])):
+					if int(o['oid']) in opt_vals:
 						del opt_vals[ int(o['oid']) ]
 				else:
 					opt_vals[ int(o['oid']) ] = o['value']
 
 			preferred = []
 			for oid in requested:
-				if DhcpRevOptions.has_key(oid):
+				if oid in DhcpRevOptions:
 					preferred.append( DhcpRevOptions[oid] )
 
 			packet.options_data.set_preferred_order( preferred )
 
-			for i in opt_vals.keys():
+			for i in list(opt_vals.keys()):
 				packet.SetOption( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
-				print "Setting %s to '%s'" % ( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) )
+				print("Setting %s to '%s'" % ( DhcpRevOptions[i], bytes_to_ints( opt_vals[i] ) ))
 				# Use  for next-server == siaddr
 				if i == 11:
 					packet.SetOption("siaddr", bytes_to_ints( opt_vals[i] ) )
-					print "Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) )
+					print("Setting next-server (siaddr) to '%s'" % ( bytes_to_ints( opt_vals[i] ) ))
 				# Use tftp-server for next-server == sname
 				if i == 66:
 					v = str(opt_vals[i])
 
 					v_padded = v + '\0'*(64-len(v)) # pydhcplib is too lame to do this for us
 					packet.SetOption("sname", bytes_to_ints(v_padded) )
-					print "Setting sname to '%s'" % ( bytes_to_ints( v ) )
+					print("Setting sname to '%s'" % ( bytes_to_ints( v ) ))
 					try:
 						host = self.__db.get_dns_records(tid=1,name=v)[0]
-						addr = map(int,host['ip_content'].split('.'))
+						addr = list(map(int,host['ip_content'].split('.')))
 						packet.SetOption("siaddr", addr )
-						print "Setting next-server (siaddr) to '%s'" % ( addr )
+						print("Setting next-server (siaddr) to '%s'" % ( addr ))
 					except:
 						pass
 				# Use tftp file name for bootfile
@@ -566,7 +566,7 @@ def db_consumer( dbq, send_packet ):
 					v = opt_vals[i]
 					v = v + '\0'*(128-len(v)) # pydhcplib is too lame to do this for us
 					packet.SetOption("file", bytes_to_ints(v) )
-					print "Setting next-server to '%s'" % ( bytes_to_ints( v ) )
+					print("Setting next-server to '%s'" % ( bytes_to_ints( v ) ))
 					#print "Adding padding for lame fujitsu PXE foo"
 					# This doesn't work because pydhcplib sucks
 					#packet.SetOption("pad",'')
@@ -607,17 +607,17 @@ def db_consumer( dbq, send_packet ):
 
 			lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
 			
-			print 'Got lease %s from database' % lease
+			print('Got lease %s from database' % lease)
 
 			while self.address_in_use( lease['address'] ):
-				print 'Address %s in use, marking lease %s as abandoned' % ( lease['address'], lease )
+				print('Address %s in use, marking lease %s as abandoned' % ( lease['address'], lease ))
 				dhcp.get_logger().log(dhcp.logging.ERROR, "%-12s Address in use: %(15)s (client: %s)", 'ERR/IN_USE:', lease['address'], mac )
 				self.__db.mark_abandoned_lease( address=lease['address'] )
 				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=True, server_address = recv_if['address'])
-				print 'Got new lease %s from database' % lease
+				print('Got new lease %s from database' % lease)
 
 			# create an offer
-			print "> creating offer"
+			print("> creating offer")
 			offer = DhcpPacket()
 			offer.CreateDhcpOfferPacketFrom(packet)
 			hops = packet.GetOption('hops')
@@ -634,7 +634,7 @@ def db_consumer( dbq, send_packet ):
 			offer.SetOption("yiaddr",ip_to_list(lease['address']))
 
 			# options from DB
-			print "setting lease time to %s seconds" % lease['lease_time']
+			print("setting lease time to %s seconds" % lease['lease_time'])
 			offer.SetOption("ip_address_lease_time",int_to_4_bytes(lease['lease_time'])) # TEST
 			#offer.SetOption("renewal_time_value",[0,0,0,60]) # TEST
 			#offer.SetOption("rebinding_time_value",[0,0,0,105]) # TEST
@@ -646,19 +646,19 @@ def db_consumer( dbq, send_packet ):
 
 			# make a list of requested DHCP options
 			requested_options = packet.GetOption('parameter_request_list')
-			print "requested_options: %s" % requested_options
+			print("requested_options: %s" % requested_options)
 
 			if lease['hostname'] and DhcpOptions['host_name'] in requested_options:
-				offer.SetOption("host_name", map(ord,lease['hostname']))
+				offer.SetOption("host_name", list(map(ord,lease['hostname'])))
 
 			# get option/value pairs from database
 			opt_vals = self.__db.retrieve_dhcp_options( mac=mac, address=requested_ip, option_ids = requested_options )
-			print "opt_vals: %s" % str(opt_vals)
+			print("opt_vals: %s" % str(opt_vals))
 
 			self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=offer )
 
 			# send an offer
-			print "  > sending offer"
+			print("  > sending offer")
 			self.SendPacket(offer)
 
 			#def SendDhcpPacketTo(self, To, packet):
@@ -690,17 +690,17 @@ def db_consumer( dbq, send_packet ):
 
 			giaddr = '.'.join(map(str, packet.GetOption('giaddr')))
 
-			print "mac: %s, requested address: %s" % (mac, requested_ip)
+			print("mac: %s, requested address: %s" % (mac, requested_ip))
 			# make sure a valid lease exists
 
 			try:
 				lease = self.__db.make_dhcp_lease(mac, router, requested_ip, discover=False, server_address = recv_if['address'])
-			except error.InvalidIPAddress, e:
+			except error.InvalidIPAddress as e:
 				lease = {'address': None, 'error': 'address not allowed for client'}
-			print "got lease: %s" % str(lease)
+			print("got lease: %s" % str(lease))
 			if lease['address'] != requested_ip:
 				# FIXME: Send a DHCP NAK if authoritative
-				print "Lease appears invalid... client wants %s, but db gave us %s -- sending NAK" % (requested_ip,lease['address'])
+				print("Lease appears invalid... client wants %s, but db gave us %s -- sending NAK" % (requested_ip,lease['address']))
 				nak = DhcpPacket()
 				# Why use 'NAK' when we can say 'NACK' (which means nothing to me)
 				nak.CreateDhcpNackPacketFrom(packet)
@@ -714,16 +714,16 @@ def db_consumer( dbq, send_packet ):
 			ack.CreateDhcpAckPacketFrom(packet)
 			# make a list of requested DHCP options
 			requested_options = packet.GetOption('parameter_request_list')
-			print "requested_options: %s" % requested_options
+			print("requested_options: %s" % requested_options)
 
 			if lease['hostname'] and DhcpOptions['host_name'] in requested_options:
-				ack.SetOption("host_name", map(ord,lease['hostname']))
+				ack.SetOption("host_name", list(map(ord,lease['hostname'])))
 			
 			# get option/value pairs from database
 			opt_vals = self.__db.retrieve_dhcp_options( mac=mac, address=requested_ip, option_ids = requested_options )
-			print "opt_vals: %s" % str(opt_vals)
+			print("opt_vals: %s" % str(opt_vals))
 
-			print 'Got lease %s from database' % lease
+			print('Got lease %s from database' % lease)
 			# set them on the packet
 			# Options to request from the DB (address/gateway are assumed)
 			ack.SetOption("yiaddr",ip_to_list(lease['address']))
@@ -739,10 +739,10 @@ def db_consumer( dbq, send_packet ):
 			self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=ack )
 
 			# send an ack
-			print "  > sending ack"
+			print("  > sending ack")
 			self.SendPacket(ack)
 			
-			print "#############################################################################"
+			print("#############################################################################")
 
 	dhcp_handler = dhcp_packet_handler( send_packet )
 
@@ -763,7 +763,7 @@ def db_consumer( dbq, send_packet ):
 			dbq.put_nowait((p_type, packet))
 			success = True
 		except Full as e:
-			print "Queue full, not requeueing"
+			print("Queue full, not requeueing")
 			log_packet( packet, prefix='IGN/REQFAIL:', level=dhcp.logging.ERROR)
 		return success
 
@@ -785,18 +785,18 @@ def db_consumer( dbq, send_packet ):
 				if pkt.retry_count <= REQUEUE_MAX:
 					pkt.last_retry = time.time()
 					# if the queue is full, we probably want to ignore this packet anyway
-					print 're-queueing packet for retry: %r' % e
+					print('re-queueing packet for retry: %r' % e)
 					if requeue(pkttype, pkt):
 						log_packet( pkt, prefix='IGN/REQUEUE:', level=dhcp.logging.WARNING )
 				else:
-					print "dropping packet after too many retries: %r" % e
+					print("dropping packet after too many retries: %r" % e)
 					log_packet( pkt, prefix='IGN/TOOMANY:', level=dhcp.logging.ERROR )
 
-		except error.NotFound, e:
+		except error.NotFound as e:
 			#print_exception( e, traceback=False )
-			print 'sorry, no lease found'
+			print('sorry, no lease found')
 			log_packet( pkt, prefix='IGN/UNAVAIL:', level=dhcp.logging.ERROR )
-			print str(e)
+			print(str(e))
 		except Exception as e:
 			print_exception(e)
 			if raven_client:
@@ -819,7 +819,7 @@ def db_consumer( dbq, send_packet ):
 						}
 					)
 				except Exception as e:
-					print "failed to send exception to raven"
+					print("failed to send exception to raven")
 					print_exception(e)
 
 	
@@ -838,6 +838,6 @@ def print_exception( exc, traceback = True ):
 		tb_file.write("\n----- end -----\n")
 		tb_file.close()
 		traceback.print_exc()
-	print str(exc)
+	print(str(exc))
 
 

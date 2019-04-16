@@ -46,8 +46,8 @@ from openipam.config import auth_sources
 
 try:
 	from openipam.extensions import arp
-except Exception, e:
-	print "Failed to import arp extension, disabling: %r" % e
+except Exception as e:
+	print("Failed to import arp extension, disabling: %r" % e)
 	arp = None
 
 import openipam.iptypes
@@ -68,7 +68,7 @@ class MainWebService(XMLRPCController):
 		if hasattr(cherrypy, 'session'):
 			cherrypy.session.acquire_lock()
 			try:
-				if cherrypy.session.has_key('user'):
+				if 'user' in cherrypy.session:
 					username = cherrypy.session['user']['username']
 			finally:
 				cherrypy.session.release_lock()
@@ -102,7 +102,7 @@ class MainWebService(XMLRPCController):
 		if hasattr(cherrypy, 'session'):
 			cherrypy.session.acquire_lock()
 			try:
-				if cherrypy.session.has_key('user'):
+				if 'user' in cherrypy.session:
 					# The server has restarted, but the session needs to still exist
 					db = interface.DBInterface(uid=cherrypy.session['user']['uid'], username=cherrypy.session['user']['username'], min_perms=cherrypy.session['user']['min_permissions'])
 					return db
@@ -125,14 +125,14 @@ class MainWebService(XMLRPCController):
 		"""
 		
 		try:
-			if type(query) == types.TupleType:
+			if type(query) == tuple:
 				if len(query) != 2:
 					raise Exception('FIXME: tuple not recognized: %s' % query)
 				return query[0],self.__sanitize(query[1])
 
 			return [dict(row) for row in query]
 		except:
-			print query
+			print(query)
 			raise
 
 	#-----------------------------------------------------------------
@@ -179,7 +179,7 @@ class MainWebService(XMLRPCController):
 			# FIXME: it looks like the except below could be made to catch this one, so maybe we should get rid of this
 			cherrypy.log('Failed Login: User does not have Email address: %s' % username, context='', severity=logging.DEBUG, traceback=False) 
 			raise
-		except Exception, e:
+		except Exception as e:
 			# Failed login!
 
 			do_traceback = True
@@ -441,7 +441,7 @@ class MainWebService(XMLRPCController):
 				if user:
 					data = dict(user)
 					data['display'] = "%(name)s (%(username)s)" % data
-			if not data.has_key('display'):
+			if 'display' not in data:
 				data['display'] = "%(name)s" % data
 			ownerlist.append(data)
 
@@ -682,11 +682,11 @@ class MainWebService(XMLRPCController):
 		kw = args[0]
 		
 		# VALIDATE ARGUMENTS
-		if not kw.has_key('editing'):
+		if 'editing' not in kw:
 			kw['editing'] = False
 		
 		# Make the owners argument if owners_list was specified
-		if kw.has_key('owners_list'):
+		if 'owners_list' in kw:
 			# If given an owners CSV string, make it a list
 			kw['owners'] = kw['owners_list'].split('|')
 			del kw['owners_list']
@@ -696,27 +696,27 @@ class MainWebService(XMLRPCController):
 		#if kw['editing'] and not kw.has_key('owners'):
 		#	kw['owners'] = []
 		
-		if (not kw.has_key('mac')
-		or not kw.has_key('hostname')
-		or not kw.has_key('domain')
-		or not kw.has_key('expiration')
-		or (not kw['editing'] and not kw.has_key('owners') and (not kw.has_key('add_host_to_my_group') or (kw.has_key('add_host_to_my_group') and not kw['add_host_to_my_group']))) 
-		or not kw.has_key('description')
-		or not kw.has_key('is_dynamic')
+		if ('mac' not in kw
+		or 'hostname' not in kw
+		or 'domain' not in kw
+		or 'expiration' not in kw
+		or (not kw['editing'] and 'owners' not in kw and ('add_host_to_my_group' not in kw or ('add_host_to_my_group' in kw and not kw['add_host_to_my_group']))) 
+		or 'description' not in kw
+		or 'is_dynamic' not in kw
 		):
 			messages.append('Some information required to perform the action was not supplied. %s' % str(kw))
 			
-		if kw['editing'] and not kw.has_key('old_mac'):
+		if kw['editing'] and 'old_mac' not in kw:
 			raise error.RequiredArgument("When editing, old_mac is a required argument.")
-		if not kw['is_dynamic'] and not kw['editing'] and ( (not kw.has_key('address') or not kw['address']) and (not kw.has_key('network') or not kw['network']) ):
+		if not kw['is_dynamic'] and not kw['editing'] and ( ('address' not in kw or not kw['address']) and ('network' not in kw or not kw['network']) ):
 			messages.append("This is a static IP registration and the network was not specified.")
 			
 		# Make sure that anything that is dropdown-like (except networks) is using IDs as values
-		if kw.has_key('domain') and kw['domain'] and type(kw['domain']) is not types.IntType:
+		if 'domain' in kw and kw['domain'] and type(kw['domain']) is not int:
 			raise error.InvalidArgument("The domain specified must be an integer and must be a domain ID.")
-		if kw.has_key('expiration') and kw['expiration'] and type(kw['expiration']) is not types.IntType:
+		if 'expiration' in kw and kw['expiration'] and type(kw['expiration']) is not int:
 			raise error.InvalidArgument("The expiration specified must be an integer and must be an expiration ID.")
-		if kw.has_key('owners') and kw['owners'] and type(kw['owners']) is not types.ListType and type(kw['owners']) is not types.TupleType:
+		if 'owners' in kw and kw['owners'] and type(kw['owners']) is not list and type(kw['owners']) is not tuple:
 			raise error.InvalidArgument("The owners argument specified must be a list or tuple of group names.")
 		
 		# Raise required argument errors
@@ -729,9 +729,9 @@ class MainWebService(XMLRPCController):
 			messages.append('The specified MAC address is invalid.')
 		if (not kw['editing'] and not kw['hostname']) or (kw['hostname'] and not validation.is_hostname(kw['hostname'])):
 			messages.append('The specified hostname is invalid. Please use only letters, numbers, and dashes.')
-		if not kw['is_dynamic'] and kw.has_key('network') and kw['network'] and not validation.is_cidr(kw['network']):
+		if not kw['is_dynamic'] and 'network' in kw and kw['network'] and not validation.is_cidr(kw['network']):
 			messages.append('The specified network is invalid. Please give a valid network in CIDR notation.')
-		if not kw['editing'] and (kw.has_key('owners') and not kw['owners']):
+		if not kw['editing'] and ('owners' in kw and not kw['owners']):
 			messages.append('At least one owner must be specified.')
 		if kw['editing'] and not validation.is_mac(kw['old_mac']):
 			messages.append('The specified old MAC address is invalid.')
@@ -739,7 +739,7 @@ class MainWebService(XMLRPCController):
 		# If I'm a DEITY, allow me to specify an IP address
 		# Actually, there shouldn't be any harm in allowing anyone who can assign static addresses do this
 		if self.has_min_perms( perms.DEITY ):
-			if kw.has_key('ip') and kw['ip'].strip():
+			if 'ip' in kw and kw['ip'].strip():
 				# Have an address inputed, validate it
 				if not validation.is_ip(kw['ip']):
 					messages.append("The IP address specified is invalid.")
@@ -759,7 +759,7 @@ class MainWebService(XMLRPCController):
 			messages.append("Insufficient permissions to add host to domain %s" % kw['domain'])
 		
 		# Static IP permissions
-		if not kw['is_dynamic'] and kw.has_key('network') and kw['network'] and not self.has_min_perms(perms.DEITY):
+		if not kw['is_dynamic'] and 'network' in kw and kw['network'] and not self.has_min_perms(perms.DEITY):
 			# Get the network asked for and where I have ADD permissions
 			network = self.get_networks( { 'network' : kw['network'], 'additional_perms' : perms.ADD })
 			
@@ -789,7 +789,7 @@ class MainWebService(XMLRPCController):
 			old_host = old_host[0]
 		
 		# If we're not allowing non-admin host transfers, and you didn't specify add_host_to_my_group (or you did specify it, but it's False)
-		if not backend.allow_non_admin_host_transfer and (not kw.has_key('add_host_to_my_group') or (kw.has_key('add_host_to_my_group') and not kw['add_host_to_my_group'])):
+		if not backend.allow_non_admin_host_transfer and ('add_host_to_my_group' not in kw or ('add_host_to_my_group' in kw and not kw['add_host_to_my_group'])):
 			has_min_admin_perms = self.has_min_perms(perms.ADMIN)
 			if not has_min_admin_perms:
 				# A normal user (non-admin and not in service group) cannot create a
@@ -801,7 +801,7 @@ class MainWebService(XMLRPCController):
 				# Am I in a group that has owner over this host?
 				# There is surely a more elegant and pythonic way to compare all elements of lists:
 				has_owner_group = False
-				if kw.has_key('owners'):
+				if 'owners' in kw:
 					for name in users_group_names:
 						if name in kw['owners']:
 							has_owner_group = True
@@ -821,12 +821,12 @@ class MainWebService(XMLRPCController):
 		else:
 			# If the MAC has changed, make sure that the new MAC address is not taken
 			host_by_mac = None
-			if kw.has_key('mac') and kw['mac'] and (kw['old_mac'] != kw['mac']):
+			if 'mac' in kw and kw['mac'] and (kw['old_mac'] != kw['mac']):
 				host_by_mac = self.get_hosts( { 'mac' : kw['mac'] })
 			
 			# If the hostname has changed, make sure that the new hostname is not taken
 			host_by_name = None
-			if kw.has_key('hostname') and kw['hostname'] and (kw['hostname'] != old_host['hostname']):
+			if 'hostname' in kw and kw['hostname'] and (kw['hostname'] != old_host['hostname']):
 				host_by_name = self.get_hosts( { 'hostname' : kw['hostname'] })
 		
 		if host_by_mac:
@@ -846,7 +846,7 @@ class MainWebService(XMLRPCController):
 		# Expiration
 		expirations = self.get_expiration_types()
 		
-		if kw.has_key('expiration') and kw['expiration']:
+		if 'expiration' in kw and kw['expiration']:
 			expiration = None
 			for exp in expirations:
 				# Match the given expiration to our expiration types so we can have an ID
@@ -887,7 +887,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		if not args[0].has_key('do_validation'):
+		if 'do_validation' not in args[0]:
 			args[0]['do_validation'] = True
 		
 		if args[0]['do_validation']:
@@ -940,7 +940,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 		
-		if not args[0].has_key('old_mac'):
+		if 'old_mac' not in args[0]:
 			raise error.RequiredArgument("Must specify the old MAC address for edit_host")
 
 		db.update_host(**args[0])
@@ -958,7 +958,7 @@ class MainWebService(XMLRPCController):
 		
 		args[0]['editing'] = True
 		
-		if not args[0].has_key('do_validation'):
+		if 'do_validation' not in args[0]:
 			args[0]['do_validation'] = True
 		
 		if args[0]['do_validation']:
@@ -993,9 +993,9 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('mac') and args[0]['mac'] and not validation.is_mac(args[0]['mac']):
+		if 'mac' in args[0] and args[0]['mac'] and not validation.is_mac(args[0]['mac']):
 			raise error.InvalidMACAddress()
-		if args[0].has_key('endmac') and args[0]['endmac'] and not validation.is_mac(args[0]['endmac']):
+		if 'endmac' in args[0] and args[0]['endmac'] and not validation.is_mac(args[0]['endmac']):
 			raise error.InvalidMACAddress()
 		
 		return self.__sanitize(db.get_hosts( **args[0] ))
@@ -1027,7 +1027,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if not args[0].has_key('domain'):
+		if 'domain' not in args[0]:
 			raise error.RequiredArgument("Must specify both domain for getting the next hostname.")
 
 		hostname = self.get_username()
@@ -1161,7 +1161,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('network'):
+		if 'network' in args[0]:
 			
 			if args[0]['network'] == '%':
 				# If % exists, get all networks
@@ -1266,7 +1266,7 @@ class MainWebService(XMLRPCController):
 		# Check permissions -- do this in every exposed function
 		db = self.__check_session()
 
-		if not args[0].has_key('ip'):
+		if 'ip' not in args[0]:
 			raise error.RequiredArgument("ip")
 		
 		if not validation.is_ip(args[0]['ip']):
@@ -1416,7 +1416,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('mac'):
+		if 'mac' in args[0]:
 			if args[0]['mac'] and not validation.is_mac(args[0]['mac']):
 				raise error.InvalidMACAddress()
 		
@@ -1434,7 +1434,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('mac'):
+		if 'mac' in args[0]:
 			if args[0]['mac'] and not validation.is_mac(args[0]['mac']):
 				raise error.InvalidMACAddress()
 		
@@ -1452,7 +1452,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 		
-		if args[0].has_key('mac'):
+		if 'mac' in args[0]:
 			if args[0]['mac'] and not validation.is_mac(args[0]['mac']):
 				raise error.InvalidMACAddress()
 		
@@ -1556,7 +1556,7 @@ class MainWebService(XMLRPCController):
 				)
 			
 			db._commit()
-		except Exception, e:
+		except Exception as e:
 			# Raise required argument errors
 			db._rollback() #rollback transaction if there were errors
 			raise
@@ -1581,34 +1581,34 @@ class MainWebService(XMLRPCController):
 			# TODO: changed ip can only be changed to a static address
 			
 			# Validate deleted rows have an id
-			if row.has_key('deleted'):
-				if not row.has_key('id'):
+			if 'deleted' in row:
+				if 'id' not in row:
 					raise error.RequiredArgument("Deleted rows need to specify 'id' key. Row info: %s" % row)
 				else:
 					return
 			
 			# Validate row has a tid
-			if not row.has_key('tid'):
+			if 'tid' not in row:
 				raise error.RequiredArgument("tid is required to validate a DNS record")
 			
 			# Validate records based on type
 			if row['tid'] in (15, 33): # MX or SRV records
 				
-				if new_record and not row.has_key('priority'):
+				if new_record and 'priority' not in row:
 					temp_messages.append("Priority is required for MX and SRV records.")
 			
 			# Validate both name and content are present
-			if new_record and not row['tid'] == 1 and (not row.has_key('name') or not row.has_key('text_content')):
+			if new_record and not row['tid'] == 1 and ('name' not in row or 'text_content' not in row):
 				raise error.RequiredArgument("Name and content are required for new records.")
 		
 			# Validate: Name
-			if row.has_key('name'):
+			if 'name' in row:
 				# validate that each name is a fqdn. we are assuming that every name 'should' always be a fqdn...
 				if not validation.is_fqdn(row['name']) and row['tid'] not in [16,]:
 					temp_messages.append("Invalid name, use a fully qualified domain name: %s ( %s )" % (row['name'], row['text_content']) )
 			
 			# Validate: Text Content
-			if row.has_key('text_content'):
+			if 'text_content' in row:
 				# NS, CNAME, PTR, MX
 				if row['tid'] in (2, 5, 12, 15):
 					if not validation.is_fqdn(row['text_content']): 
@@ -1630,11 +1630,11 @@ class MainWebService(XMLRPCController):
 					raise error.NotImplemented("Validation for tid %s has not been implemented yet." % row['tid'])
 			
 			# Validate: IP Content
-			if row.has_key('ip_content') and not validation.is_ip(row['ip_content']):
+			if 'ip_content' in row and not validation.is_ip(row['ip_content']):
 				temp_messages.append("Invalid IP: %s" % row['ip_content'])
 			
 			# Validate: TTL
-			if row.has_key('ttl'):
+			if 'ttl' in row:
 				raise error.NotImplemented("Validation for changes in TTL values is not currently supported." )
 			
 			if temp_messages:
@@ -1697,11 +1697,11 @@ class MainWebService(XMLRPCController):
 		form_submission = args[0]
 		
 		# Retrieve list of ids from the form submission & call get records with those ids
-		ids = [row['id'] for row in form_submission if row.has_key('id')]
-		new_records = [row for row in form_submission if not row.has_key('id')]
+		ids = [row['id'] for row in form_submission if 'id' in row]
+		new_records = [row for row in form_submission if 'id' not in row]
 
 		# Wow ... for loop vars don't fall out of scope
-		if locals().has_key('row'):
+		if 'row' in locals():
 			del row
 		
 		if ids:
@@ -1721,11 +1721,11 @@ class MainWebService(XMLRPCController):
 		for form_row in form_submission: #loop over results from form
 			# Type casting from strings to integers for some frontend form fields (i.e.: id, ttl, etc.)
 			for column in ('id', 'tid', 'priority', 'ttl', 'did'):
-				if form_row.has_key(column):
+				if column in form_row:
 					form_row[column] = int(form_row[column])
 			
 			# STATE: new record
-			if not form_row.has_key('id'):
+			if 'id' not in form_row:
 				#transform content into either ip_content or text_content
 				transform_content(form_row)
 				
@@ -1742,13 +1742,13 @@ class MainWebService(XMLRPCController):
 				
 				domain_perms = self.get_min_perms()
 
-				if fqdn_perms.has_key(form_row['name']):
+				if form_row['name'] in fqdn_perms:
 					domain_perms |= fqdn_perms[form_row['name']]
 				else:
-					print "FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms))
+					print("FIXME: !fqdn_perms.has_key(%s): value: %s" % (form_row['name'], str(fqdn_perms)))
 
 				rtype_perms = perms.ADD
-				if dns_type_perms.has_key(str(form_row['tid'])):
+				if str(form_row['tid']) in dns_type_perms:
 					raw_rtype_perms = dns_type_perms[str(form_row['tid'])]
 					rtype_perms = Perms(raw_rtype_perms['min_permissions'])
 
@@ -1758,7 +1758,7 @@ class MainWebService(XMLRPCController):
 				continue
 			
 			# STATE: deleted record
-			elif form_row.has_key('deleted') and form_row['deleted']:
+			elif 'deleted' in form_row and form_row['deleted']:
 				validate_syntax(form_row)
 				
 				# VALIDATE SEMANTICS & PERMISSIONS
@@ -1783,7 +1783,7 @@ class MainWebService(XMLRPCController):
 					
 					# Find out if the record has been edited and add it to the 'edited' list.
 					# Otherwise, no change has occurred, so we just leave it alone.
-					for column in form_row.keys():
+					for column in list(form_row.keys()):
 						if (backend_row[column] != form_row[column]):
 							changed_row[column] = form_row[column] 
 							did_change = True
@@ -1865,7 +1865,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			args = ({},)
 			
-		make_dictionary = args[0].has_key('make_dictionary')
+		make_dictionary = 'make_dictionary' in args[0]
 		if make_dictionary:
 			del args[0]['make_dictionary'] 
 			
@@ -2001,11 +2001,11 @@ class MainWebService(XMLRPCController):
 	def arp_data(self, kw):
 		mac=None
 		ip=None
-		if kw.has_key('mac'):
+		if 'mac' in kw:
 			mac = kw['mac']
-		if kw.has_key('ip'):
+		if 'ip' in kw:
 			ip = kw['ip']
-		print 'arp_data(mac=%s,ip=%s)' % (mac,ip)
+		print('arp_data(mac=%s,ip=%s)' % (mac,ip))
 		if not arp:
 			raise error.NotImplemented("The arp extension is not installed.")
 		if mac and ip or (not mac and not ip):
@@ -2051,7 +2051,7 @@ class MainWebService(XMLRPCController):
 		if not args:
 			raise error.RequiredArgument("create_shared_network must get a dict of args.")
 		
-		if not args[0].has_key('description'):
+		if 'description' not in args[0]:
 			args[0]['description'] = None
 
 		# Check permissions -- do this in every exposed function
@@ -2091,10 +2091,10 @@ class MainWebService(XMLRPCController):
 		# DON'T CREATE a session EVER because that session would have DEITY access to everything
 		# DO CREATE code that talks directly to our own DB object, __guest_db
 		
-		if not args[0].has_key('ip') or not args[0].has_key('ticket'):
+		if 'ip' not in args[0] or 'ticket' not in args[0]:
 			raise error.RequiredArgument("Must pass both ip and ticket to register_guest")
 		 	
-		if not args[0].has_key('description'):
+		if 'description' not in args[0]:
 			args[0]['description'] = None
 		
 		__guest_db = interface.DBInterface( username=backend.guest_user )
@@ -2177,7 +2177,7 @@ class MainWebService(XMLRPCController):
 				__guest_db.del_notification_to_host( mac = macaddr )
 				
 				__guest_db._commit()
-			except Exception, e:
+			except Exception as e:
 				__guest_db._rollback()
 				#raise error.AlreadyExists("MAC address may already exists ... couldn't add guest host. Error was: %s" % e)
 				raise

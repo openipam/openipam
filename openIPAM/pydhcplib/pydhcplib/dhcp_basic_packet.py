@@ -18,7 +18,7 @@
 import operator
 from struct import unpack
 from struct import pack
-from dhcp_constants import *
+from .dhcp_constants import *
 
 # DhcpPacket : base class to encode/decode dhcp packets.
 from UserDict import UserDict
@@ -70,7 +70,7 @@ class odict(UserDict):
         return _dict
 
     def items(self):
-        return zip(self.keys(), self.values())
+        return list(zip(list(self.keys()), list(self.values())))
 
     def keys(self):
         if self._preferred_order:
@@ -84,7 +84,7 @@ class odict(UserDict):
         return newkeys
 
     def popitem(self):
-        keys = self.keys()
+        keys = list(self.keys())
         try:
             key = keys[-1]
         except IndexError:
@@ -100,11 +100,11 @@ class odict(UserDict):
         UserDict.setdefault(self, key, failobj)
 
     def update(self, dict):
-        for key in dict.keys():
+        for key in list(dict.keys()):
             self[key] = dict[key]
 
     def values(self):
-        return map(self.get, self.keys())
+        return list(map(self.get, list(self.keys())))
 
 
 class DhcpBasicPacket:
@@ -130,7 +130,7 @@ class DhcpBasicPacket:
     def DeleteOption(self,name):
         # if name is a standard dhcp field
         # Set field to 0
-        if DhcpFields.has_key(name) :
+        if name in DhcpFields :
             begin = DhcpFields[name][0]
             end = DhcpFields[name][0]+DhcpFields[name][1]
             self.packet_data[begin:end] = [0]*DhcpFields[name][1]
@@ -138,7 +138,7 @@ class DhcpBasicPacket:
 
         # if name is a dhcp option
         # delete option from self.option_data
-        elif self.options_data.has_key(name) :
+        elif name in self.options_data :
             # forget how to remove a key... try delete
             del self.options_data[name]
             return True
@@ -146,11 +146,11 @@ class DhcpBasicPacket:
         return False
 
     def GetOption(self,name):
-        if DhcpFields.has_key(name) :
+        if name in DhcpFields :
             option_info = DhcpFields[name]
             return self.packet_data[option_info[0]:option_info[0]+option_info[1]]
 
-        elif self.options_data.has_key(name) :
+        elif name in self.options_data :
             return self.options_data[name]
 
         return []
@@ -162,9 +162,9 @@ class DhcpBasicPacket:
         # has value list a correct length
         
         # if name is a standard dhcp field
-        if DhcpFields.has_key(name) :
+        if name in DhcpFields :
             if len(value) != DhcpFields[name][1] :
-                print "Error, bad option length (a): ", name
+                print("Error, bad option length (a): ", name)
                 return False
             begin = DhcpFields[name][0]
             end = DhcpFields[name][0]+DhcpFields[name][1]
@@ -172,7 +172,7 @@ class DhcpBasicPacket:
             return True
 
         # if name is a dhcp option
-        elif DhcpOptions.has_key(name) :
+        elif name in DhcpOptions :
 
             # fields_specs : {'option_code',fixed_length,minimum_length,multiple}
             # if fixed_length == 0 : minimum_length and multiple apply
@@ -191,14 +191,14 @@ class DhcpBasicPacket:
             else :
                 return False
 
-        print "Error, unknown option : ", name, value
+        print("Error, unknown option : ", name, value)
         return False
 
 
 
     def IsOption(self,name):
-        if self.options_data.has_key(name) : return True
-        elif DhcpFields.has_key(name) : return True
+        if name in self.options_data : return True
+        elif name in DhcpFields : return True
         else : return False
 
 
@@ -207,7 +207,7 @@ class DhcpBasicPacket:
         options = []
         
         
-        for each in self.options_data.keys() :
+        for each in list(self.options_data.keys()) :
             options.append(DhcpOptions[each])
             options.append(len(self.options_data[each]))
             options.extend(self.options_data[each])
@@ -222,7 +222,7 @@ class DhcpBasicPacket:
         if pktlen < 300:
             packet.extend([0] * (300-pktlen)) # RFC says min packet size is 300
 
-        packet = map(chr,packet)
+        packet = list(map(chr,packet))
 
         pack_fmt = str(len(packet))+"c"
         
@@ -240,7 +240,7 @@ class DhcpBasicPacket:
         unpack_fmt = str(len(data)) + "c"
         for i in unpack(unpack_fmt,data):
             self.packet_data.append(ord(i))
-        if ( debug ) : print "Packet length : ",len(self.packet_data)
+        if ( debug ) : print("Packet length : ",len(self.packet_data))
 
 
         # Some servers or clients don't place magic cookie immediately
@@ -253,12 +253,12 @@ class DhcpBasicPacket:
         iterator += 4
         
         # parse extended options
-        if ( debug ) : print "Debug : ", self.packet_data[iterator:-1]
+        if ( debug ) : print("Debug : ", self.packet_data[iterator:-1])
 
 
         while iterator < end_iterator :
             if ( debug ) :
-                print "Debug Option : ", iterator , self.packet_data[iterator]," : ",DhcpOptionsList[self.packet_data[iterator]]
+                print("Debug Option : ", iterator , self.packet_data[iterator]," : ",DhcpOptionsList[self.packet_data[iterator]])
             if self.packet_data[iterator] == 0 : # pad option
                 opt_first = iterator+1
                 iterator += 1
@@ -267,7 +267,7 @@ class DhcpBasicPacket:
                 self.packet_data = self.packet_data[:240] # base packet length without magic cookie
                 return
                 
-            elif DhcpOptionsTypes.has_key(self.packet_data[iterator]) and self.packet_data[iterator]!= 255:
+            elif self.packet_data[iterator] in DhcpOptionsTypes and self.packet_data[iterator]!= 255:
                 opt_len = self.packet_data[iterator+1]
                 opt_first = iterator+1
                 self.options_data[DhcpOptionsList[self.packet_data[iterator]]] = self.packet_data[opt_first+1:opt_len+opt_first+1]

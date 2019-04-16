@@ -25,10 +25,10 @@ import time
 import datetime
 
 import sqlalchemy
-import obj
+from . import obj
 import openipam.iptypes
 import re
-import thread
+import _thread
 import binascii
 
 from openipam.utilities import error
@@ -174,32 +174,32 @@ class DBBaseInterface(object):
 		function = execute_get_function
 
 		page = None
-		if kw.has_key('page'):
+		if 'page' in kw:
 			page = kw['page']
 			del kw['page']
 		
 		limit = None
-		if kw.has_key('limit'):
+		if 'limit' in kw:
 			limit = kw['limit']
 			del kw['limit']
 			
 		order_by = None
-		if kw.has_key('order_by'):
+		if 'order_by' in kw:
 			order_by = kw['order_by']
 			del kw['order_by']
 
 		columns = None
-		if kw.has_key('columns'):
+		if 'columns' in kw:
 			columns = kw['columns']
 			del kw['columns']
 
 		distinct = False
-		if kw.has_key('distinct'):
+		if 'distinct' in kw:
 			distinct = kw['distinct']
 			del kw['distinct']
 		
 		count = False
-		if kw.has_key('count'):
+		if 'count' in kw:
 			count = kw['count']
 			del kw['count']
 		
@@ -607,26 +607,26 @@ class DBBaseInterface(object):
 		whereclause = []
 		
 		if id:
-			if type(id) is types.IntType or type(id) is types.StringType:
+			if type(id) is int or type(id) is bytes:
 				whereclause.append( obj.dns_records.c.id == id )
-			elif type(id) is types.TupleType or type(id) is types.ListType:
+			elif type(id) is tuple or type(id) is list:
 				whereclause.append( obj.dns_records.c.id.in_(id) )
 			else:
 				raise Exception("Invalid type for id: %s" % type(id))
 		if address:
-			if type(address) == types.ListType:
+			if type(address) == list:
 				whereclause.append( obj.dns_records.c.ip_content.in_( address ) )
 			else:
 				whereclause.append( obj.dns_records.c.ip_content == address )
 		if tid:
-			if type(tid) == types.ListType:
+			if type(tid) == list:
 				whereclause.append( obj.dns_records.c.tid.in_( tid ) )
 			else:
 				whereclause.append( obj.dns_records.c.tid == tid )
 		elif typename:
 			whereclause.append( obj.dns_records.c.tid == self.get_dns_types(typename=typename)[0]['id'] )
 		if name:
-			if type(name) == types.ListType:
+			if type(name) == list:
 				whereclause.append( obj.dns_records.c.name.in_( name ) )
 			else:
 				name = name.lower()
@@ -642,7 +642,7 @@ class DBBaseInterface(object):
 				
 		if content:
 			# FIXME: is there a better way to do this?
-			if type(content) == types.ListType:
+			if type(content) == list:
 				if validation.is_ip(content[0]): 
 					raise error.InvalidArgument('Addresses are not valid in the \'content\' field (searching for %s)' % content)
 				else:
@@ -770,7 +770,7 @@ class DBBaseInterface(object):
 		if contains:
 			domains = []
 			
-			if type(contains) is types.ListType or type(contains) is types.TupleType:
+			if type(contains) is list or type(contains) is tuple:
 				# We have been given a list of names (whether hostnames or domain names),
 				# return a list of only the first-level containing domains for every name.
 				# ie ... this does NOT do the normal functionality of returning all containing
@@ -919,7 +919,7 @@ class DBBaseInterface(object):
 		# Extremely important to have this ... BAD bad things happen if hostnames are ever mixed-case
 		if hostname != None:
 			# Make sure the hostname is always lower case
-			if type(hostname) is types.ListType or type(hostname) is types.TupleType:
+			if type(hostname) is list or type(hostname) is tuple:
 				hostname = [name.lower() for name in hostname]
 			else:
 				hostname = hostname.lower()
@@ -974,7 +974,7 @@ class DBBaseInterface(object):
 		
 		# Apply all the filtering that was specified
 		if ip != None:
-			if type(ip) == types.ListType:
+			if type(ip) == list:
 				whereclause.append( or_(obj.addresses.c.address.in_(ip), obj.leases.c.address.in_(ip)))
 			else:
 				# This allows us to search on IP addresses that are dynamically assigned
@@ -987,7 +987,7 @@ class DBBaseInterface(object):
 			else:
 				whereclause.append(obj.hosts.c.mac==mac)
 		if hostname != None:
-			if type(hostname) is types.ListType or type(hostname) is types.TupleType:
+			if type(hostname) is list or type(hostname) is tuple:
 				whereclause.append(obj.hosts.c.hostname.in_( hostname ))
 			elif '%' in hostname:
 				whereclause.append(obj.hosts.c.hostname.like( hostname ))
@@ -1082,7 +1082,7 @@ class DBBaseInterface(object):
 			whereclause = True
 
 
-		if type(hosts) == types.ListType:
+		if type(hosts) == list:
 			if backend.enable_gul:
 				newhosts = []
 				for i in hosts:
@@ -1117,7 +1117,7 @@ class DBBaseInterface(object):
 		
 		# Create a list of primary key IDs
 		
-		if objects and (type(objects[0]) is types.DictionaryType or type(objects[0] is sqlalchemy.engine.base.RowProxy)):
+		if objects and (type(objects[0]) is dict or type(objects[0] is sqlalchemy.engine.base.RowProxy)):
 			objects_list = [object[primary_key_name] for object in objects]
 		else:
 			objects_list = objects
@@ -1257,7 +1257,7 @@ class DBBaseInterface(object):
 		
 		try:
 			names = [row['name'] for row in records]
-		except Exception, e:
+		except Exception as e:
 			raise error.NotImplemented("You likely did not supply a list of dictionaries of DNS records. Error was: %s" % e)
 
 		# Get the hosts who have names from above, then get the permissions for those hosts
@@ -1286,16 +1286,16 @@ class DBBaseInterface(object):
 		
 		for rr in records:
 			# For every record that was a host, add that permission set to the final result
-			if host_perms.has_key(rr['name']):
+			if rr['name'] in host_perms:
 				permissions[rr['id']] = str(Perms(permissions[rr['id']]) | host_perms[rr['name']])
 
 			# For every record that was a domain, or had permissions via a domain, add in those permissions
-			if fqdn_perms.has_key(rr['name']):
+			if rr['name'] in fqdn_perms:
 				permissions[rr['id']] = str(Perms(permissions[rr['id']]) | fqdn_perms[rr['name']])
 				
 			# If they cannot use the DNS type of this record, even if they have host
 			# or domain perms over it, then they cannot modify it 
-			if not dns_type_perms.has_key(rr['tid']):
+			if rr['tid'] not in dns_type_perms:
 				permissions[rr['id']] = str(backend.db_default_min_permissions)
 
 		return [permissions]
@@ -1338,8 +1338,8 @@ class DBBaseInterface(object):
 			first_level_domain_name = '.'.join(name.split('.')[1:])
 
 			# For every name, add in the domain permissions over that name
-			if domain_name_perms.has_key(name) or domain_name_perms.has_key(first_level_domain_name):
-				perms_to_add = domain_name_perms[name] if domain_name_perms.has_key(name) else domain_name_perms[first_level_domain_name]
+			if name in domain_name_perms or first_level_domain_name in domain_name_perms:
+				perms_to_add = domain_name_perms[name] if name in domain_name_perms else domain_name_perms[first_level_domain_name]
 				permissions[name] = str(Perms(permissions[name]) | perms_to_add)
 				
 		return [permissions]
@@ -1800,7 +1800,7 @@ class DBInterface( DBBaseInterface ):
 				try:
 					# xmlrpclib happily converts datetime.datetime to xmlrpclib.DateTime (which is a string in ISO 8601 format)
 					expires = datetime.datetime.strptime( str( expires ), '%Y%m%dT%H:%M:%S' )
-				except ValueError, e:
+				except ValueError as e:
 					raise error.RequiredArgument("Could not convert expires to datetime object (from %r %s) -- expiration_format must be specified for strings" % (expires,type(expires)))
 		return expires
 	
@@ -1866,7 +1866,7 @@ class DBInterface( DBBaseInterface ):
 				try:
 					# check for ADMIN permissions over this network
 					self._require_perms_on_net(permission=perms.OWNER, address=address)
-				except error.InsufficientPermissions, e:
+				except error.InsufficientPermissions as e:
 					# or ADMIN permissions over this host
 					self._require_perms_on_host(permission=perms.OWNER, mac=c_address['mac'])
 		
@@ -2178,7 +2178,7 @@ class DBInterface( DBBaseInterface ):
 					if len(octets) != 4:
 						raise Exception('invalid ip address: %s' % address)
 					byteslst.extend( octets )
-				byteslst = map(int, byteslst)
+				byteslst = list(map(int, byteslst))
 				value = ''.join( map(chr , byteslst ) )
 
 		if value == 51: # lease time
@@ -2625,7 +2625,7 @@ class DBInterface( DBBaseInterface ):
 						
 			# Commit the transaction
 			self._commit()
-		except Exception, e:
+		except Exception as e:
 			self._rollback()
 			raise
 		
@@ -2641,10 +2641,10 @@ class DBInterface( DBBaseInterface ):
 		self.require_perms(perms.DEITY)
 
 		kw['changed_by'] = self._uid
-		if kw.has_key('changed'):
+		if 'changed' in kw:
 			raise Exception("Naughty!")
 
-		for k in kw.keys():
+		for k in list(kw.keys()):
 			if k not in obj.networks.c:
 				raise Exception("Invalid column for networks: %s" % k)
 
@@ -3200,7 +3200,7 @@ class DBInterface( DBBaseInterface ):
 		where = None
 					
 		if id:
-			if type(id) == types.ListType:
+			if type(id) == list:
 				where = obj.notifications_to_hosts.c.id.in_(id)
 			else:
 				where = obj.notifications_to_hosts.c.id==id
@@ -3317,7 +3317,7 @@ class DBInterface( DBBaseInterface ):
 		# Because Python is just cool like that
 		args = locals()
 		for arg in ('mac', 'hostname', 'dhcp_group', 'description', 'expires'):
-			if args.has_key(arg) and args[arg] != None:
+			if arg in args and args[arg] != None:
 				values[arg] = args[arg]
 		
 		values['changed'] = sqlalchemy.sql.func.now()
@@ -3557,14 +3557,14 @@ class DBInterface( DBBaseInterface ):
 		if not new_owner_ids:
 			raise error.InvalidArgument("Host must have at least one owner -- mac: %s owners: %s" % (mac,owners))
 
-		print new_owner_ids, old_owner_ids
+		print(new_owner_ids, old_owner_ids)
 		# Wow, there's got to be a more pythonic way of doing this. Anyone?
 		for new_owner in new_owner_ids.difference(old_owner_ids):
-			print "adding %s" % new_owner
+			print("adding %s" % new_owner)
 			# Make sure it actually exists and is not ''
 			self.add_host_to_group(mac=mac, gid=new_owner)
 		for old_owner in old_owner_ids.difference(new_owner_ids):
-			print "deleting %s" % old_owner
+			print("deleting %s" % old_owner)
 			self.del_host_to_group(mac=mac, gid=old_owner)
 
 	def update_dhcp_group( self, gid, name, description ):
@@ -3880,12 +3880,12 @@ class DBDHCPInterface(DBInterface):
 	# For debugging only
 	def _execute(self, query):
 		if self.show_queries:
-			print query.compile()
+			print(query.compile())
 		return DBBaseInterface._execute(self, query)
 
 	def _execute_set(self, query):
 		if self.show_queries:
-			print query.compile()
+			print(query.compile())
 		return DBInterface._execute_set(self, query)
 
 	def update_or_create_lease_and_expire_conflicting(self, mac, address, expires, server_address):
@@ -3893,10 +3893,10 @@ class DBDHCPInterface(DBInterface):
 		# FIXME: do the lease thing -- delete (set MAC -> NULL, expires -> old or NULL) existing leases for the host, then update address
 		
 		# delete from leases where (mac = mac and address != address) or (mac != mac and address = address) and starts < NOW() - interval '10 sec' or so?
-		print "update_or_create_lease_and_expire_conflicting(mac=%s,address=%s,expires=%s)" % (mac,address,expires)
+		print("update_or_create_lease_and_expire_conflicting(mac=%s,address=%s,expires=%s)" % (mac,address,expires))
 		
 		min_lease_age = 10 # If the lease was given out less than this many seconds ago, don't touch it.
-		print 'got %s for expires' % expires
+		print('got %s for expires' % expires)
 
 		self._begin_transaction()
 
@@ -3911,9 +3911,9 @@ class DBDHCPInterface(DBInterface):
 			q = select([obj.leases], or_(del_cond, update_cond, lease_cond, obj.leases.c.address == address))
 			data = self._execute(q)
 			if self.debug:
-				print "Current state:"
+				print("Current state:")
 				for d in data:
-					print '\t%s' % d
+					print('\t%s' % d)
 
 			#query = obj.leases.update(update_cond, values = {'ends': sqlalchemy.sql.func.now()})
 			#self._execute_set(query)
@@ -3929,7 +3929,7 @@ class DBDHCPInterface(DBInterface):
 			result = self._execute(query)
 			
 			if self.debug:
-				print "existing lease:", result
+				print("existing lease:", result)
 
 			# If this lease is < 10 seconds old, don't bother updating it
 			values={
@@ -3944,9 +3944,9 @@ class DBDHCPInterface(DBInterface):
 				if result[0]['recent'] or result[0]['time_left'] > expires:
 					# do nothing
 					if self.debug and result[0]['recent']:
-						print "Recent match (< %s s old) found: %s" % (min_lease_age,str(result))
+						print("Recent match (< %s s old) found: %s" % (min_lease_age,str(result)))
 					else:
-						print "Longer existing lease found (requested %s): %s" % (expires,str(result))
+						print("Longer existing lease found (requested %s): %s" % (expires,str(result)))
 					self._commit()
 					return result
 				query = obj.leases.update(and_(obj.leases.c.mac==mac, obj.leases.c.starts < ago(min_lease_age), obj.leases.c.address==address),
@@ -3955,8 +3955,8 @@ class DBDHCPInterface(DBInterface):
 			else:
 				if self.debug:
 					a = self._execute(select([obj.leases], obj.leases.c.address == address))
-					print 'no existing lease found, adding new', a
-					print datetime.datetime.now()
+					print('no existing lease found, adding new', a)
+					print(datetime.datetime.now())
 				values['mac'] = mac
 				values['starts'] = sqlalchemy.sql.func.now()
 				query = obj.leases.insert( values=values )
@@ -3973,7 +3973,7 @@ class DBDHCPInterface(DBInterface):
 			raise Exception('Could not create lease for mac: %s address: %s' % (mac, address))
 		else:
 			if self.debug:
-				print "mac: %s address: %s matching lease: %s" % (mac, address, result)
+				print("mac: %s address: %s matching lease: %s" % (mac, address, result))
 
 		return values
 
@@ -4051,7 +4051,7 @@ class DBDHCPInterface(DBInterface):
 			self._commit()
 		except Exception as e:
 			self._rollback()
-			print "Error in _make_dhcp_lease: %r" % e
+			print("Error in _make_dhcp_lease: %r" % e)
 			raise
 		return lease
 
@@ -4072,7 +4072,7 @@ class DBDHCPInterface(DBInterface):
 		networks = self.get_valid_nets( gateway )
 
 		if self.debug:
-			print "valid networks for %s: %s" % (gateway,str(networks))
+			print("valid networks for %s: %s" % (gateway,str(networks)))
 		if not self.lock_mac(mac):
 			raise DHCPRetryError(mac)
 
@@ -4083,8 +4083,8 @@ class DBDHCPInterface(DBInterface):
 					addr = a
 					if addr:
 						if self.debug:
-							print found_debug_msg % (mac, addr['address'])
-							print 'addresses = %s' % addresses
+							print(found_debug_msg % (mac, addr['address']))
+							print('addresses = %s' % addresses)
 						break
 					addr = None
 			return addr
@@ -4114,7 +4114,7 @@ class DBDHCPInterface(DBInterface):
 			for p in ap:
 				allowed_pools.append( p['pool_id'] )
 			if self.debug:
-				print "Found valid registration for this host."
+				print("Found valid registration for this host.")
 			if not allowed_pools:
 				is_static=True
 			
@@ -4134,22 +4134,22 @@ class DBDHCPInterface(DBInterface):
 
 			if requested:
 				if self.debug:
-					print "Client is allowed to have requested address."
-					print requested
+					print("Client is allowed to have requested address.")
+					print(requested)
 				address = requested[0]
 				if address['address'] != requested_address:
-					print "(registered) This is really strange... %s != %s, but it should be." % (requested_address, address['address'])
+					print("(registered) This is really strange... %s != %s, but it should be." % (requested_address, address['address']))
 				# FIXME: do lease thing here
 				if address['mac']:
 					# This is a static lease
 					is_static = True
 					if self.debug:
-						print "lease is static"
+						print("lease is static")
 					lease_time = self.dhcp.static_lease_time
 					make_lease=False
 				else:
 					if self.debug:
-						print "lease is dynamic"
+						print("lease is dynamic")
 
 			# check for any valid static leases
 			if not address:
@@ -4159,8 +4159,8 @@ class DBDHCPInterface(DBInterface):
 				if static:
 					is_static = True
 					if self.debug:
-						print "Found static lease for this host."
-						print 'static = %s' % static
+						print("Found static lease for this host.")
+						print('static = %s' % static)
 					# there could be multiple addresses here, but let's just give them the first
 					address=static[0]
 					lease_time = self.dhcp.static_lease_time
@@ -4174,8 +4174,8 @@ class DBDHCPInterface(DBInterface):
 				addresses = self._execute( addresses_q )
 				if addresses:
 					if self.debug:
-						print "Found existing (but not requested) dynamic lease for this host."
-						print 'addresses = %s' % addresses
+						print("Found existing (but not requested) dynamic lease for this host.")
+						print('addresses = %s' % addresses)
 					address = addresses[0]
 
 			# Look for never-before-used lease
@@ -4216,7 +4216,7 @@ class DBDHCPInterface(DBInterface):
 			if address:
 				raise  Exception('FIXME: unregistered or disabled host got an address: %s' % address)
 			if self.debug:
-				print "Unregisterd host."
+				print("Unregisterd host.")
 			# handle unregistered host
 			# find addresses pools that allow unregistered hosts
 			columns, unreg_addrs = self.valid_addresses_q( networks, registered=False )
@@ -4233,10 +4233,10 @@ class DBDHCPInterface(DBInterface):
 
 			if requested:
 				if self.debug:
-					print "Using requested lease for this unregistered host."
+					print("Using requested lease for this unregistered host.")
 				address = requested[0]
 				if address['address'] != requested_address:
-					print "(unregistered) This is really strange... %s != %s, but it should be." % (address, requested[0]['address'])
+					print("(unregistered) This is really strange... %s != %s, but it should be." % (address, requested[0]['address']))
 			elif not discover:
 				# not discovering, but requested a disallowed address
 				raise error.InvalidIPAddress("(unregistered) Requested address %s for host %s from gateway %s not allowed" % (requested_address, mac, gateway))
@@ -4247,7 +4247,7 @@ class DBDHCPInterface(DBInterface):
 				leased = self._execute( leased_q )
 				if leased:
 					if self.debug:
-						print "Found existing dynamic lease for this unregistered host."
+						print("Found existing dynamic lease for this unregistered host.")
 					address = leased[0]
 
 			if not address:
@@ -4329,7 +4329,7 @@ class DBDHCPInterface(DBInterface):
 		grp_lst = [ global_grp, pool_grp, shared_net_grp, network_grp, host_grp ]
 
 		if self.debug:
-			print grp_lst
+			print(grp_lst)
 
 		grp_order_mapping = []
 		new_grp_lst = []
@@ -4339,8 +4339,8 @@ class DBDHCPInterface(DBInterface):
 				new_grp_lst.append(grp_lst[i])
 		grp_lst = new_grp_lst
 		if self.debug:
-			print grp_lst
-			print grp_order_mapping
+			print(grp_lst)
+			print(grp_order_mapping)
 
 
 		options = select( [obj.dhcp_options_to_dhcp_groups.c.oid,obj.dhcp_options_to_dhcp_groups.c.value] ).where( obj.dhcp_options_to_dhcp_groups.c.gid.in_(grp_lst) )

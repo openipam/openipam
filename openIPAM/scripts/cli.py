@@ -81,7 +81,7 @@ def main(stdscr, *args, **kw):
 				done_message("Done! Added domain %s --> %s" % (domain, address))
 			elif c == ord('7'):
 				sys.exit(0)
-		except Exception, e:
+		except Exception as e:
 			error_message(e)
 	
 def get_input(input):

@@ -5,7 +5,7 @@ class IP(IPy.IP):
 	def __binary_op(self, a):
 		ver = self.version()
 
-		if type(a) == types.StringType:
+		if type(a) == bytes:
 			a = IP(a)
 		if hasattr(a,'prefixlen'):
 			a_prefix = a.prefixlen()

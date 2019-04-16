@@ -1,8 +1,8 @@
 import cherrypy
 
-from basepage import BasePage
+from .basepage import BasePage
 
-import framework
+from . import framework
 from openipam.web.resource.submenu import submenu
 from openipam.config import frontend
 perms = frontend.perms

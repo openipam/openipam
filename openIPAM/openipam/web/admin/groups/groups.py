@@ -317,7 +317,7 @@ class AdminGroups(Admin):
 		
 		# Get the DNS resource record types from the database
 		args = { 'order_by' : 'name' }
-		if not kw.has_key('showug'):
+		if 'showug' not in kw:
 			args['ignore_usergroups'] = True
 		
 		groups = self.webservice.get_groups( args )
@@ -332,7 +332,7 @@ class AdminGroups(Admin):
 		
 		# Combine all the parts into the table
 		text.append('<div style="float:right">')
-		if kw.has_key('showug'):
+		if 'showug' in kw:
 			text.append('<a href="/admin/groups/">Hide default user groups</a></div>')
 		else:
 			text.append('<a href="/admin/groups/?showug=True">Show default user groups</a></div>')

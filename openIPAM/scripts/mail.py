@@ -25,7 +25,7 @@ def base64enc( data ):
 def generate_message_id(message):
 	parts = []
 	to = 'NULL'
-	if message.has_key('To'):
+	if 'To' in message:
 		to = message['To']
 	t = int(time.time()*1000000)
 	t = base64enc(t)
@@ -54,9 +54,9 @@ class Mailer(object):
 		self.single_msg(sender=bounce, to=to, message=message)
 
 	def single_msg( self, sender, to, message):
-		if not message.has_key('Date'):
+		if 'Date' not in message:
 			message['Date'] = time.strftime('%a, %d %b %Y %H:%M:%S %z')
-		if not message.has_key('Message-ID'):
+		if 'Message-ID' not in message:
 			message['Message-ID'] = generate_message_id(message)
 		relay = smtplib.SMTP(self.server)
 		relay.sendmail(sender, to, message.as_string())

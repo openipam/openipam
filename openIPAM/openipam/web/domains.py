@@ -1,10 +1,10 @@
 import cherrypy
 from local_settings import config
 
-from basepage import BasePage
+from .basepage import BasePage
 
-import framework
-from resource.submenu import submenu
+from . import framework
+from .resource.submenu import submenu
 
 class Domains(BasePage):
     '''The Domains class. This includes all pages that are /domains/*'''

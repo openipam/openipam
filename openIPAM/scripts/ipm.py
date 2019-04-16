@@ -4,7 +4,7 @@
 '''NOTICE: This code is not thread-safe.'''
 
 # Import the XMLRPC Library for consuming the webservices
-import xmlrpclib
+import xmlrpc.client
 import sys
 import os
 import getpass
@@ -30,7 +30,7 @@ class XMLRPCInterface(object):
 		ssl = True
 		if url[:5] == 'http:':
 			ssl = False
-		self.ipam = xmlrpclib.ServerProxy(self.__url,
+		self.ipam = xmlrpc.client.ServerProxy(self.__url,
 				transport=CookieAuthXMLRPCSafeTransport(ssl=ssl),
 				allow_none=True)
 		#self.ipam.login( self.__user, self.__pass )
@@ -46,12 +46,12 @@ class XMLRPCInterface(object):
 	def make_call( self, *args, **kwargs ):
 		try:
 			if not self.ipam.have_session():
-				print 'Logging in'
+				print('Logging in')
 				self.ipam.login( self.__user, self.__pass )
 
-		except Exception, e:
-			print e
-			print 'Something went wrong, logging in again'
+		except Exception as e:
+			print(e)
+			print('Something went wrong, logging in again')
 			self.ipam.login( self.__user, self.__pass )
 		if self.__called_fcn[:2] == '__':
 			raise AttributeError()
@@ -166,11 +166,11 @@ class IPMCmdInterface( cmd.Cmd ):
 
 	def show_dicts( self, dicts, fields=None, prefix='', separator='\n' ):
 		if len(dicts) == 0:
-			print prefix + "<Empty list>"
+			print(prefix + "<Empty list>")
 			return
 		if not fields and dicts:
 			fields = []
-			for k in dicts[0].keys():
+			for k in list(dicts[0].keys()):
 				fields.append( (k,k,) )
 		maxlen=0
 		for name,label in fields:
@@ -223,21 +223,21 @@ class IPMCmdInterface( cmd.Cmd ):
 
 	def do_show_disabled( self, arg ):
 		result = self.iface.get_disabled( )
-		print 'Currently disabled hosts:'
+		print('Currently disabled hosts:')
 		if result:
 			self.show_dicts( result, [('mac','mac',),('reason','reason',),('disabled','disabled',),('disabled_by','disabled_by (uid)',), ], separator='--------\n' )
 		else:
-			print 'No hosts currently disabled.'
+			print('No hosts currently disabled.')
 	
 	def do_show_user( self, arg ):
 		username = arg.strip()
 		result = self.iface.get_user_info( username=username )
 		if result:
-			print 'User:'
-			print result
+			print('User:')
+			print(result)
 			self.show_dicts( [result,], [('username','username',),('name','name',),('uid','user id (from db)',),('email','email address',), ], separator='--------\n' )
 		else:
-			print 'No such username: "%s"' % username
+			print('No such username: "%s"' % username)
 	
 	def do_show_host( self, arg ):
 		filter = self.mkdict( arg )
@@ -249,33 +249,33 @@ class IPMCmdInterface( cmd.Cmd ):
 			for r in result:
 				self.onecmd( 'show_mac %s' % r['mac'] )
 		else:
-			print "No host records found."
+			print("No host records found.")
 	
 	def do_show_domain( self, arg ):
 		filter = self.mkdict( arg )
 
 		result = self.iface.get_domains( **filter )
 		if result:
-			print "Domains:"
+			print("Domains:")
 			self.show_dicts( result )
 		else:
-			print "No domains found."
+			print("No domains found.")
 	
 	def do_show_dns( self, arg ):
 		filter = self.mkdict( arg )
-		if filter.has_key( 'type' ):
+		if 'type' in filter:
 			filter['tid'] = self.dns_types[ filter['type'] ]
 			del filter['type']
 
 		result = self.iface.get_dns_records( **filter )
 		if result:
-			print "DNS Records:"
+			print("DNS Records:")
 			#self.show_dicts( result, fields=[('name','name',), ('text_content','content'), ('ip_content','content',)], prefix='\t' )
 			#for record in result:
 			#	print '\t',record
 			self.show_dns_dicts( result )
 		else:
-			print "No DNS records found."
+			print("No DNS records found.")
 	
 	def do_show_ip( self, arg ):
 		arg=arg.strip()
@@ -284,12 +284,12 @@ class IPMCmdInterface( cmd.Cmd ):
 		# then, leases
 		leases = self.iface.get_leases( address=arg )
 		if addrs:
-			print 'Address:'
+			print('Address:')
 			self.show_dicts( addrs, prefix='\t' )
 		else:
-			print "No matching addresses."
+			print("No matching addresses.")
 		if leases:
-			print 'Lease:'
+			print('Lease:')
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),('abandoned','abandoned'),], prefix='\t' )
 
 	def do_show_lease( self, arg ):
@@ -297,7 +297,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		leases = self.iface.get_leases( address=arg )
 
 		if leases:
-			print 'Lease:'
+			print('Lease:')
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('starts','starts'),('ends','ends'),('abandoned','abandoned'),], prefix='\t' )
 			
 	def complete_show_addresses( self, *args, **kwargs ):
@@ -305,8 +305,8 @@ class IPMCmdInterface( cmd.Cmd ):
 
 	def do_show_addresses( self, arg ):
 		filter = self.mkdict( arg )
-		if not filter or not filter.has_key('network'):
-			print 'You must specify a network using the network keyword'
+		if not filter or 'network' not in filter:
+			print('You must specify a network using the network keyword')
 		full_list = self.iface.get_addresses( network=filter['network'], order_by='addresses.address' )
 		used_list = []
 		free_list = []
@@ -323,7 +323,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		free_nets = range_to_net(free_ranges)
 
 		for i in free_nets:
-			print '\t%s' % str(i)
+			print('\t%s' % str(i))
 
 	def do_show_mac( self, arg ):
 		arg = arg.strip()
@@ -332,30 +332,30 @@ class IPMCmdInterface( cmd.Cmd ):
 		leases = self.iface.get_leases( mac=arg )
 		disabled = self.iface.is_disabled( mac=arg )
 		if disabled:
-			print '!! HOST IS DISABLED'
+			print('!! HOST IS DISABLED')
 			if disabled[0]['reason']:
-				print '\treason for disabling: %s' % disabled[0]['reason']
+				print('\treason for disabling: %s' % disabled[0]['reason'])
 		if hosts:
-			print "Host entries:"
+			print("Host entries:")
 			self.show_dicts( hosts, [('hostname','Hostname',),('mac','mac',),('expires','expires'),('description','description',),], prefix='\t' )
 		else:
-			print "Host is not registered."
+			print("Host is not registered.")
 		if addrs:
-			print "Static addresses:"
+			print("Static addresses:")
 			self.show_dicts( addrs, prefix='\t' )
 		if leases:
-			print "Leased addresses:"
+			print("Leased addresses:")
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 		groups = []
 		for g in self.iface.get_hosts_to_groups(mac=arg):
 			groups.extend(self.iface.get_groups(gid=g['gid']) )
 		if groups:
-			print "Related groups:"
+			print("Related groups:")
 			self.show_dicts( groups, [('name','Group'),('description','Description'),('id','GID'),], prefix='\t')
 
 	def do_show_attributes( self, arg ):
 		attrs = self.iface.get_attributes()
-		print "Attributes:"
+		print("Attributes:")
 		self.show_dicts(attrs)
 	
 	def do_show_full_mac( self, arg ):
@@ -370,41 +370,41 @@ class IPMCmdInterface( cmd.Cmd ):
 		if not arps_by_mac:
 			arps_by_mac=[]
 		if disabled:
-			print '!! HOST IS DISABLED'
+			print('!! HOST IS DISABLED')
 			if disabled[0]['reason']:
-				print '\treason for disabling: %s' % disabled[0]['reason']
+				print('\treason for disabling: %s' % disabled[0]['reason'])
 		if hosts:
-			print "Host entries:"
+			print("Host entries:")
 			self.show_dicts( hosts, [('hostname','Hostname',),('mac','mac',),('expires','expires'),('description','description',),], prefix='\t' )
 		else:
-			print "Host is not registered."
+			print("Host is not registered.")
 		if addrs:
-			print "Static addresses:"
+			print("Static addresses:")
 			self.show_dicts( addrs, prefix='\t' )
 			for a in addrs:
 				arps_by_ip.extend(self.iface.arp_data(ip=a['address']))
-		print "Arp data:"
+		print("Arp data:")
 		self.show_dicts(arps_by_mac, prefix='\t')
 		self.show_dicts(arps_by_ip, prefix='\t')
 		if attrs:
-			print "Host attributes:"
+			print("Host attributes:")
 			self.show_dicts( attrs, prefix='\t' )
 		if leases:
-			print "Leased addresses:"
+			print("Leased addresses:")
 			self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 		owners = self.iface.find_owners_of_host(mac=arg,get_users=True)
 		if owners:
 			#print owners
-			print "Owners:"
+			print("Owners:")
 			for owner in owners:
 				result = self.iface.get_user_info( username=owner['username'] )
 				if result:
-					print "\t%(username)s\t%(name)s\t%(email)s" % result
+					print("\t%(username)s\t%(name)s\t%(email)s" % result)
 				else:
-					print "\tERROR: %s has ownership over host, but lookup (source: %s) failed!" % (owner['username'], owner['source'])
+					print("\tERROR: %s has ownership over host, but lookup (source: %s) failed!" % (owner['username'], owner['source']))
 				
 		else:
-			print "No owners found."
+			print("No owners found.")
 
 	def do_show_network(self, arg=None):
 		if arg:
@@ -413,7 +413,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			vals = self.get_from_user( [ ('network', 'network (CIDR)'), ])
 			net = vals['network']
 		results = self.iface.get_networks(network=net)
-		print "Network %s:"%net
+		print("Network %s:"%net)
 		self.show_dicts( results, [('name', 'name'),('network','network'),('gateway','gateway'),('shared_network', 'Shared Network ID'), ('dhcp_group', 'DHCP Group ID')], prefix='\t')
 	def do_show_shared_network(self, arg=None):
 		if arg:
@@ -443,7 +443,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			fmt = '%s [Y/n]: '
 		else:
 			fmt = '%s [y/N]: '
-		response = raw_input( fmt % prompt )
+		response = input( fmt % prompt )
 		r = response.strip().lower()
 		if response:
 			self.remove_last()
@@ -461,7 +461,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		pass2 = 'meh'
 		while pass1 != pass2:
 			if pass1 != None:
-				print 'Passwords do not match.'
+				print('Passwords do not match.')
 				if not self.get_bool_from_user( 'Try again?', True, ):
 					raise Exception('No valid password supplied.')
 			pass1 = getpass.getpass(msg + ': ')
@@ -491,12 +491,12 @@ class IPMCmdInterface( cmd.Cmd ):
 		while not accept:
 			for name, prompt in fields:
 				default = ''
-				if input.has_key(name):
+				if name in input:
 					default=input[name]
-				i = raw_input( fmt % (prompt,default) )
+				i = input( fmt % (prompt,default) )
 				if i:
 					self.remove_last()
-				if not input.has_key(name) or i.strip():
+				if name not in input or i.strip():
 					input[name] = i.strip()
 			sys.stdout.write('\n*********\nPlease check your values:\n')
 			for name, prompt in fields:
@@ -524,7 +524,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		return additional_owners
 
 	def do_del_dns_record( self, arg ):
-		ids = map(int, arg.strip().split())
+		ids = list(map(int, arg.strip().split()))
 		failed = []
 		for id in ids:
 			self.onecmd( 'show_dns id %s' % id )
@@ -534,7 +534,7 @@ class IPMCmdInterface( cmd.Cmd ):
 					self.iface.del_dns_record( rid=id )
 				except:
 					failed.append(id)
-			if failed: print "Failed to delete the following records: "
+			if failed: print("Failed to delete the following records: ")
 			for i in failed:
 				self.onecmd( 'show_dns id %s' % id )
 
@@ -542,10 +542,10 @@ class IPMCmdInterface( cmd.Cmd ):
 		domain_name = arg.strip()
 		domain = self.iface.get_domains(name=domain_name)
 		if len(domain) > 1:
-			print "Non-unique match!"
+			print("Non-unique match!")
 			return
 		elif len(domain) == 0:
-			print "No match!"
+			print("No match!")
 			return
 
 		domain = domain[0]
@@ -554,11 +554,11 @@ class IPMCmdInterface( cmd.Cmd ):
 		self.onecmd('show_domain did %s' % int(domain['id']))
 
 		if self.get_bool_from_user( 'permanently delete entire domain?', default=False ):
-			print "Deleting DNS records"
+			print("Deleting DNS records")
 			self.iface.del_dns_record( did=domain['id'] )
-			print "Deleting domain"
+			print("Deleting domain")
 			self.iface.del_domain( did=domain['id'] )
-			print "Success."
+			print("Success.")
 
 	def do_del_network( self, arg ):
 		net = arg.strip()
@@ -566,7 +566,7 @@ class IPMCmdInterface( cmd.Cmd ):
 			raise ValueError("Must supply network")
 		self.onecmd( 'show_network %s' % net )
 		if self.get_bool_from_user( 'delete this network', default=False ):
-			print 'deleting...'
+			print('deleting...')
 			# FIXME: change dhcp_dns_records.ip_content to 'on delete cascade'
 			self.iface.del_dhcp_dns_record(network=net)
 			self.iface.del_network(network=net)
@@ -587,13 +587,13 @@ class IPMCmdInterface( cmd.Cmd ):
 		if vals['description']:
 			desc = vals['description'].strip()
 		master = None
-		if vals.has_key('master') and vals['master']:
+		if 'master' in vals and vals['master']:
 			master = vals['master'].strip()
 
 		self.iface.add_domain( name=name, typename=typename, description=desc, master=master )
 
 		if name[-7:] != 'usu.edu':
-			print 'Remember to add an SOA for this domain if none exists.'
+			print('Remember to add an SOA for this domain if none exists.')
 
 	def do_add_external_domain( self, arg ):
 		typename='MASTER'
@@ -606,9 +606,9 @@ class IPMCmdInterface( cmd.Cmd ):
 		if vals['description']:
 			desc = vals['description'].strip()
 		master = None
-		if vals.has_key('master') and vals['master']:
+		if 'master' in vals and vals['master']:
 			master = vals['master'].strip()
-		if vals.has_key('address'):
+		if 'address' in vals:
 			address = vals['address']
 
 		self.iface.add_domain( name=name, typename=typename, description=desc, master=master )
@@ -634,7 +634,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		
 	def do_add_dns_record( self, arg ):
 		typename = arg.strip()
-		if not self.dns_types.has_key(typename):
+		if typename not in self.dns_types:
 			sys.stdout.write('invalid DNS type\n')
 		tid = self.dns_types[typename]
 		fields = [('name',),]
@@ -658,7 +658,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		vals = self.get_from_user( fields, defaults )
 		name = vals['name']
 		content = vals['content']
-		if vals.has_key('priority'):
+		if 'priority' in vals:
 			priority = int( vals['priority'] )
 		else:
 			priority = None
@@ -697,7 +697,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		expiration = datetime.datetime.today().replace( hour=0, minute=0, second=0, microsecond=0 ) + datetime.timedelta( 365 )
 
 		if arg.strip():
-			print 'importing CSV data from %s' % arg.strip()
+			print('importing CSV data from %s' % arg.strip())
 			file = arg.strip()
 		else:
 			fields.append( ('file','file containing CSV data',) )
@@ -727,17 +727,17 @@ class IPMCmdInterface( cmd.Cmd ):
 				new_records.append( (mac,address,name,desc,) )
 			else:
 				messages.append( 'WARNING: ignored line: %s' % line )
-		print "Will add the following records:"
+		print("Will add the following records:")
 		for record in new_records:
-			print '\tmac: %s ip: %12ls name: %s\tdesc: %s' % record
+			print('\tmac: %s ip: %12ls name: %s\tdesc: %s' % record)
 		for message in messages:
-			print message
+			print(message)
 
 		if self.get_bool_from_user('Add these records',default=False):
 			failed = []
 			for record in new_records:
 				mac,address,name,desc = record
-				print record
+				print(record)
 				try:
 					args = {
 							'hostname':name, 'mac':mac, 'owners':additional_owners, 'is_dynamic':True,
@@ -750,14 +750,14 @@ class IPMCmdInterface( cmd.Cmd ):
 						else:
 							args['address'] = address
 					self.iface.register_host( **args )
-				except Exception,e:
+				except Exception as e:
 					print_error()
 					failed.append( record )
 			if failed:
-				print 'failed to add the following records:'
+				print('failed to add the following records:')
 				for r in failed:
 					m,a,n,d = r
-					print '%s,%s,%s,%s' % (m,n,d,a)
+					print('%s,%s,%s,%s' % (m,n,d,a))
 					
 	def do_assign_hosts( self, arg ):
 		mac = name = desc = address = None
@@ -789,7 +789,7 @@ class IPMCmdInterface( cmd.Cmd ):
 					try:
 						hosts += self.iface.get_hosts(username=user)
 					except:
-						print "Error getting hosts for user %s" % user
+						print("Error getting hosts for user %s" % user)
 			
 		macs = [row['mac'] for row in hosts]
 		
@@ -805,13 +805,13 @@ class IPMCmdInterface( cmd.Cmd ):
 		for mac in macs:
 			try:
 				self.iface.add_host_to_group(mac=mac, gid=gid)
-				print "Added host: %s" % mac
+				print("Added host: %s" % mac)
 			except:
 				failed.append(mac)
 				
 		if failed:
-			print "\nThe following MAC addresses failed to insert:\n\t"
-			print '\n\t'.join(failed)
+			print("\nThe following MAC addresses failed to insert:\n\t")
+			print('\n\t'.join(failed))
 			
 	
 	def do_assign_hosts_to_network( self, arg ):
@@ -824,7 +824,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		fields = [ ('network','CIDR network',), ]
 		
 		if arg:
-			print 'importing data from %s' % arg.strip()
+			print('importing data from %s' % arg.strip())
 			file = arg
 		else:
 			fields.insert(0, ('file','file containing MAC addresses',) )
@@ -840,14 +840,14 @@ class IPMCmdInterface( cmd.Cmd ):
 		for mac in re.findall(mac_regex, content):
 			try:
 				self.iface.change_registration(old_mac=mac, network=vals['network'], is_dynamic=False, do_validation=False)
-				print "Moved MAC %s to %s" % (mac, vals['network'])
-			except Exception, e:
-				print e
+				print("Moved MAC %s to %s" % (mac, vals['network']))
+			except Exception as e:
+				print(e)
 				failed.append(mac)
 				
 		if failed:
-			print "\nThe following MAC addresses failed to be moved:\n\t"
-			print '\n\t'.join(failed)
+			print("\nThe following MAC addresses failed to be moved:\n\t")
+			print('\n\t'.join(failed))
 	
 	def do_del_lease( self, arg ):
 		arg = arg.strip()
@@ -877,7 +877,7 @@ class IPMCmdInterface( cmd.Cmd ):
 
 		mac = self.iface.register_host( hostname=hostname, mac=mac, owners=additional_owners, is_dynamic=False, network=net, address=ip, do_validation=False, expires=expiration, add_host_to_my_group=add_host_to_my_group )
 
-		print mac
+		print(mac)
 
 	def do_add_user( self, arg ):
 		vals = self.get_from_user( [ ('username',), ('source',), ('min_perms',), ] )
@@ -907,8 +907,8 @@ class IPMCmdInterface( cmd.Cmd ):
 		
 		changed = {}
 		new_net = None
-		for k in vals.keys():
-			if network.has_key(k):
+		for k in list(vals.keys()):
+			if k in network:
 				if vals[k] != network[k]:
 					if k=='network':
 						new_net = vals[k]
@@ -923,7 +923,7 @@ class IPMCmdInterface( cmd.Cmd ):
 				elif vals[k]:
 					changed[k] = vals[k]
 
-		print changed
+		print(changed)
 		self.iface.update_network(network=arg, new_network=new_net, **changed)
 
 	def do_add_network( self, arg ):
@@ -943,7 +943,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		gateway = vals['gateway'] if vals['gateway'] else None
 		
 		self.iface.add_network( network=network, name=name, description=desc, shared_network=shared_id, pool=pool_id, gateway=gateway )
-		print "Remember to add domain for PTRs"
+		print("Remember to add domain for PTRs")
 
 
 	def do_add_shared_network( self, arg ):
@@ -1018,17 +1018,17 @@ class IPMCmdInterface( cmd.Cmd ):
 		except:
 			group = self.iface.get_dhcp_groups( name=vals['group'] )
 			assert len(group) == 1, ('group not valid/unique',group)
-			print "%s -> %s" % (vals['group'],group[0]['id'])
+			print("%s -> %s" % (vals['group'],group[0]['id']))
 			arg_vals['gid'] = group[0]['id']
 		try:
 			arg_vals['oid'] = int(vals['option'])
 		except:
 			opt = self.iface.get_dhcp_options( option=vals['option'] )
 			assert len(opt) == 1, ('option not valid/unique',opt)
-			print "%s -> %s" % (vals['option'],opt[0]['id'])
+			print("%s -> %s" % (vals['option'],opt[0]['id']))
 			arg_vals['oid'] = opt[0]['id']
 
-		print "Preparing to call self.iface.add_dhcp_option_to_dhcp_group( %r )" % arg_vals
+		print("Preparing to call self.iface.add_dhcp_option_to_dhcp_group( %r )" % arg_vals)
 		self.iface.add_dhcp_option_to_dhcp_group( **arg_vals )
 
 	def do_disable_mac( self, arg ):
@@ -1045,7 +1045,7 @@ class IPMCmdInterface( cmd.Cmd ):
 		# expect a mac address followed by a reason
 		args = arg.strip().split( ' ', 1 )
 		if len(args) != 1:
-			print 'invalid usage'
+			print('invalid usage')
 			return
 		mac = args[0]
 		
@@ -1055,9 +1055,9 @@ class IPMCmdInterface( cmd.Cmd ):
 		for addr in addrs:
 			try:
 				self.iface.release_static_address( address=addr )
-				print "released %s" % addr
+				print("released %s" % addr)
 			except:
-				print "Failed to release %s" % addr
+				print("Failed to release %s" % addr)
 	def do_assign_static_address( self, arg ):
 		# arg should be empty
 		del arg
@@ -1074,26 +1074,26 @@ class IPMCmdInterface( cmd.Cmd ):
 		else:
 			if openipam.iptypes.IP(net).version() == 4:
 				# first, check addresses
-				print 'Searching for address %s' % net
+				print('Searching for address %s' % net)
 				addrs = self.iface.get_addresses( address=net )
 				if not addrs:
 					# FIXME: this is good for IPv6 addresses
 					raise Exception('Address %s not found.  Has the network been added?')
 
-				print 'Address to be updated:'
+				print('Address to be updated:')
 				self.show_dicts( addrs, prefix='\t' )
 
 				# then, leases
 				leases = self.iface.get_leases( address=net )
 				if leases:
-					print 'WARNING: Address has a lease:'
+					print('WARNING: Address has a lease:')
 					self.show_dicts( leases, [('address','address'),('mac','mac'),('ends','ends'),], prefix='\t' )
 					if self.get_bool_from_user( 'Delete this lease', default=False ):
 						self.iface.del_lease( address=net )
 					else:
 						raise Exception('Aborting because of lease on address.')
 			ip = self.iface.assign_static_address( mac=mac, hostname=hostname, address=net )
-			print 'Assigned address %s to %s' % (ip,mac)
+			print('Assigned address %s to %s' % (ip,mac))
 
 def print_error():
 	import traceback
@@ -1101,10 +1101,10 @@ def print_error():
 
 if __name__ == '__main__':
 	if len( sys.argv ) != 2:
-		print "Usage:\n\t %s URL\n\t\t where URL is of the form https://url.of.server:8443/api/" % sys.argv[0]
+		print("Usage:\n\t %s URL\n\t\t where URL is of the form https://url.of.server:8443/api/" % sys.argv[0])
 		exit( 1 )
 	url = str( sys.argv[1] )
-	print 'Connecting to url %s' % url
+	print('Connecting to url %s' % url)
 
 	sys.stdout.write('\nUsername: ')
 	username = sys.stdin.readline().strip()
@@ -1118,7 +1118,7 @@ if __name__ == '__main__':
 	while True:
 		try:
 			cli.cmdloop()
-		except Exception, e:
+		except Exception as e:
 			print_error()
 
 

@@ -2,10 +2,10 @@ import types
 
 import cherrypy
 
-import framework
+from . import framework
 import re
-from basepage import BasePage
-from resource.submenu import submenu, OptionsSubmenu
+from .basepage import BasePage
+from .resource.submenu import submenu, OptionsSubmenu
 from openipam.utilities import misc, error, validation
 from openipam.utilities.perms import Perms
 from openipam.web.resource.utils import redirect_to_referer
@@ -123,7 +123,7 @@ class Hosts(BasePage):
 			if count:
 				num_hosts = hosts[0]
 				hosts=hosts[1]
-		except Exception, e:
+		except Exception as e:
 			if error.parse_webservice_fault(e) == "NotUser":
 				hosts = []
 			else:
@@ -138,7 +138,7 @@ class Hosts(BasePage):
 		perms = perms[0] if perms else perms
 		
 		for host in hosts:
-			if perms.has_key(host['mac']):
+			if host['mac'] in perms:
 				host['has_permissions'] = ((Perms(perms[host['mac']]) & frontend.perms.OWNER) == frontend.perms.OWNER)
 			else:
 				host['has_permissions'] = '00000000'
@@ -162,14 +162,14 @@ class Hosts(BasePage):
 
 		nets = self.webservice.get_networks( { 'additional_perms' : str(frontend.perms.ADD), 'order_by' : 'network' } )
 		nets_by_type = {}
-		for k in self.address_types.keys():
+		for k in list(self.address_types.keys()):
 			nets_by_type[k] = []
 		for net in nets:
 			net_type = self.get_address_type( net['network'] )
 			nets_by_type[net_type].append(net)
 
 		nets_by_type_keys = []
-		for v,k in sorted( [ (self.address_types[i]['description'],i) for i in nets_by_type.keys() ]):
+		for v,k in sorted( [ (self.address_types[i]['description'],i) for i in list(nets_by_type.keys()) ]):
 			if nets_by_type[k] or not self.address_types[k]['ranges']:
 				nets_by_type_keys.append(k)
 
@@ -188,7 +188,7 @@ class Hosts(BasePage):
 
 		values['address_types'] = [ (self.address_types[k]['name'], self.address_types[k]['description']) for k in nets_by_type_keys ]
 
-		if values.has_key('ips') and len(values['ips']):
+		if 'ips' in values and len(values['ips']):
 			values['address_type'] = self.get_address_type(values['ips'][0]['address'])
 		else:
 			values['address_type'] = 'dynamic'
@@ -198,12 +198,12 @@ class Hosts(BasePage):
 
 	def get_address_type(self, address):
 		default = None
-		for k in self.address_types.keys():
+		for k in list(self.address_types.keys()):
 			t = self.address_types[k]
 			for cidr in t['ranges']:
 				if address in cidr:
 					return t['name']
-			if t.has_key('default') and t['default']:
+			if 'default' in t and t['default']:
 				if default is not None:
 					raise Exception("Bad configuration -- must only specify one default (%s and %s both marked default)" % (default, k))
 				default = k
@@ -220,7 +220,7 @@ class Hosts(BasePage):
 		self.check_session()
 
 		addr_type = self.address_types[kw['address_type']]
-		is_dynamic = addr_type.has_key('pool') and addr_type['pool'] is not None and not addr_type['ranges']
+		is_dynamic = 'pool' in addr_type and addr_type['pool'] is not None and not addr_type['ranges']
 		
 		mac = self.webservice.register_host(
 			{
@@ -230,12 +230,12 @@ class Hosts(BasePage):
 			'description' : kw['description'],
 			'expiration' : int(kw['expiration']),
 			'is_dynamic' : is_dynamic,
-			'pool' : addr_type['pool'] if addr_type.has_key('pool') else None,
+			'pool' : addr_type['pool'] if 'pool' in addr_type else None,
 			'owners_list' : kw['owners_list'], 
-			'network' : (kw['network'] if kw.has_key('network') and kw['network'] else None),
+			'network' : (kw['network'] if 'network' in kw and kw['network'] else None),
 			'add_host_to_my_group' : False,
-			'address' : (kw['ip'] if kw.has_key('ip') else None),
-			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
+			'address' : (kw['ip'] if 'ip' in kw else None),
+			'dhcp_group': (kw['dhcp_group'] if 'dhcp_group' in kw and kw['dhcp_group'] else None),
 			})
 		
 		self.redirect('/hosts/search/?q=%s' % misc.fix_mac(mac))
@@ -249,23 +249,23 @@ class Hosts(BasePage):
 		self.check_session()
 
 		addr_type = self.address_types[kw['address_type']]
-		is_dynamic = addr_type.has_key('pool') and addr_type['pool'] is not None and not addr_type['ranges']
-		changed_to_static = kw.has_key('did_change_ip') or (kw.has_key('was_dynamic') and not is_dynamic)
+		is_dynamic = 'pool' in addr_type and addr_type['pool'] is not None and not addr_type['ranges']
+		changed_to_static = 'did_change_ip' in kw or ('was_dynamic' in kw and not is_dynamic)
 		
 		self.webservice.change_registration(
 			{
 			'old_mac' : kw['old_mac'],
 			'mac' : kw['mac'],
-			'hostname' : (kw['hostname'] if kw.has_key('hostname') else None),
-			'domain' : (int(kw['domain']) if kw.has_key('domain') else None),
+			'hostname' : (kw['hostname'] if 'hostname' in kw else None),
+			'domain' : (int(kw['domain']) if 'domain' in kw else None),
 			'description' : kw['description'],
-			'expiration' : (int(kw['expiration']) if kw.has_key('did_renew_host') else None),
+			'expiration' : (int(kw['expiration']) if 'did_renew_host' in kw else None),
 			'is_dynamic' : kw['address_type'] == 'dynamic',
-			'pool' : addr_type['pool'] if addr_type.has_key('pool') else None,
+			'pool' : addr_type['pool'] if 'pool' in addr_type else None,
 			'owners_list' : kw['owners_list'], 
 			'network' : (kw['network'] if changed_to_static else None),
 			'address' : (kw['ip'] if changed_to_static else None),
-			'dhcp_group': (kw['dhcp_group'] if kw.has_key('dhcp_group') and kw['dhcp_group'] else None),
+			'dhcp_group': (kw['dhcp_group'] if 'dhcp_group' in kw and kw['dhcp_group'] else None),
 			})
 		
 		self.redirect('/hosts/search/?q=%s' % misc.fix_mac(kw['mac'] if kw['mac'] else kw['old_mac']))
@@ -287,10 +287,10 @@ class Hosts(BasePage):
 		cherrypy.session.acquire_lock()
 		try:
 			# Toggle 'Show expired hosts' and 'Show all hosts'
-			if kw.has_key('show_expired'):
+			if 'show_expired' in kw:
 				cherrypy.session['show_expired_hosts'] = not cherrypy.session['show_expired_hosts']
 				redirect_to_referer()
-			if kw.has_key('show_all'):
+			if 'show_all' in kw:
 				cherrypy.session['show_all_hosts'] = not cherrypy.session['show_all_hosts']
 				redirect_to_referer()
 				
@@ -317,10 +317,10 @@ class Hosts(BasePage):
 		# Confirm user authentication
 		self.check_session()
 		
-		if kw.has_key('submit'):
+		if 'submit' in kw:
 			try:
 				self.add_host(**kw)
-			except Exception, e:
+			except Exception as e:
 				if error.parse_webservice_fault(e) == "ListXMLRPCFault":
 					e.faultString = e.faultString.replace('[ListXMLRPCFault]', '')
 					e.message = e.faultString.split(';')
@@ -348,10 +348,10 @@ class Hosts(BasePage):
 		# Initialization
 		values = {}
 		
-		if kw.has_key('submit'):
+		if 'submit' in kw:
 			try:
 				self.edit_host(**kw)
-			except Exception, e:
+			except Exception as e:
 				if error.parse_webservice_fault(e) == "ListXMLRPCFault":
 					e.faultString = e.faultString.replace('[ListXMLRPCFault]', '')
 					e.message = e.faultString.split(';')
@@ -371,7 +371,7 @@ class Hosts(BasePage):
 
 		values['has_domain_access'] = bool(domain)
 		if domain:
-			values['domain'] = kw['domain'] if kw.has_key('domain') else domain[0]['id']
+			values['domain'] = kw['domain'] if 'domain' in kw else domain[0]['id']
 			
 		values['ips'] = ips
 		values['host'] = host
@@ -400,7 +400,7 @@ class Hosts(BasePage):
 		
 		cherrypy.session.acquire_lock()
 		try:
-			if not q and not kw.keys():
+			if not q and not list(kw.keys()):
 				if not expiring:
 					raise cherrypy.InternalRedirect('/hosts')
 				else:
@@ -435,7 +435,7 @@ class Hosts(BasePage):
 			elif ':' in element:
 				# I strongly recommend that we do this next to last...
 				stype,value = element.split(':',1)
-				if special_search.has_key(stype):
+				if stype in special_search:
 					kw[special_search[stype]] = value
 				else:
 					raise error.InvalidArgument('Unrecognized special search type: %s (value: %s)' % (stype, value))
@@ -453,7 +453,7 @@ class Hosts(BasePage):
 					namesearch = element.replace('%','*')
 				else:
 					namesearch = '*%s*' % element.replace('%','*')
-				if kw.has_key('namesearch'):
+				if 'namesearch' in kw:
 					raise error.InvalidArgument('Invalid search string -- more than one name (%s, %s)' % (kw['namesearch'], namesearch))
 				kw['namesearch'] = namesearch
 
@@ -461,7 +461,7 @@ class Hosts(BasePage):
 		# FIXME: this might break with special characters
 		# FIXME: need more thorough input validation
 		kw_elements = []
-		kw_keys = kw.keys()
+		kw_keys = list(kw.keys())
 		kw_keys.sort()
 		for k in kw_keys:
 			v = kw[k]
@@ -471,7 +471,7 @@ class Hosts(BasePage):
 				kw_elements.append('%s=%s' % (k,v))
 
 		search_str = '/search/?%s&' % '&'.join(kw_elements)
-		print search_str
+		print(search_str)
 
 		if q:
 			# we are ignoring order_by here, but this should only happen with a new search anyway...
@@ -523,7 +523,7 @@ class Hosts(BasePage):
 		if not multihosts:
 			raise error.InvalidArgument('No hosts selected!')
 
-		if type(multihosts) != types.ListType:
+		if type(multihosts) != list:
 			multihosts = [multihosts]
 
 		if multiaction == 'delete':
@@ -532,7 +532,7 @@ class Hosts(BasePage):
 			self.webservice.renew_hosts( {'hosts':multihosts} );
 		# need to get the owners...
 		elif multiaction == 'owners':
-			if kw.has_key('owners_list'):
+			if 'owners_list' in kw:
 				owners = kw['owners_list'].split('|')
 				self.webservice.change_hosts( {'hosts':multihosts, 'owners':owners,} )
 			else:
@@ -559,7 +559,7 @@ class Hosts(BasePage):
 
 		# FIXME: it would be useful to get permissions on this host
 		vals = {}
-		print "get_hosts"
+		print("get_hosts")
 		host = self.webservice.get_hosts({'mac':mac})
 		if len(host) != 1:
 			raise Exception("Invalid host: %s (%r)" % (mac,host) )
@@ -587,12 +587,12 @@ class Hosts(BasePage):
 
 			byaddr = {}
 			for i in gul_byaddr:
-				if i.has_key('address'):
+				if 'address' in i:
 					byaddr[i['address']] = i
 				else:
-					print "No address field: %r" % i
+					print("No address field: %r" % i)
 			for addr in addrlist:
-				if not byaddr.has_key(addr):
+				if addr not in byaddr:
 					byaddr[addr] = {'address':addr,'stopstamp':'no data','mac':'',}
 			vals['arp_byaddress'] = byaddr
 

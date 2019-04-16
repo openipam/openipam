@@ -21,17 +21,17 @@ class ipv4:
     def __init__(self,value="0.0.0.0") :
         ip_type = type(value)
         if ip_type == str :
-            if not self.CheckString(value) : raise ValueError, "ipv4 string argument is not an valid ip "
+            if not self.CheckString(value) : raise ValueError("ipv4 string argument is not an valid ip ")
             self._ip_string = value
             self._StringToNumlist()
             self._StringToLong()
             self._NumlistToString()
         elif ip_type == list :
-            if not self.CheckNumList(value) : raise ValueError, "ipv4 list argument is not an valid ip "
+            if not self.CheckNumList(value) : raise ValueError("ipv4 list argument is not an valid ip ")
             self._ip_numlist = value
             self._NumlistToString()
             self._StringToLong()
-        elif ip_type == int or ip_type == long:
+        elif ip_type == int or ip_type == int:
             self._ip_long = value
             self._LongToNumlist()
             self._NumlistToString()
@@ -40,7 +40,7 @@ class ipv4:
             self._LongToNumlist()
             self._NumlistToString()
             
-        else : raise TypeError , 'ipv4 init : Valid types are  str, list, int or long'
+        else : raise TypeError('ipv4 init : Valid types are  str, list, int or long')
 
 
 
@@ -50,20 +50,20 @@ class ipv4:
         self._ip_numlist.append(self._ip_long >> 16 & 0xFF)
         self._ip_numlist.append(self._ip_long >> 8 & 0xFF)
         self._ip_numlist.append(self._ip_long & 0xFF)
-        if not self.CheckNumList(self._ip_numlist) : raise ValueError, "ipv4 list argument is not an valid ip "
+        if not self.CheckNumList(self._ip_numlist) : raise ValueError("ipv4 list argument is not an valid ip ")
     # Convert String type ip to Long type ip
     def _StringToLong(self) :
-        ip_numlist = map(int,self._ip_string.split('.'))
+        ip_numlist = list(map(int,self._ip_string.split('.')))
         self._ip_long = ip_numlist[3] + ip_numlist[2]*256 + ip_numlist[1]*256*256 + ip_numlist[0]*256*256*256
-        if not self.CheckNumList(self._ip_numlist) : raise ValueError, "ipv4 list argument is not an valid ip "
+        if not self.CheckNumList(self._ip_numlist) : raise ValueError("ipv4 list argument is not an valid ip ")
     # Convert NumList type ip to String type ip
     def _NumlistToString(self) :
         self._ip_string = ".".join(map(str,self._ip_numlist))
-        if not self.CheckNumList(self._ip_numlist) : raise ValueError, "ipv4 list argument is not an valid ip "
+        if not self.CheckNumList(self._ip_numlist) : raise ValueError("ipv4 list argument is not an valid ip ")
     # Convert String type ip to NumList type ip
     def _StringToNumlist(self) :
-        self._ip_numlist = map(int,self._ip_string.split('.'))
-        if not self.CheckNumList(self._ip_numlist) : raise ValueError, "ipv4 list argument is not an valid ip "
+        self._ip_numlist = list(map(int,self._ip_string.split('.')))
+        if not self.CheckNumList(self._ip_numlist) : raise ValueError("ipv4 list argument is not an valid ip ")
 
     """ Public methods """
     # Check if _ip_numlist is valid and raise error if not.
@@ -108,7 +108,7 @@ class ipv4:
     def __cmp__(self,other) :
         return cmp(self._ip_long, other._ip_long);
 
-    def __nonzero__(self) :
+    def __bool__(self) :
         if self._ip_long != 0 : return 1
         return 0
 

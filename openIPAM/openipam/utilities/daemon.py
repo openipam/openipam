@@ -5,8 +5,8 @@ import errno
 
 # FIXME: this should go somewhere else!
 def sighand_hup(signum, frame):
-	print "Received SIGHUP."
-	print "(This is where we should reload.)"
+	print("Received SIGHUP.")
+	print("(This is where we should reload.)")
 
 def findpid(pidfile):
 	f = open(pidfile)
@@ -17,18 +17,18 @@ def findpid(pidfile):
 def update_pidfile(pidfile):
 
 	if pidfile:
-		print 'Using pidfile "%s"' % pidfile
+		print('Using pidfile "%s"' % pidfile)
 		if os.path.exists(pidfile):
 			p = findpid(pidfile)
-			print "Found pidfile with PID %s" % p
+			print("Found pidfile with PID %s" % p)
 			try:
 				os.kill(p, 0)
-			except os.error, detail:
+			except os.error as detail:
 				if detail.errno == errno.ESRCH:
-					print "stale pidfile exists.  removing it."
+					print("stale pidfile exists.  removing it.")
 					os.unlink(pidfile)
 			else:
-				print 'valid PID file exists, exiting'
+				print('valid PID file exists, exiting')
 				exit(2)
 		atexit.register(os.unlink,pidfile)
 		f = open(pidfile, "w")
@@ -51,8 +51,8 @@ def daemonize( fcn, pidfile=None ):
 	try:
 		# first fork
 		pid=os.fork()
-	except OSError,e:
-		raise Exception,"%s [%d]" % (e.strerror,e.errno)
+	except OSError as e:
+		raise Exception("%s [%d]" % (e.strerror,e.errno))
 
 	if (pid == 0):
 
@@ -64,8 +64,8 @@ def daemonize( fcn, pidfile=None ):
 		try:
 			# second fork...welcome to daemon space
 			pid = os.fork()
-		except OSError,e:
-			raise Exception,"%s [%d]" % (e.strerror,e.errno)
+		except OSError as e:
+			raise Exception("%s [%d]" % (e.strerror,e.errno))
 		
 		if(pid == 0):
 			# Redirect standard file descriptors.

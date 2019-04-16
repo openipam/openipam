@@ -1,8 +1,8 @@
 import cherrypy
 import types
 import re
-import framework
-from basepage import BasePage
+from . import framework
+from .basepage import BasePage
 from openipam.web.resource.submenu import submenu
 from openipam.config import frontend
 from openipam.utilities import validation
@@ -50,15 +50,15 @@ class Service(BasePage):
 		
 		text.append("<h1>Service</h1>")
 		
-		if kw.has_key('submit_user'):
+		if 'submit_user' in kw:
 			# DOING USER THING
 			try:
 				self.__add_user(username=kw['username'])
 				text.append('''<div class="message"><div>
 					Done!
 				</div></div>''')
-			except Exception, e:
-				if type(e.message) is types.ListType:
+			except Exception as e:
+				if type(e.message) is list:
 					text.append('''<div class="message"><div>
 					<strong>The following error occured:</strong>
 					<ul>

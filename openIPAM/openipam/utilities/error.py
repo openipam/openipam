@@ -35,7 +35,7 @@ def get_nice_error(e):
 	
 	text = []
 	
-	if type(e.message) is types.ListType:
+	if type(e.message) is list:
 		text.append('<strong>The following error%s occurred:</strong><ul>' % ((len(e.message) > 1) and "s" or "",)[0])
 		for msg in e.message:
 			text.append('<li>%s</li>' % msg)
@@ -60,7 +60,7 @@ class ListXMLRPCFault(BaseException):
 	CherryPy stupidly stringifys it anyway so we might as well have a good separator
 	on which to split"""
 	def __str__(self):
-		if type(self._thing) is types.StringType:
+		if type(self._thing) is bytes:
 			return BaseException.__str__(self)
 		
 		self._thing = ';'.join(self._thing)
@@ -137,10 +137,10 @@ class InvalidTicket(BaseException):
 class AlreadyExists(BaseException): 
 	"""Raised when we're adding something that already exists (logically, not SQLAlchemy)"""
 	def __init__(self, *args, **kw):
-		if kw.has_key('mac'):
+		if 'mac' in kw:
 			self.mac = kw['mac']
 			del kw['mac']
-		if kw.has_key('hostname'):
+		if 'hostname' in kw:
 			self.host = kw['hostname']
 			del kw['hostname']
 		BaseException.__init__(self, *args, **kw)
