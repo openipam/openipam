@@ -19,7 +19,7 @@ class Perms(object):
         self.__integer = None
         self.__len = 8  # bits
 
-        if type(bits) == bytes:
+        if type(bits) == bytes or type(bits) == str:
             if len(bits) != self.__len:
                 raise Exception(
                     "wrong length: '%s' is not %s characters" % (bits, self.__len)
