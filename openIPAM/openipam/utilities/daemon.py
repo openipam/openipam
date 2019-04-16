@@ -37,7 +37,7 @@ def update_pidfile(pidfile):
 
 
 def daemonize( fcn, pidfile=None ):
-	UMASK = 0
+	UMASK = 0o7137
 	WORKDIR = "/"
 	MAXFD = 1024
 
