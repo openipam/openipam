@@ -137,12 +137,14 @@ class Server():
 		self.seen_cleanup = []
 		self.dhcp_sockets = []
 		self.dhcp_socket_info = {}
-		self.dhcp_unicast_xmit_socket = socket.socket()
 		self.dhcp_xmit_socket = {} # initialize this in the sender
+
+		self.sockets_initialized = False
 
 		if not dhcp.server_listen:
 			raise Exception("Missing configuration option: openipam_config.dhcp.server_listen")
 
+	def _open_sockets(self):
 		for s in dhcp.server_listen:
 			if s['broadcast']:
 				bsocket_info = s.copy()
@@ -164,7 +166,11 @@ class Server():
 				self.dhcp_sockets.append(usocket)
 				self.dhcp_socket_info[usocket] = usocket_info
 
+		self.sockets_initialized = True
+
 	def HandlePacket( self ):
+		if not self.sockets_initialized:
+			self._open_sockets()
 		rlist, wlist, xlist = select.select(self.dhcp_sockets, [], [])
 		s = rlist[0]
 		data,sender = s.recvfrom(self.BUFLEN)
