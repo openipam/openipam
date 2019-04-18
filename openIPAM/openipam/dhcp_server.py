@@ -589,7 +589,7 @@ def db_consumer( dbq, send_packet ):
 			self.assign_dhcp_options( options=opt_vals, requested=requested_options, packet=ack )
 
 			ack.DeleteOption("yiaddr")
-			ack.DeleteOption("lease_time")
+			ack.DeleteOption("ip_address_lease_time")
 
 			# send an ack
 			self.SendPacket( ack )
