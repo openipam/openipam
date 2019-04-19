@@ -679,6 +679,9 @@ def db_consumer(dbq, send_packet):
                 options=opt_vals, requested=requested_options, packet=ack
             )
 
+            ack.DeleteOption("yiaddr")
+            ack.DeleteOption("ip_address_lease_time")
+
             # send an ack
             self.SendPacket(ack)
 
