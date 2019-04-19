@@ -1,4 +1,5 @@
 import ldap
+
 try:
     # python3
     import _thread

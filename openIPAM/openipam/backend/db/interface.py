@@ -29,6 +29,7 @@ import sqlalchemy
 from . import obj
 import openipam.iptypes
 import re
+
 try:
     # python3
     import _thread
