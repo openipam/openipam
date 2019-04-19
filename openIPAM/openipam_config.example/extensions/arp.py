@@ -1,6 +1,12 @@
 # Needs to be thread-safe, whatever we do...
 
-import _thread
+try:
+    # python3
+    import _thread
+except ImportError:
+    # python2
+    import thread as _thread
+
 import psycopg2
 import types
 from openipam.utilities import error

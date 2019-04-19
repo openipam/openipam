@@ -60,7 +60,12 @@ raven_client_min_level = dhcp.logging.ERROR
 
 import subprocess
 
-from queue import Full, Empty
+try:
+    # python3
+    from queue import Full, Empty
+except ImportError:
+    # python2
+    from Queue import Full, Empty
 
 
 def bytes_to_ip(packet, opt_name):

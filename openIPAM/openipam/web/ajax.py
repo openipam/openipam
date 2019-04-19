@@ -1,7 +1,12 @@
 import cherrypy
 import datetime
 import cjson
-import _thread
+try:
+    # python3
+    import _thread
+except ImportError:
+    # python2
+    import thread as _thread
 
 from .basepage import BasePage
 from cherrypy._cptools import XMLRPCController

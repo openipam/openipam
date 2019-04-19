@@ -29,7 +29,12 @@ import sqlalchemy
 from . import obj
 import openipam.iptypes
 import re
-import _thread
+try:
+    # python3
+    import _thread
+except ImportError:
+    # python2
+    import thread as _thread
 import binascii
 
 from openipam.utilities import error

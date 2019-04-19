@@ -1,5 +1,10 @@
 import ldap
-import _thread
+try:
+    # python3
+    import _thread
+except ImportError:
+    # python2
+    import thread as _thread
 
 from openipam.config import auth
 from openipam.config import backend

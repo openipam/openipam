@@ -21,7 +21,12 @@ from struct import pack
 from .dhcp_constants import *
 
 # DhcpPacket : base class to encode/decode dhcp packets.
-from collections import UserDict
+try:
+    # python3
+    from collections import UserDict
+except ImportError:
+    # python2
+    from UserDict import UserDict
 
 # Lovingly ripped off from http://code.activestate.com/recipes/107747/
 
