@@ -211,7 +211,13 @@ class DhcpBasicPacket:
     def EncodePacket(self):
         options = []
         
-        
+        # RFC 3046 says relay_agent SHOULD be last
+        keys = list(self.options_data.keys())
+        if 'relay_agent' in keys:
+            idx = keys.index('relay_agent')
+            del keys[idx]
+            keys.append('relay_agent']
+
         for each in list(self.options_data.keys()) :
             options.append(DhcpOptions[each])
             options.append(len(self.options_data[each]))
