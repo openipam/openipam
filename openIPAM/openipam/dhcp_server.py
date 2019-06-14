@@ -111,10 +111,7 @@ def decode_mac(mac):
 
 
 def int_to_4_bytes(num):
-    x = []
-    for i in range(4):
-        x.insert(0, int((int(num) >> (8 * int(i))) & 0xFF))
-    return x
+    return num.to_bytes(4, byteorder="big")
 
 
 def ip_to_list(address):
@@ -122,7 +119,9 @@ def ip_to_list(address):
 
 
 def bytes_to_ints(bytes):
-    return list(map(ord, bytes))
+    if type(bytes) == str:
+        return list(map(ord, bytes))
+    return list(bytes)
 
 
 def bytes_to_int(bytes):
@@ -171,7 +170,7 @@ class Server:
                 bsocket_info["unicast"] = False
                 bsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 bsocket.setsockopt(
-                    socket.SOL_SOCKET, SO_BINDTODEVICE, bsocket_info["interface"]
+                    socket.SOL_SOCKET, SO_BINDTODEVICE, bsocket_info["interface"].encode('ascii')
                 )
                 bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -183,7 +182,7 @@ class Server:
                 usocket_info["broadcast"] = False
                 usocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 usocket.setsockopt(
-                    socket.SOL_SOCKET, SO_BINDTODEVICE, usocket_info["interface"]
+                    socket.SOL_SOCKET, SO_BINDTODEVICE, usocket_info["interface"].encode('ascii')
                 )
                 usocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 usocket.bind((usocket_info["address"], self.listen_port))
@@ -335,7 +334,7 @@ class Server:
         c_time = datetime.datetime.now()
 
         IGNORE_FOR = dhcp.init_delay_seconds  # seconds
-        wait_time = packet.GetOption("secs")
+        wait_time = bytes_to_int(packet.GetOption("secs"))
         if wait_time < IGNORE_FOR:
             log_packet(packet, prefix="IGN/IGN_FOR:", level=dhcp.logging.INFO)
             print(

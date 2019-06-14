@@ -78,24 +78,7 @@ del result
 del my_conn
 del query
 
-# Make sure that the installed version of SQLAlchemy is up-to-date
-
-SQLALCHEMY_MAJOR = 0
-SQLALCHEMY_MINOR = 4
-SQLALCHEMY_PATCH = 5
-
-(minor, patch) = sqlalchemy.__version__.split(".")[1:]
-
-if minor < SQLALCHEMY_MINOR:
-    raise error.LibraryError(
-        "SQLAlchemy version %s.%s.%s or above is required"
-        % (SQLALCHEMY_MAJOR, SQLALCHEMY_MINOR, SQLALCHEMY_PATCH)
-    )
-if patch < SQLALCHEMY_PATCH and minor < SQLALCHEMY_MINOR:
-    raise error.LibraryError(
-        "SQLAlchemy version %s.%s.%s or above is required"
-        % (SQLALCHEMY_MAJOR, SQLALCHEMY_MINOR, SQLALCHEMY_PATCH)
-    )
+# Just assume sqlalchemy isn't ancient
 
 addresses_re = re.compile("[0-9., ]+")
 
@@ -5806,24 +5789,11 @@ class DBDHCPInterface(DBInterface):
         return self._execute_set(query)
 
 
-def bytes_to_int(bytes):
-    bytes = str(bytes)
-    val = 0
-    for byte in bytes:
-        val = (val << 8) | ord(byte)
-    return val
+def bytes_to_int(_bytes):
+    return int.from_bytes(_bytes, byteorder="big")
 
-
-def int_to_bytes(num, min_len=1):
-    lst = []
-    while num:
-        ch = num & 0xFF
-        lst.insert(0, chr(ch))
-        num = num >> 8
-    while len(lst) < min_len:
-        lst.insert(0, "\x00")
-    return "".join(lst)
-
+def int_to_bytes(num, len=4):
+    return num.to_bytes(4, byteorder="big")
 
 def make_lease_dict(address, lease_time, hostname):
     ret = {}

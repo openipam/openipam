@@ -22,7 +22,10 @@ from .dhcp_basic_packet import *
 from .dhcp_constants import *
 from .type_ipv4 import ipv4
 from .type_strlist import strlist
+import base64
+
 class DhcpPacket(DhcpBasicPacket):
+    _raw_data = None
 
     def set_sender(self, sender):
         self.sender = sender
