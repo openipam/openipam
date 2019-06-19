@@ -211,8 +211,15 @@ class DhcpBasicPacket:
     def EncodePacket(self):
         options = []
         
-        
-        for each in list(self.options_data.keys()) :
+        # RFC 3046 says relay_agent SHOULD be last
+        keys = list(self.options_data.keys())
+        relay_agent='relay_agent'
+        if relay_agent in keys:
+            idx = keys.index(relay_agent)
+            del keys[idx]
+            keys.append(relay_agent)
+
+        for each in keys:
             options.append(DhcpOptions[each])
             options.append(len(self.options_data[each]))
             options.extend(self.options_data[each])
@@ -221,17 +228,14 @@ class DhcpBasicPacket:
                 #   so add a null for them here
                 options.append(0)
 
-        packet = self.packet_data[:240] + options
+        packet = bytearray(self.packet_data[:240])
+        packet.extend(options)
         packet.append(255) # add end option
         pktlen = len(packet)
         if pktlen < 300:
             packet.extend([0] * (300-pktlen)) # RFC says min packet size is 300
 
-        packet = list(map(chr,packet))
-
-        pack_fmt = str(len(packet))+"c"
-        
-        return pack(pack_fmt,*packet)
+        return bytes(packet)
 
 
     # Insert packet in the object
