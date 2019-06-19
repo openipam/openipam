@@ -170,7 +170,9 @@ class Server:
                 bsocket_info["unicast"] = False
                 bsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 bsocket.setsockopt(
-                    socket.SOL_SOCKET, SO_BINDTODEVICE, bsocket_info["interface"].encode('ascii')
+                    socket.SOL_SOCKET,
+                    SO_BINDTODEVICE,
+                    bsocket_info["interface"].encode("ascii"),
                 )
                 bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 bsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -182,7 +184,9 @@ class Server:
                 usocket_info["broadcast"] = False
                 usocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 usocket.setsockopt(
-                    socket.SOL_SOCKET, SO_BINDTODEVICE, usocket_info["interface"].encode('ascii')
+                    socket.SOL_SOCKET,
+                    SO_BINDTODEVICE,
+                    usocket_info["interface"].encode("ascii"),
                 )
                 usocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 usocket.bind((usocket_info["address"], self.listen_port))
