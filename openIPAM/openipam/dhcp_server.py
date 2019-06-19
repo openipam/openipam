@@ -638,7 +638,7 @@ def db_consumer(dbq, send_packet):
                 if i == 66:
                     v = str(opt_vals[i])
 
-                    v_padded = v + "\0" * (
+                    v_padded = v + b"\0" * (
                         64 - len(v)
                     )  # pydhcplib is too lame to do this for us
                     packet.SetOption("sname", bytes_to_ints(v_padded))
@@ -653,7 +653,7 @@ def db_consumer(dbq, send_packet):
                         # Use tftp file name for bootfile
                 if i == 67:
                     v = opt_vals[i]
-                    v = v + "\0" * (
+                    v = v + b"\0" * (
                         128 - len(v)
                     )  # pydhcplib is too lame to do this for us
                     packet.SetOption("file", bytes_to_ints(v))
