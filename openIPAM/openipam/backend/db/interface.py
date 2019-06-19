@@ -5792,8 +5792,10 @@ class DBDHCPInterface(DBInterface):
 def bytes_to_int(_bytes):
     return int.from_bytes(_bytes, byteorder="big")
 
+
 def int_to_bytes(num, len=4):
     return num.to_bytes(4, byteorder="big")
+
 
 def make_lease_dict(address, lease_time, hostname):
     ret = {}
