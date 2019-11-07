@@ -625,9 +625,13 @@ def db_consumer(dbq, send_packet):
 
             packet.options_data.set_preferred_order(preferred)
 
+            def pad_option(value, length):
+                v = value.encode()
+                return v + b'\0' * (length - len(v))
+
             sname = dhcp.server_name
             print("Setting sname to '%s'" % (sname))
-            packet.SetOption("sname", sname)
+            packet.SetOption("sname", pad_option(sname, 64))
 
             for i in list(opt_vals.keys()):
                 packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
@@ -646,9 +650,7 @@ def db_consumer(dbq, send_packet):
                 if i == 66:
                     v = str(opt_vals[i])
 
-                    v_padded = v.encode() + b"\0" * (
-                        64 - len(v)
-                    )  # pydhcplib is too lame to do this for us
+                    v_padded = pad_option(v, 64)
                     try:
                         host = self.__db.get_dns_records(tid=1, name=v)[0]
                         addr = list(map(int, host["ip_content"].split(".")))
@@ -659,9 +661,7 @@ def db_consumer(dbq, send_packet):
                         # Use tftp file name for bootfile
                 if i == 67:
                     v = opt_vals[i]
-                    v = v + b"\0" * (
-                        128 - len(v)
-                    )  # pydhcplib is too lame to do this for us
+                    v = pad_option(v, 128)
                     packet.SetOption("file", bytes_to_ints(v))
                     print("Setting next-server to '%s'" % (bytes_to_ints(v)))
                     # print "Adding padding for lame fujitsu PXE foo"
