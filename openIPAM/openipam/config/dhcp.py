@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import datetime
+import socket
 
 # The DHCP lease time for all static addresses. Dynamic lease times are configured on the pool.
 static_lease_time = 86400
@@ -37,6 +38,8 @@ syslog_connect = "/dev/log"
 sentry_url = None
 
 logger = None
+
+server_name = socket.getfqdn()
 
 from openipam_config.dhcp import *
 

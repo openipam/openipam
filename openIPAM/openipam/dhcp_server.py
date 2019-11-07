@@ -625,6 +625,10 @@ def db_consumer(dbq, send_packet):
 
             packet.options_data.set_preferred_order(preferred)
 
+            sname = dhcp.server_name
+            print("Setting sname to '%s'" % (sname))
+            packet.SetOption("sname", sname)
+
             for i in list(opt_vals.keys()):
                 packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
                 print(
@@ -638,15 +642,13 @@ def db_consumer(dbq, send_packet):
                         "Setting next-server (siaddr) to '%s'"
                         % (bytes_to_ints(opt_vals[i]))
                     )
-                    # Use tftp-server for next-server == sname
+                    # Use tftp-server for next-server
                 if i == 66:
                     v = str(opt_vals[i])
 
-                    v_padded = v + b"\0" * (
+                    v_padded = v.encode() + b"\0" * (
                         64 - len(v)
                     )  # pydhcplib is too lame to do this for us
-                    packet.SetOption("sname", bytes_to_ints(v_padded))
-                    print("Setting sname to '%s'" % (bytes_to_ints(v)))
                     try:
                         host = self.__db.get_dns_records(tid=1, name=v)[0]
                         addr = list(map(int, host["ip_content"].split(".")))
