@@ -8,4 +8,4 @@ install:
   - pip install black
 
 script:
-  - black --check openipam
+  - black --check openIPAM
