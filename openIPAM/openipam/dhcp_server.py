@@ -627,7 +627,7 @@ def db_consumer(dbq, send_packet):
 
             def pad_option(value, length):
                 v = value.encode()
-                return v + b'\0' * (length - len(v))
+                return v + b"\0" * (length - len(v))
 
             sname = dhcp.server_name
             print("Setting sname to '%s'" % (sname))
