@@ -30,7 +30,7 @@ parser.add_option("-d", "--destination-file", action="store",dest="destination",
 
 (options, args) = parser.parse_args()
 
-print options
+print(options)
 
 
 
@@ -39,7 +39,7 @@ def main() :
     for Action in (options.listen,options.emit,options.readable,options.binary) :
         if Action == True : ActionSum += 1
     if ActionSum > 1 :
-        print "Command line error : [-L -E -R -B] Only one of these actions can be taken."
+        print("Command line error : [-L -E -R -B] Only one of these actions can be taken.")
         sys.exit(0)
 
     if options.readable == True : r_conversion()
