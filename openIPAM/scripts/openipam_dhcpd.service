@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenIPAM DHCP Server
+Wants=network.target
+After=network.target
+
+[Service]
+Environment=PYTHONPATH=/usr/local/openipam/openIPAM:/usr/local/openipam/openIPAM/pydhcplib
+ExecStart=/usr/local/openipam/openIPAM/openipam_dhcpd -d -p /run/openipam.pid
+Type=forking
+PIDFile=/run/openipam.pid
+UMask=0137
+
+[Install]
+WantedBy=multi-user.target
+Alias=openipam_dhcpd.service
+
