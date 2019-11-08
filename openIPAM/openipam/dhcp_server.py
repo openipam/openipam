@@ -641,13 +641,10 @@ def db_consumer(dbq, send_packet):
                     % (DhcpRevOptions[i], i, bytes_to_ints(opt_vals[i]))
                 )
                 packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
-                if i in (11, 'resource_location_server'):
-                    print(
-                        "-> Setting siaddr to '%s'"
-                        % (bytes_to_ints(opt_vals[i]))
-                    )
+                if i in (11, "resource_location_server"):
+                    print("-> Setting siaddr to '%s'" % (bytes_to_ints(opt_vals[i])))
                     packet.SetOption("siaddr", bytes_to_ints(opt_vals[i]))
-                if i in (66, 'tftp_server_name'):
+                if i in (66, "tftp_server_name"):
                     # Use tftp-server for siaddr
                     v = opt_vals[i].decode()
 
@@ -659,7 +656,7 @@ def db_consumer(dbq, send_packet):
                         packet.SetOption("siaddr", addr)
                     except Exception as e:
                         print_exception(e, traceback=True)
-                if i in (67, 'bootfile_name'):
+                if i in (67, "bootfile_name"):
                     # Use tftp file name for bootfile
                     v = opt_vals[i]
                     v = pad_option(v, 128)
