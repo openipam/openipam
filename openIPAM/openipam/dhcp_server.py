@@ -658,8 +658,7 @@ def db_consumer(dbq, send_packet):
                         print("-> Setting siaddr to '%s'" % (addr))
                         packet.SetOption("siaddr", addr)
                     except Exception as e:
-                        import traceback
-                        traceback.print_exc()
+                        print_exception(e, traceback=True)
                 if i in (67, 'bootfile_name'):
                     # Use tftp file name for bootfile
                     v = opt_vals[i]
