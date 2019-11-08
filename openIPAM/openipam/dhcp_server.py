@@ -649,9 +649,8 @@ def db_consumer(dbq, send_packet):
                     packet.SetOption("siaddr", bytes_to_ints(opt_vals[i]))
                 if i in (66, 'tftp_server_name'):
                     # Use tftp-server for siaddr
-                    v = str(opt_vals[i])
+                    v = opt_vals[i].decode()
 
-                    v_padded = pad_option(v, 64)
                     try:
                         print("-> looking up %s" % (v))
                         host = self.__db.get_dns_records(tid=1, name=v)[0]
