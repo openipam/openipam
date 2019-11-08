@@ -49,6 +49,11 @@ del query
 
 addresses_re = re.compile("[0-9., ]+")
 
+# keep flake8 from freaking out about sqlalchemy conditions with == None, etc
+SQLNULL = None
+SQLFALSE = False
+SQLTRUE = True
+
 
 def is_addresses(val):
     return bool(addresses_re.match(val))
@@ -442,7 +447,7 @@ class DBBaseInterface(object):
             obj.users_to_groups.c.host_permissions
         ).op("&")(str(perms.OWNER)) == str(perms.OWNER)
         # Handle groups with no owners :/
-        whereobject = or_(whereobject, obj.users_to_groups.c.id is None)
+        whereobject = or_(whereobject, obj.users_to_groups.c.id == SQLNULL)
 
         if get_users:
             # Users to Groups --> Users
@@ -509,7 +514,7 @@ class DBBaseInterface(object):
             obj.notifications_to_hosts.c.id.label("nid"),
             obj.notifications.c.notification,
             obj.users.c.username,
-            (obj.addresses.c.address is not None).label("is_static"),
+            (obj.addresses.c.address != SQLNULL).label("is_static"),
             text("hosts.expires::DATE - NOW()::date AS days"),
         ]
         query = select(columns, from_obj=from_object).distinct()
@@ -1207,7 +1212,7 @@ class DBBaseInterface(object):
             columns = [
                 obj.hosts,
                 (obj.hosts.c.expires < sqlalchemy.sql.func.now()).label("expired"),
-                (obj.disabled.c.mac is not None).label("disabled"),
+                (obj.disabled.c.mac != SQLNULL).label("disabled"),
                 obj.dhcp_groups.c.name.label("dhcp_group_name"),
                 obj.dhcp_groups.c.description.label("dhcp_group_description"),
             ]
@@ -3181,8 +3186,10 @@ class DBInterface(DBBaseInterface):
             query = select(
                 [obj.addresses.c.address],
                 and_(
-                    and_(obj.addresses.c.mac is None, obj.addresses.c.pool is None),
-                    obj.addresses.c.reserved is False,
+                    and_(
+                        obj.addresses.c.mac == SQLNULL, obj.addresses.c.pool == SQLNULL
+                    ),
+                    obj.addresses.c.reserved == SQLFALSE,
                 ),
             )
 
@@ -3222,8 +3229,8 @@ class DBInterface(DBBaseInterface):
                         [obj.addresses.c.address], from_obj=from_object
                     ).where(
                         and_(
-                            obj.addresses.c.mac is None,
-                            obj.addresses.c.reserved is False,
+                            obj.addresses.c.mac == SQLNULL,
+                            obj.addresses.c.reserved == SQLFALSE,
                         )
                     )
 
@@ -3242,7 +3249,7 @@ class DBInterface(DBBaseInterface):
                         or_(
                             or_(
                                 obj.leases.c.ends < sqlalchemy.sql.func.now(),
-                                obj.leases.c.ends is None,
+                                obj.leases.c.ends == SQLNULL,
                             ),
                             obj.leases.c.mac == mac,
                         )
@@ -5349,7 +5356,9 @@ class DBDHCPInterface(DBInterface):
                     or_(
                         and_(
                             or_(
-                                or_(obj.leases.c.mac == mac, obj.leases.c.mac is None),
+                                or_(
+                                    obj.leases.c.mac == mac, obj.leases.c.mac == SQLNULL
+                                ),
                                 obj.leases.c.ends < sqlalchemy.sql.func.now(),
                             ),
                             obj.addresses.c.pool.in_(allowed_pools),
@@ -5357,10 +5366,13 @@ class DBDHCPInterface(DBInterface):
                         obj.addresses.c.mac == mac,
                     )
                 )
-                .where(obj.addresses.c.reserved is False)
+                .where(obj.addresses.c.reserved == SQLFALSE)
             )
             registered_q = registered_q.where(
-                or_(obj.leases.c.abandoned is False, obj.leases.c.abandoned is None)
+                or_(
+                    obj.leases.c.abandoned == SQLFALSE,
+                    obj.leases.c.abandoned == SQLNULL,
+                )
             )
             # check the requested address and see if it 'works'
             requested_q = registered_q
@@ -5400,7 +5412,7 @@ class DBDHCPInterface(DBInterface):
                 static_q = (
                     select(columns, from_obj=registered_addrs)
                     .where(obj.addresses.c.mac == mac)
-                    .where(obj.addresses.c.reserved is False)
+                    .where(obj.addresses.c.reserved == SQLFALSE)
                 )
                 static_q = static_q.limit(1)
                 static = self._execute(static_q)
@@ -5433,7 +5445,7 @@ class DBDHCPInterface(DBInterface):
 
                     # Look for never-before-used lease
             if not address:
-                addresses_q = registered_q.where(obj.leases.c.ends is None).limit(5)
+                addresses_q = registered_q.where(obj.leases.c.ends == SQLNULL).limit(5)
                 addresses = self._execute(addresses_q)
                 address = search_addresses(addresses, "Found unused address. %s %s")
 
@@ -5502,14 +5514,17 @@ class DBDHCPInterface(DBInterface):
             # check the requested address and see if it 'works'
             unregistered_q = select(columns, from_obj=unreg_addrs).where(
                 or_(
-                    or_(obj.leases.c.mac == mac, obj.leases.c.mac is None),
+                    or_(obj.leases.c.mac == mac, obj.leases.c.mac == SQLNULL),
                     obj.leases.c.ends < sqlalchemy.sql.func.now(),
                 )
             )
-            unregistered_q = unregistered_q.where(obj.addresses.c.reserved is False)
+            unregistered_q = unregistered_q.where(obj.addresses.c.reserved == SQLFALSE)
             unregistered_q = unregistered_q.where(
-                or_(obj.leases.c.abandoned is False, obj.leases.c.abandoned is None)
-            ).where(obj.pools.c.allow_unknown is True)
+                or_(
+                    obj.leases.c.abandoned == SQLFALSE,
+                    obj.leases.c.abandoned == SQLNULL,
+                )
+            ).where(obj.pools.c.allow_unknown == SQLTRUE)
             requested = None
 
             if requested_address:
@@ -5540,8 +5555,8 @@ class DBDHCPInterface(DBInterface):
                     select(columns, from_obj=unreg_addrs)
                     .where(obj.leases.c.mac == mac)
                     .order_by(obj.leases.c.starts)
-                    .where(obj.addresses.c.reserved is False)
-                    .where(obj.pools.c.allow_unknown is True)
+                    .where(obj.addresses.c.reserved == SQLFALSE)
+                    .where(obj.pools.c.allow_unknown == SQLTRUE)
                 )
                 leased_q = leased_q.order_by(obj.leases.c.ends.desc()).limit(1)
                 leased = self._execute(leased_q)
@@ -5554,7 +5569,9 @@ class DBDHCPInterface(DBInterface):
 
             if not address:
                 # Look for unassigned lease
-                addresses_q = unregistered_q.where(obj.leases.c.ends is None).limit(20)
+                addresses_q = unregistered_q.where(obj.leases.c.ends == SQLNULL).limit(
+                    20
+                )
                 addresses = self._execute(addresses_q)
                 address = search_addresses(
                     addresses, "Found unused unregistered address. %s %s"
