@@ -537,13 +537,13 @@ def db_consumer(dbq, send_packet):
                 self.dhcp_inform,
             ]
 
-        def handle_packet(self, packet, _type):
+        def handle_packet(self, packet, pkttype):
 
-            if _type is None:
+            if pkttype is None:
                 tname, action = ("bootp", self.bootp_request)
             else:
-                tname = types[_type]
-                action = self.type_map[_type]
+                tname = types[pkttype]
+                action = self.type_map[pkttype]
 
             if show_packets:
                 print("############################# Recieved DHCP %s" % tname)
@@ -921,7 +921,7 @@ def db_consumer(dbq, send_packet):
             # Handle request
             try:
                 if (time.time() - pkt.last_retry) > REQUEUE_DELAY:
-                    dhcp_handler.handle_packet(pkt, type=pkttype)
+                    dhcp_handler.handle_packet(pkt, pkttype=pkttype)
                 else:
                     requeue(pkttype, pkt)
             except interface.DHCPRetryError as e:
