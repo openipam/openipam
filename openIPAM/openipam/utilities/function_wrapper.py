@@ -9,7 +9,7 @@ class fcn_wrapper(object):
                 obj = object.__getattribute__(self, name)
                 # print 'fcn_wrapper: getattr(%s) -> %s' % (repr(name), repr(obj),)
                 return obj
-            except Exception as e:
+            except Exception:
                 # print 'meh'
                 # print e
                 raise

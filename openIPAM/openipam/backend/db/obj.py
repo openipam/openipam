@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, MetaData, Table
-from sqlalchemy.sql import select, and_, or_, join, outerjoin, subquery
+from sqlalchemy.sql import select, and_, subquery
 
 from openipam.config import backend
 
@@ -37,8 +37,6 @@ engine = create_engine(
 
 meta = MetaData()
 meta.bind = engine
-
-#:!grep "CREATE TABLE" ../../../../openipam_sql/dhcp_dns_schema.sql | sed "s/CREATE TABLE \([^( ]\+\) \?(/\1 = Table('\1', meta, autoload=True)"
 
 permissions = Table("permissions", meta, autoload=True)
 auth_sources = Table("auth_sources", meta, autoload=True)
@@ -100,19 +98,19 @@ def perm_query(
     andwhere=None,
 ):
     """Return an SQLAlchemy select object containing the users groups and
-	permissions in each of the specified tables.
-	@param uid: The user's id (ie. "users.id")
-	@param min_perms: The user's minimum permissions
-	@param hosts: Whether to include hosts_to_groups information
-	@param networks: Whether to include networks_to_groups information
-	@param domains: Whether to include domains_to_groups information
-	@param gid: If specified, query will be filtered down to this group ID
-	@param required_perms: The permissions we are looking for
-	@param do_subquery: Do a subquery() instead of a select
-	@param andwhere: this is a hack to allow us to add stuff to the where clause
-	@return: sqlalchemy query object with uid, gid, and optionally mac,
-		host_perms, nid, network_perms, did, domain_perms
-	"""
+    permissions in each of the specified tables.
+    @param uid: The user's id (ie. "users.id")
+    @param min_perms: The user's minimum permissions
+    @param hosts: Whether to include hosts_to_groups information
+    @param networks: Whether to include networks_to_groups information
+    @param domains: Whether to include domains_to_groups information
+    @param gid: If specified, query will be filtered down to this group ID
+    @param required_perms: The permissions we are looking for
+    @param do_subquery: Do a subquery() instead of a select
+    @param andwhere: this is a hack to allow us to add stuff to the where clause
+    @return: sqlalchemy query object with uid, gid, and optionally mac,
+        host_perms, nid, network_perms, did, domain_perms
+    """
     columns = [
         users_to_groups.c.uid,
         users_to_groups.c.gid,
@@ -145,7 +143,8 @@ def perm_query(
 
     whereclause = users_to_groups.c.uid == uid
 
-    # If we need to require a certain level of permissions, and my min_perms don't satisify that, then ask the DB:
+    # If we need to require a certain level of permissions, and my min_perms don't
+    # satisify that, then ask the DB:
     if required_perms and (required_perms & min_perms != required_perms):
         if not hosts:
             whereclause = and_(

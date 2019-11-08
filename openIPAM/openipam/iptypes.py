@@ -1,5 +1,4 @@
 import IPy
-import types
 
 
 class IP(IPy.IP):
@@ -12,7 +11,7 @@ class IP(IPy.IP):
             a_prefix = a.prefixlen()
             if ver != a.version():
                 raise TypeError(
-                    "Binary operations do not support addresses from different families: %s, %s"
+                    "Binary operation unsupported for different families: %s, %s"
                     % (self, a)
                 )
         else:

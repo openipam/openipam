@@ -70,13 +70,14 @@ def log(str):
 
 def handle_query(qname, qclass, qtype, id, remote_ip, local_ip):
     """Handle a request from powerdns
-	@param qname: name of the record we are looking for
-	@param qclass: class (should be 'IN')
-	@param qtype: type of record ('A', 'CNAME', 'ANY', 'MX', ...)
-	@param id: ID of the domain we are searching in or -1 if not known
-	@param remote_ip: ip address of the nameserver/client requesting this data from PowerDNS
-	@param local_ip: ip address of PowerDNS that the query was sent to"""
-    qname_lvl = len(qname.split("."))
+    @param qname: name of the record we are looking for
+    @param qclass: class (should be 'IN')
+    @param qtype: type of record ('A', 'CNAME', 'ANY', 'MX', ...)
+    @param id: ID of the domain we are searching in or -1 if not known
+    @param remote_ip: ip address of the nameserver/client requesting this data from
+    PowerDNS
+    @param local_ip: ip address of PowerDNS that the query was sent to"""
+    # qname_lvl = len(qname.split("."))
     if qtype == "PTR" or qtype == "ANY":
         data(qname, qclass, "PTR", -1, 1, nsname)
     elif qtype == "A" or qtype == "ANY":
@@ -88,7 +89,8 @@ def handle_query(qname, qclass, qtype, id, remote_ip, local_ip):
             data(qname, qclass, "A", -1, 1, "129.123.54.16")
         else:
             data(qname, qclass, "A", -1, 1, address)
-            # FIXME: if the backend gets just an 'END', it will assume there were no matching records
+            # FIXME: if the backend gets just an 'END', it will assume there were no
+            # matching records
     end()
 
 

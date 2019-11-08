@@ -3,6 +3,7 @@ import sys
 import atexit
 import errno
 
+
 # FIXME: this should go somewhere else!
 def sighand_hup(signum, frame):
     print("Received SIGHUP.")
@@ -111,22 +112,3 @@ def daemonize(fcn, pidfile=None):
     os.dup(0, 2)
 
     return 0
-
-    procparms = """
-	return code == %s
-	process ID == %s
-	parent process ID == %s
-	process group ID == %s
-	session ID == %s
-	uid == %s
-	""" % (
-        retcode,
-        os.getpid(),
-        os.getppid(),
-        os.getpgrp(),
-        os.getsid(),
-        os.getuid(),
-    )
-
-    open("/tmp/create_daemon.log", "w").write(procparms + "\n")
-    sys.exit(retcode)

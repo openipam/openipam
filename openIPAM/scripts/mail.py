@@ -26,7 +26,6 @@ def base64enc(data):
 
 
 def generate_message_id(message):
-    parts = []
     to = "NULL"
     if "To" in message:
         to = message["To"]

@@ -3,7 +3,8 @@ import logging.handlers
 import datetime
 import socket
 
-# The DHCP lease time for all static addresses. Dynamic lease times are configured on the pool.
+# The DHCP lease time for all static addresses. Dynamic lease times are configured on
+# the pool.
 static_lease_time = 86400
 
 listen_address = "0.0.0.0"
@@ -41,7 +42,7 @@ logger = None
 
 server_name = socket.getfqdn()
 
-from openipam_config.dhcp import *
+from openipam_config.dhcp import *  # noqa: E402,F403,F401
 
 
 def get_logger():
@@ -49,7 +50,6 @@ def get_logger():
     if logger is None:
         logger = logging.getLogger("dhcp")
         logger.setLevel(syslog_level)
-        # syslog_fmt = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
         if syslog:
             syslog_handler = logging.handlers.SysLogHandler(
                 syslog_connect, syslog_facility

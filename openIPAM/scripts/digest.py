@@ -1,4 +1,3 @@
-import sys
 from openipam.backend.db import interface
 import time
 import datetime
