@@ -637,8 +637,8 @@ def db_consumer(dbq, send_packet):
 
             for i in list(opt_vals.keys()):
                 print(
-                    "Setting %s to '%s'"
-                    % (DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
+                    "Setting %s(%r) to '%s'"
+                    % (DhcpRevOptions[i], i, bytes_to_ints(opt_vals[i]))
                 )
                 packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
                 if i in (11, 'resource_location_server'):
@@ -657,8 +657,9 @@ def db_consumer(dbq, send_packet):
                         addr = list(map(int, host["ip_content"].split(".")))
                         print("-> Setting siaddr to '%s'" % (addr))
                         packet.SetOption("siaddr", addr)
-                    except:
-                        pass
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
                 if i in (67, 'bootfile_name'):
                     # Use tftp file name for bootfile
                     v = opt_vals[i]
