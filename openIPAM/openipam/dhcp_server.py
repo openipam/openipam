@@ -636,39 +636,35 @@ def db_consumer(dbq, send_packet):
             packet.SetOption("sname", pad_option(sname, 64))
 
             for i in list(opt_vals.keys()):
-                packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
                 print(
                     "Setting %s to '%s'"
                     % (DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
                 )
-                # Use  for next-server == siaddr
-                if i == 11:
-                    packet.SetOption("siaddr", bytes_to_ints(opt_vals[i]))
+                packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
+                if i in (11, 'resource_location_server'):
                     print(
-                        "Setting next-server (siaddr) to '%s'"
+                        "-> Setting siaddr to '%s'"
                         % (bytes_to_ints(opt_vals[i]))
                     )
-                    # Use tftp-server for next-server
-                if i == 66:
+                    packet.SetOption("siaddr", bytes_to_ints(opt_vals[i]))
+                if i in (66, 'tftp_server_name'):
+                    # Use tftp-server for siaddr
                     v = str(opt_vals[i])
 
                     v_padded = pad_option(v, 64)
                     try:
                         host = self.__db.get_dns_records(tid=1, name=v)[0]
                         addr = list(map(int, host["ip_content"].split(".")))
+                        print("-> Setting siaddr to '%s'" % (addr))
                         packet.SetOption("siaddr", addr)
-                        print("Setting next-server (siaddr) to '%s'" % (addr))
                     except:
                         pass
-                        # Use tftp file name for bootfile
-                if i == 67:
+                if i in (67, 'bootfile_name'):
+                    # Use tftp file name for bootfile
                     v = opt_vals[i]
                     v = pad_option(v, 128)
                     packet.SetOption("file", bytes_to_ints(v))
-                    print("Setting next-server to '%s'" % (bytes_to_ints(v)))
-                    # print "Adding padding for lame fujitsu PXE foo"
-                    # This doesn't work because pydhcplib sucks
-                    # packet.SetOption("pad",'')
+                    print("-> Setting file to '%s'" % (bytes_to_ints(v)))
 
         def dhcp_inform(self, packet):
             mac = decode_mac(packet.GetOption("chaddr"))
