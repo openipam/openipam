@@ -653,6 +653,7 @@ def db_consumer(dbq, send_packet):
 
                     v_padded = pad_option(v, 64)
                     try:
+                        print("-> looking up %s" % (v))
                         host = self.__db.get_dns_records(tid=1, name=v)[0]
                         addr = list(map(int, host["ip_content"].split(".")))
                         print("-> Setting siaddr to '%s'" % (addr))
