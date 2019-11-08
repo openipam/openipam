@@ -622,7 +622,9 @@ def db_consumer(dbq, send_packet):
             packet.options_data.set_preferred_order(preferred)
 
             def pad_option(value, length):
-                v = value.encode()
+                v = value
+                if not isinstance(v, bytes):
+                    v = value.encode()
                 return v + b"\0" * (length - len(v))
 
             sname = dhcp.server_name
