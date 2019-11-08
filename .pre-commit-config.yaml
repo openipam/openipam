@@ -4,12 +4,13 @@ repos:
     hooks:
     - id: black
       language_version: python3.7
-      exclude: pydhcplib/
+      exclude: pydhcplib
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v1.2.3
+    rev: v2.4.0
     hooks:
     - id: flake8
-      args: ["--ignore=W503,E203", --max-line-length=88]
+      args: ["--ignore=W503,E203", "--show-source", --max-line-length=88]
+      exclude: (pydhcplib|example)
     - id: check-json
     - id: check-yaml
     - id: pretty-format-json

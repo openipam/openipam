@@ -17,22 +17,19 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
-import sys
 import os
 
 import select
+import socket
 
 import base64
 
 from pydhcplib.dhcp_constants import DhcpOptions
 
 # FIXME: don't 'import *'
-from pydhcplib.dhcp_packet import *
-from pydhcplib.dhcp_network import *
+from pydhcplib import dhcp_packet
 
-# asm/sockios.h (this was removed from IN module for some reason?)
-SO_BINDTODEVICE = 25
-
+# from pydhcplib.dhcp_network import *
 
 # from pydhcplib.dhcp_packet import DhcpPacket
 # import dhcp_packet
@@ -50,28 +47,35 @@ import time
 from openipam.utilities import error
 from openipam.config import dhcp
 
-raven_client = None
-if dhcp.sentry_url:
-    import raven
-
-    raven_client = raven.Client(dhcp.sentry_url)
-
-raven_client_min_level = dhcp.logging.ERROR
-
 import subprocess
 
 try:
     # python3
-    from queue import Full, Empty
+    from queue import Full
 except ImportError:
     # python2
-    from Queue import Full, Empty
+    from Queue import Full
+
+try:
+    import raven
+except ImportError:
+    raven = None
+
+raven_client = None
+if dhcp.sentry_url and raven is not None:
+    raven_client = raven.Client(dhcp.sentry_url)
+
+raven_client_min_level = dhcp.logging.ERROR
+
+
+# asm/sockios.h (this was removed from IN module for some reason?)
+SO_BINDTODEVICE = 25
 
 
 def bytes_to_ip(packet, opt_name):
     try:
         addr = packet.GetOption(opt_name)
-    except:
+    except Exception:
         addr = None
 
     if not addr:
@@ -81,7 +85,6 @@ def bytes_to_ip(packet, opt_name):
         raise Exception("Eh?")
 
     if len(addr) != 4:
-        logger = dhcp.get_logger()
         dhcp.get_logger().log(
             dhcp.logging.ERROR,
             "INVALID: %r invalid for %s from %s"
@@ -290,7 +293,7 @@ class Server:
                     )
                     log_packet(packet, prefix="SND/ARPHACK:")
                     dest = (yiaddr, self.bootpc_port)
-                except:
+                except Exception:
                     log_packet(packet, prefix="SND/HACK:")
                     dest = ("255.255.255.255", self.bootpc_port)
         else:
@@ -342,7 +345,7 @@ class Server:
         if wait_time < IGNORE_FOR:
             log_packet(packet, prefix="IGN/IGN_FOR:", level=dhcp.logging.INFO)
             print(
-                "ignoring request type %s from mac %s because we are waiting for %d secs"
+                "ignoring request type %s from mac %s b/c we are waiting for %d secs"
                 % (pkttype, mac, IGNORE_FOR)
             )
             return
@@ -351,7 +354,8 @@ class Server:
             # BETWEEN_REQUESTS = datetime.timedelta(days=0,minutes=0,seconds=10)
         TIME_PERIOD = datetime.timedelta(days=0, minutes=1, seconds=0)
 
-        # types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline', 5:'ack', 6:'nak', 7:'release', 8:'inform', }
+        # types = { None:'bootp', 1:'discover', 2:'offer', 3:'request', 4:'decline',
+        #           5:'ack', 6:'nak', 7:'release', 8:'inform', }
         MESSAGE_TYPE_LIMIT = {
             None: 2,
             1: 6,
@@ -368,17 +372,9 @@ class Server:
 
             # our_key = (mac, pkttype,)
 
-            # Thanks to the morons at MS, we can't do this.
+            # Thanks to MS, we can't do strict rate limiting.
             # see http://support.microsoft.com/kb/835304 for more info
             # FIXME: find another way to prevent DoS.
-            # if self.last_seen.has_key( our_key ):
-            # 	time = self.last_seen[ our_key ]
-            # 	if ( ( c_time - time ) < dhcp.between_requests ):
-            # 		print "ignoring request type %s from mac %s because we saw a request at %s (current: %s)" % (pkttype, mac, str(time), str(c_time))
-            # 		log_packet( packet, prefix='IGN/TIME:' )
-            # 		return
-            # 	else:
-            # 		del self.last_seen[ our_key ]
 
         min_timestamp = c_time - TIME_PERIOD
 
@@ -387,7 +383,7 @@ class Server:
         if len(seen) > MAX_REQUESTS:
             log_packet(packet, prefix="IGN/LIMIT:", level=dhcp.logging.INFO)
             print(
-                "ignoring request type %s from mac %s because we have seen %s requests in %s"
+                "ignoring req type %s from mac %s b/c we have seen %s requests in %s"
                 % (pkttype, mac, len(seen), str(TIME_PERIOD))
             )
             return
@@ -398,11 +394,11 @@ class Server:
         try:
             log_packet(packet, prefix="QUEUED:")
             self.__dbq.put_nowait((pkttype, packet))
-        except Full as e:
+        except Full:
             # The queue is full, try again later.
             log_packet(packet, prefix="IGN/FULL:", level=dhcp.logging.WARNING)
             print(
-                "ignoring request type %s from mac %s because the queue is full ... be afraid"
+                "ignoring req type %s from mac %s b/c the queue is full ... be afraid"
                 % (pkttype, mac)
             )
             return
@@ -541,13 +537,13 @@ def db_consumer(dbq, send_packet):
                 self.dhcp_inform,
             ]
 
-        def handle_packet(self, packet, type):
+        def handle_packet(self, packet, pkttype):
 
-            if type == None:
+            if pkttype is None:
                 tname, action = ("bootp", self.bootp_request)
             else:
-                tname = types[type]
-                action = self.type_map[type]
+                tname = types[pkttype]
+                action = self.type_map[pkttype]
 
             if show_packets:
                 print("############################# Recieved DHCP %s" % tname)
@@ -570,10 +566,10 @@ def db_consumer(dbq, send_packet):
             return not retval
 
         def bootp_request(self, packet):
-            mac = decode_mac(packet.GetOption("chaddr"))
+            # mac = decode_mac(packet.GetOption("chaddr"))
             router = ".".join(map(str, packet.GetOption("giaddr")))
-            ciaddr = ".".join(map(str, packet.GetOption("ciaddr")))
-            opcode = packet.GetOption("op")[0]
+            # ciaddr = ".".join(map(str, packet.GetOption("ciaddr")))
+            # opcode = packet.GetOption("op")[0]
 
             if router == "0.0.0.0":
                 log_packet(packet, prefix="IGN/BOOTP:")
@@ -605,7 +601,7 @@ def db_consumer(dbq, send_packet):
                 # self.__db.mark_abandoned_lease( mac=mac )
 
         def dhcp_release(self, packet):
-            mac = decode_mac(packet.GetOption("chaddr"))
+            # mac = decode_mac(packet.GetOption("chaddr"))
             log_packet(packet, prefix="IGN/REL:")
 
         def assign_dhcp_options(self, options, requested, packet):
@@ -672,7 +668,7 @@ def db_consumer(dbq, send_packet):
                 mac=mac, address=client_ip, option_ids=requested_options
             )
 
-            ack = DhcpPacket()
+            ack = dhcp_packet.DhcpPacket()
             ack.CreateDhcpAckPacketFrom(packet)
 
             # FIXME: check the RFC on 'hops'
@@ -738,7 +734,7 @@ def db_consumer(dbq, send_packet):
 
                 # create an offer
             print("> creating offer")
-            offer = DhcpPacket()
+            offer = dhcp_packet.DhcpPacket()
             offer.CreateDhcpOfferPacketFrom(packet)
             hops = packet.GetOption("hops")
             if hops:
@@ -746,7 +742,8 @@ def db_consumer(dbq, send_packet):
 
                 # fields
                 # FIXME: get a free lease from the DB
-                # we will need the function to return: the address, the gateway, the network/netmask/broadcast
+                # we will need the function to return: the address, the gateway,
+                # the network/netmask/broadcast
                 # FIXME: what about lease/renewal/rebinding_time, etc?
                 # then offer it
 
@@ -791,7 +788,7 @@ def db_consumer(dbq, send_packet):
             # 	return self.dhcp_socket.sendto(packet.EncodePacket(),(To,self.emit_port))
 
         def dhcp_request(self, packet):
-            # check to see if lease is still valid, if so: extend the lease and send an ACK
+            # check to see if lease is still valid, if so: extend lease and send an ACK
             router = ".".join(map(str, packet.GetOption("giaddr")))
             mac = decode_mac(packet.GetOption("chaddr"))
             ciaddr = ".".join(map(str, packet.GetOption("ciaddr")))
@@ -802,7 +799,7 @@ def db_consumer(dbq, send_packet):
                     # hey, local DHCP traffic!
                     router = recv_if["address"]
 
-                    # FIXME: If ciaddr is set, we should use a unicast message to the client
+                    # FIXME: If ciaddr is set, we should use a unicast message to client
             requested_ip = bytes_to_ip(packet, "request_ip_address")
 
             if not requested_ip:
@@ -814,7 +811,7 @@ def db_consumer(dbq, send_packet):
                 # this was a unicast packet, I hope...
                 router = requested_ip
 
-            giaddr = ".".join(map(str, packet.GetOption("giaddr")))
+            # giaddr = ".".join(map(str, packet.GetOption("giaddr")))
 
             print("mac: %s, requested address: %s" % (mac, requested_ip))
             # make sure a valid lease exists
@@ -827,16 +824,16 @@ def db_consumer(dbq, send_packet):
                     discover=False,
                     server_address=recv_if["address"],
                 )
-            except error.InvalidIPAddress as e:
+            except error.InvalidIPAddress:
                 lease = {"address": None, "error": "address not allowed for client"}
             print("got lease: %s" % str(lease))
             if lease["address"] != requested_ip:
                 # FIXME: Send a DHCP NAK if authoritative
                 print(
-                    "Lease appears invalid... client wants %s, but db gave us %s -- sending NAK"
+                    "Lease invalid... client wants %s, but db gave us %s -- sending NAK"
                     % (requested_ip, lease["address"])
                 )
-                nak = DhcpPacket()
+                nak = dhcp_packet.DhcpPacket()
                 # Why use 'NAK' when we can say 'NACK' (which means nothing to me)
                 nak.CreateDhcpNackPacketFrom(packet)
                 hops = packet.GetOption("hops")
@@ -845,7 +842,7 @@ def db_consumer(dbq, send_packet):
                 self.SendPacket(nak, giaddr=router)
                 return
 
-            ack = DhcpPacket()
+            ack = dhcp_packet.DhcpPacket()
             ack.CreateDhcpAckPacketFrom(packet)
             # make a list of requested DHCP options
             requested_options = packet.GetOption("parameter_request_list")
@@ -884,7 +881,7 @@ def db_consumer(dbq, send_packet):
             self.SendPacket(ack)
 
             print(
-                "#############################################################################"
+                "######################################################################"
             )
 
     dhcp_handler = dhcp_packet_handler(send_packet)
@@ -894,7 +891,8 @@ def db_consumer(dbq, send_packet):
     # logfile.write('Starting worker process.\n')
     # os.dup2( logfile.fileno(), sys.stdout.fileno() )
 
-    # FIXME: don't create sqlalchemy db connection foo at global module level so we don't have to hack like this
+    # FIXME: don't create sqlalchemy db connection foo at global module level so we
+    # don't have to hack like this
     from openipam.backend.db import interface
 
     REQUEUE_DELAY = 0.2  # seconds
@@ -905,7 +903,7 @@ def db_consumer(dbq, send_packet):
         try:
             dbq.put_nowait((p_type, packet))
             success = True
-        except Full as e:
+        except Full:
             print("Queue full, not requeueing")
             log_packet(packet, prefix="IGN/REQFAIL:", level=dhcp.logging.ERROR)
         return success
@@ -919,7 +917,7 @@ def db_consumer(dbq, send_packet):
             # Handle request
             try:
                 if (time.time() - pkt.last_retry) > REQUEUE_DELAY:
-                    dhcp_handler.handle_packet(pkt, type=pkttype)
+                    dhcp_handler.handle_packet(pkt, pkttype=pkttype)
                 else:
                     requeue(pkttype, pkt)
             except interface.DHCPRetryError as e:
@@ -927,7 +925,7 @@ def db_consumer(dbq, send_packet):
 
                 if pkt.retry_count <= REQUEUE_MAX:
                     pkt.last_retry = time.time()
-                    # if the queue is full, we probably want to ignore this packet anyway
+                    # if queue is full, we probably want to ignore this packet anyway
                     print("re-queueing packet for retry: %r" % e)
                     if requeue(pkttype, pkt):
                         log_packet(
@@ -950,9 +948,15 @@ def db_consumer(dbq, send_packet):
                         None,
                     ) * 7
                     if pkt is not None:
-                        pkttype, mac, xid, client, giaddr, recvd_from, req_opts = parse_packet(
-                            pkt
-                        )
+                        (
+                            pkttype,
+                            mac,
+                            xid,
+                            client,
+                            giaddr,
+                            recvd_from,
+                            req_opts,
+                        ) = parse_packet(pkt)
                     raven_client.captureException(
                         data={
                             "extra": {

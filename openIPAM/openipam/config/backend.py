@@ -1,4 +1,3 @@
-import openipam.iptypes
 from openipam.utilities.perms import Perms
 
 # IPv6 support
@@ -11,9 +10,7 @@ ssl_key = None
 
 # NETWORK BINDINGS
 bind_port = 8080  # Port the backend will listen on.
-bind_host = (
-    "127.0.0.1"
-)  # Address the backend will bind to. If you use anything but 127.0.0.1, we strongly recommend enabling SSL.
+bind_host = "127.0.0.1"  # Address the backend will bind to
 
 # For some of our cron jobs
 smtp_host = "127.0.0.1"
@@ -59,7 +56,8 @@ enable_gul = False
 # Enable or disable the use of dynamic IP addresses
 allow_dynamic_ip = True
 
-# If someone doesn't have minimum ADMIN rights, can they create a new host under someone else's name?
+# If someone doesn't have minimum ADMIN rights, can they create a new host under someone
+# else's name?
 allow_non_admin_host_transfer = False
 
 # Default time to live for normal resource records and for dynamic registrations
@@ -88,11 +86,11 @@ default_host_permissions = "00001111"
 
 def get_pool_id(address):
     """
-	Take an address and return a pool ID ...
-	
-	This should contain your mapping for pools so that an address, when released
-	from being static can be placed into the correct pool.
-	"""
+    Take an address and return a pool ID ...
+
+    This should contain your mapping for pools so that an address, when released
+    from being static can be placed into the correct pool.
+    """
 
     for pool, network in pool_map:
         if address in network:
@@ -108,7 +106,7 @@ guest_user = "guest"
 
 guest_pool = 1
 
-from openipam_config.backend import *
+from openipam_config.backend import *  # noqa: E402,F403,F401
 
 if log_access is None:
     log_access = "%s/access" % log_dir

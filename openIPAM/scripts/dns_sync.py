@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import psycopg2
-import tempfile
 import os
 import syslog
 import fcntl
@@ -17,7 +16,7 @@ lockfile = open(lockfile_name, "w")
 
 try:
     fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
-except IOError as e:
+except IOError:
     syslog.syslog(
         syslog.LOG_ERR,
         "dns_update: not checking rules since it appears another instance is running",
@@ -37,12 +36,12 @@ def check_update():
     try:
         dnscurs.execute(
             """SELECT t_name,last_change,last_id
-				FROM last_update"""
+                FROM last_update"""
         )
 
         for i in dnscurs.fetchall():
             last[i[0]] = (i[1], i[2])
-    except:
+    except Exception:
         pass
 
         # This is probably NULL
@@ -129,8 +128,8 @@ if changed and __name__ == "__main__":
 CREATE TABLE last_update_new (
         t_name varchar primary key,
         last_change timestamp,
-        last_id bigint         
-);      
+        last_id bigint
+);
 
 CREATE TABLE domains_new (
  id              INT NOT NULL,
@@ -180,16 +179,6 @@ GRANT SELECT ON records TO pdns;
     sqlfile.write("\nCOPY domains_new(%s) FROM STDIN;\n" % ",".join(domain_fields))
     ipamcurs.copy_to(sqlfile, "domains", columns=domain_fields)
     sqlfile.write("\\.\n\n")
-    # print 'copying domains'
-    # domains.seek(0)
-    # dnscurs.copy_from(domains,'domains',columns=domain_fields)
-    # domains.close()
-    # ipamcurs.execute('''SELECT %s FROM domains;'''% ','.join(domain_fields))
-    # domains = ipamcurs.fetchall()
-    # dnscurs.executemany('''INSERT INTO domains(%s) VALUES (%s);''' % (','.join(domain_fields),','.join(['%s' for i in range(len(domain_fields))])), domains)
-
-    # print 'getting records'
-    # records = tempfile.TemporaryFile()
     ipamcurs.execute(
         """SELECT %s FROM records WHERE %s""" % (",".join(record_fields), cond)
     )
@@ -200,15 +189,9 @@ GRANT SELECT ON records TO pdns;
         # records.write('\t'.join(map(copy_data,record_list[i])))
         sqlfile.write("\t".join(map(copy_data, record_list[i])))
         # if i < (len(record_list)-1):
-        # 	records.write('\n')
+        #     records.write('\n')
         sqlfile.write("\n")
     sqlfile.write("\\.\n\n")
-    # print 'copying records'
-    # records.seek(0)
-    # dnscurs.copy_from(records,'records',columns=record_fields)
-    # dnscurs.executemany('''INSERT INTO records(%s) VALUES (%s);''' %(','.join(record_fields),','.join(['%s' for i in range(len(record_fields))])), record_list)
-
-    # print 'updating status'
     new_checked = []
     for i in list(cur.keys()):
         new_checked.append((i, cur[i][0], cur[i][1]))

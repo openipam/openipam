@@ -4,8 +4,6 @@ Permissions objects
 WRITEME, ELDON
 """
 
-import types
-
 
 class PermsList(object):
     def __init__(self, perms_dicts):
@@ -39,7 +37,7 @@ class Perms(object):
             )
 
     def __int__(self):
-        if self.__integer == None:
+        if self.__integer is None:
             if not self.__bits:
                 raise Exception("python must be broken if it let you get here")
             val = 0
@@ -54,7 +52,7 @@ class Perms(object):
 
     def __str__(self):
         if not self.__bits:
-            if self.__integer == None:
+            if self.__integer is None:
                 raise Exception("Perms without bits/integer?")
             if self.__integer > 2 ** (self.__len + 1) - 1:
                 raise Exception("Bad range")
@@ -67,12 +65,12 @@ class Perms(object):
         return self.__bits
 
     def __eq__(self, a):
-        if type(a) is type(None):
+        if a is None:
             return False
         return int(self) == int(Perms(a))
 
     def __ne__(self, a):
-        if type(a) is type(None):
+        if a is None:
             return True
         return int(self) != int(Perms(a))
 

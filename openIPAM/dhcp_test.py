@@ -48,7 +48,7 @@ class PacketGenerator(object):
                 self.obj.addresses.c.address.op("<<")(self.obj.networks.c.network),
             ),
         )
-        statics_q = statics_q.where(self.obj.addresses.c.mac != None)
+        statics_q = statics_q.where(self.obj.addresses.c.mac is not None)
         return self.__db._execute(statics_q)
 
     def __get_dynamics(self):
@@ -86,7 +86,8 @@ class PacketGenerator(object):
             self.leased_unregistered.append(data)
 
     def GetNextDhcpPacket(self):
-        # First, decide which kind of packet to 'handle': [discover,request], [static, dynamic, ...], [valid, invalid]
+        # First, decide which kind of packet to 'handle': [discover,request], [static,
+        # dynamic, ...], [valid, invalid]
         # static/dynamic/unregistered
         static = dynamic = unregistered = False
         rnd = random.random()
@@ -102,11 +103,10 @@ class PacketGenerator(object):
                 packet, send_to, bootp = pkt
                 self.handle_result_packet(packet, send_to, bootp)
                 pkt = self.recvq.get_nowait()
-        except Empty as e:
+        except Empty:
             pass
 
         discover = (random.random() < 0.25) or (len(self.leased_dynamics) < 100)
-        invalid = random.random() < 0.1
         bound = random.random() < 0.75
 
         if static:
@@ -196,7 +196,8 @@ if __name__ == "__main__":
     print("starting at %s" % start)
     for i in range(nreq):
         # while True:
-        # Sleep an appropriate amount of time to get the appropriate number of packets per second
+        # Sleep an appropriate amount of time to get the appropriate number of packets
+        # per second
         # Create a packet to put in our queue
 
         # Now, put it there
