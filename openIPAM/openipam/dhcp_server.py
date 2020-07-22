@@ -627,37 +627,32 @@ def db_consumer(dbq, send_packet):
                     v = value.encode()
                 return v + b"\0" * (length - len(v))
 
-            sname = dhcp.server_name
-            print("Setting sname to '%s'" % (sname))
-            packet.SetOption("sname", pad_option(sname, 64))
-
+            # sname is the bootp next-server, not the dhcp server id
             for i in list(opt_vals.keys()):
+                opt = DhcpRevOptions[i]
+                v = opt_vals[i]
+                v_int = bytes_to_ints(v)
                 print(
                     "Setting %s(%r) to '%s'"
-                    % (DhcpRevOptions[i], i, bytes_to_ints(opt_vals[i]))
+                    % (opt, i, v_int)
                 )
-                packet.SetOption(DhcpRevOptions[i], bytes_to_ints(opt_vals[i]))
-                if i in (11, "resource_location_server"):
-                    print("-> Setting siaddr to '%s'" % (bytes_to_ints(opt_vals[i])))
-                    packet.SetOption("siaddr", bytes_to_ints(opt_vals[i]))
-                if i in (66, "tftp_server_name"):
-                    # Use tftp-server for siaddr
-                    v = opt_vals[i].decode()
+                packet.SetOption(opt, v_int)
 
-                    try:
-                        print("-> looking up %s" % (v))
-                        host = self.__db.get_dns_records(tid=1, name=v)[0]
-                        addr = list(map(int, host["ip_content"].split(".")))
-                        print("-> Setting siaddr to '%s'" % (addr))
-                        packet.SetOption("siaddr", addr)
-                    except Exception as e:
-                        print_exception(e, traceback=True)
-                if i in (67, "bootfile_name"):
+                if i in (11, "resource_location_server"):
+                    print("-> (11) Setting bootp siaddr to '%s'" % (v_int))
+                    packet.SetOption("siaddr", v_int)
+                elif i in (66, "tftp_server_name"):
+                    # Use tftp-server for siaddr
+                    v = pad_option(v[:63], 64)
+                    v_int = bytes_to_ints(v)
+                    print("-> (66) Setting bootp sname to '%s'" % (v_int))
+                    packet.SetOption("sname", v_int)
+                elif i in (67, "bootfile_name"):
                     # Use tftp file name for bootfile
-                    v = opt_vals[i]
-                    v = pad_option(v, 128)
-                    packet.SetOption("file", bytes_to_ints(v))
-                    print("-> Setting file to '%s'" % (bytes_to_ints(v)))
+                    v = pad_option(v[:127], 128)
+                    v_int = bytes_to_ints(v)
+                    print("-> (67) Setting bootp file to '%s'" % (v_int))
+                    packet.SetOption("file", v_int)
 
         def dhcp_inform(self, packet):
             mac = decode_mac(packet.GetOption("chaddr"))
