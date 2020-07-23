@@ -186,7 +186,8 @@ class DhcpBasicPacket:
             fields_specs = { "ipv4":[4,0,1], "ipv4+":[0,4,4],
                              "string":[0,0,1], "bool":[1,0,1],
                              "char":[1,0,1], "16-bits":[2,0,1],
-                             "32-bits":[4,0,1], "identifier":[0,2,1]}
+                             "32-bits":[4,0,1], "identifier":[0,2,1],
+                             "RFC3397":[3,0,1] }
             
             specs = fields_specs[DhcpOptionsTypes[DhcpOptions[name]]]
             length = len(value)
