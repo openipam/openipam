@@ -632,10 +632,7 @@ def db_consumer(dbq, send_packet):
                 opt = DhcpRevOptions[i]
                 v = opt_vals[i]
                 v_int = bytes_to_ints(v)
-                print(
-                    "Setting %s(%r) to '%s'"
-                    % (opt, i, v_int)
-                )
+                print("Setting %s(%r) to '%s'" % (opt, i, v_int))
                 packet.SetOption(opt, v_int)
 
                 if i in (11, "resource_location_server"):

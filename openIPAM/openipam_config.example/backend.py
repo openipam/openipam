@@ -10,9 +10,7 @@ ssl_key = "/etc/ssl/private/ssl-cert-snakeoil.key"
 
 # NETWORK BINDINGS
 bind_port = 8080  # Port the backend will listen on.
-bind_host = (
-    "127.0.0.1"
-)  # Address the backend will bind to. If you use anything but 127.0.0.1, we strongly recommend enabling SSL.
+bind_host = "127.0.0.1"  # Address the backend will bind to. If you use anything but 127.0.0.1, we strongly recommend enabling SSL.
 
 # For some of our cron jobs
 smtp_host = "127.0.0.1"
