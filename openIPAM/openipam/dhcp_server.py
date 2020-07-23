@@ -635,8 +635,8 @@ def db_consumer(dbq, send_packet):
                 print("Setting %s(%r) to '%s'" % (opt, i, v_int))
                 packet.SetOption(opt, v_int)
 
-                if i in (11, "resource_location_server"):
-                    print("-> (11) Setting bootp siaddr to '%s'" % (v_int))
+                if i in (150, "tftp_server_address"):
+                    print("-> (150) Setting bootp siaddr to '%s'" % (v_int))
                     packet.SetOption("siaddr", v_int)
                 elif i in (66, "tftp_server_name"):
                     # Use tftp-server for siaddr
