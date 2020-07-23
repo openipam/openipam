@@ -5067,9 +5067,7 @@ class DBDHCPInterface(DBInterface):
             "mac=%s,address=%s,expires=%s)" % (mac, address, expires)
         )
 
-        min_lease_age = (
-            10
-        )  # If the lease was given out less than this many seconds ago, don't touch it.
+        min_lease_age = 10  # If the lease was given out less than this many seconds ago, don't touch it.
         print("got %s for expires" % expires)
 
         self._begin_transaction()
