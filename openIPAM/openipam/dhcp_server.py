@@ -483,7 +483,7 @@ def log_packet(packet, prefix="", level=dhcp.logging.INFO, raw=False):
         raw_append,
     )
 
-    if raven_client and level >= raven_client_min_level or t_name == "decline":
+    if raven_client and (level >= raven_client_min_level or t_name == "decline"):
         if "IGN" in prefix:
             if "LIMIT" in prefix:
                 message = "request from %s ignored due to rate limiting" % mac
