@@ -378,7 +378,7 @@ DhcpOptionsTypes = {0:"none", 1:"ipv4", 2:"ipv4", 3:"ipv4+",
 
                     #TODO
                     121:"Unassigned", 122:"Unassigned", 123:"Unassigned", 
-                    124:"Unassigned", 125:"Unassigned", 126:"Unassigned", 127:"Unassigned", 
+                    124:"Unassigned", 125:"string", 126:"Unassigned", 127:"Unassigned", 
                     128:"Unassigned", 129:"Unassigned", 130:"Unassigned", 131:"Unassigned", 
                     132:"Unassigned", 133:"Unassigned", 134:"Unassigned", 135:"Unassigned", 
                     136:"Unassigned", 137:"Unassigned", 138:"Unassigned", 139:"Unassigned", 
