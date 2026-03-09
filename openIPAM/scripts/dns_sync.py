@@ -16,7 +16,7 @@ lockfile = open(lockfile_name, "w")
 
 try:
     fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
-except IOError:
+except OSError:
     syslog.syslog(
         syslog.LOG_ERR,
         "dns_update: not checking rules since it appears another instance is running",
@@ -180,7 +180,7 @@ GRANT SELECT ON records TO pdns;
     ipamcurs.copy_to(sqlfile, "domains", columns=domain_fields)
     sqlfile.write("\\.\n\n")
     ipamcurs.execute(
-        """SELECT %s FROM records WHERE %s""" % (",".join(record_fields), cond)
+        """SELECT {} FROM records WHERE {}""".format(",".join(record_fields), cond)
     )
     record_list = ipamcurs.fetchall()
     sqlfile.write("COPY records_new(%s) FROM STDIN;\n" % ",".join(record_fields))
@@ -211,7 +211,7 @@ GRANT SELECT ON records TO pdns;
         """\nDROP TABLE last_update, records, domains, supermasters CASCADE;\n"""
     )
     for n in ["last_update", "domains", "supermasters", "records"]:
-        sqlfile.write("""\nALTER TABLE %s_new RENAME TO %s;\n""" % (n, n))
+        sqlfile.write(f"""\nALTER TABLE {n}_new RENAME TO {n};\n""")
     sqlfile.write(
         """
 --CREATE UNIQUE INDEX name_index ON domains(name);

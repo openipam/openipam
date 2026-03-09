@@ -47,5 +47,5 @@ def make_time_delta(s):
         str(s),
     ).groupdict(0)
     return datetime.timedelta(
-        **dict(((key, int(value)) for key, value in list(d.items())))
+        **{key: int(value) for key, value in list(d.items())}
     )

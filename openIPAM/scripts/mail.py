@@ -31,7 +31,7 @@ def generate_message_id(message):
         to = message["To"]
     t = int(time.time() * 1000000)
     t = base64enc(t)
-    str = "<%s-%s-%s@%s>" % (
+    str = "<{}-{}-{}@{}>".format(
         t,
         base64enc(random.getrandbits(32)),
         to.replace("@", "_"),
@@ -40,7 +40,7 @@ def generate_message_id(message):
     return str
 
 
-class Mailer(object):
+class Mailer:
     def __init__(self, server):
         self.server = server
         # can we increase efficiency somehow?

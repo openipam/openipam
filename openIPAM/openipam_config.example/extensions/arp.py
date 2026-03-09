@@ -17,11 +17,7 @@ min_permissions = "00000100"
 
 from openipam.config.db import db_host, db_password, db_user
 
-db_str = "host=%s dbname=gulv3 username=%s db_password=%s" % (
-    db_host,
-    db_user,
-    db_password,
-)
+db_str = f"host={db_host} dbname=gulv3 username={db_user} db_password={db_password}"
 # db_str = 'host=newdb1.ipam.usu.edu dbname=gulv3'
 
 __conn = psycopg2.connect(db_str)
@@ -50,16 +46,16 @@ def interval_str(delta):
     minutes = int((delta.seconds % 3600) / 60)
     parts = []
     if days:
-        parts.append("%s day%s" % (days, "s" if days > 1 else ""))
+        parts.append("{} day{}".format(days, "s" if days > 1 else ""))
     if hours:
-        parts.append("%s hour%s" % (hours, "s" if hours > 1 else ""))
+        parts.append("{} hour{}".format(hours, "s" if hours > 1 else ""))
     if minutes:
-        parts.append("%s minute%s" % (minutes, "s" if minutes > 1 else ""))
+        parts.append("{} minute{}".format(minutes, "s" if minutes > 1 else ""))
     if not parts:
         return "less than 1 minute ago"
     if len(parts) == 1:
         return "%s ago" % parts[0]
-    return "%s and %s ago" % (", ".join(parts[:-1]), parts[-1])
+    return "{} and {} ago".format(", ".join(parts[:-1]), parts[-1])
 
 
 def mk_dicts(data):

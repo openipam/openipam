@@ -10,7 +10,7 @@ class BaseException(Exception):
         self._thing = thing
 
     def __str__(self):
-        return "(%s)%s" % (
+        return "({}){}".format(
             self.__class__.__name__,
             (self._thing and (" %s" % str(self._thing)) or "",)[0],
         )

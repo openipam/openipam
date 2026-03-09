@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, MetaData, Table
-from sqlalchemy.sql import select, and_, subquery
+from sqlalchemy.sql import select, and_, Subquery
 
 from openipam.config import backend
 
@@ -15,8 +15,8 @@ if not _pass:
 _host = backend.db_host
 _db = backend.db_database
 
-db_str = "%s://%s%s%s%s%s/%s" % (
-    "postgres",
+db_str = "{}://{}{}{}{}{}/{}".format(
+    "postgresql",
     _user,
     (_pass and ":" or ""),
     _pass,
@@ -38,51 +38,51 @@ engine = create_engine(
 meta = MetaData()
 meta.bind = engine
 
-permissions = Table("permissions", meta, autoload=True)
-auth_sources = Table("auth_sources", meta, autoload=True)
-users = Table("users", meta, autoload=True)
-groups = Table("groups", meta, autoload=True)
-users_to_groups = Table("users_to_groups", meta, autoload=True)
-internal_auth = Table("internal_auth", meta, autoload=True)
-dhcp_groups = Table("dhcp_groups", meta, autoload=True)
-dhcp_options = Table("dhcp_options", meta, autoload=True)
-dhcp_options_to_dhcp_groups = Table("dhcp_options_to_dhcp_groups", meta, autoload=True)
-hosts = Table("hosts", meta, autoload=True)
-hosts_to_groups = Table("hosts_to_groups", meta, autoload=True)
-pools = Table("pools", meta, autoload=True)
-pools_to_groups = Table("pools_to_groups", meta, autoload=True)
-hosts_to_pools = Table("hosts_to_pools", meta, autoload=True)
-addresses = Table("addresses", meta, autoload=True)
-leases = Table("leases", meta, autoload=True)
-attributes = Table("attributes", meta, autoload=True)
-structured_attribute_values = Table("structured_attribute_values", meta, autoload=True)
+permissions = Table("permissions", meta, autoload_with=engine)
+auth_sources = Table("auth_sources", meta, autoload_with=engine)
+users = Table("users", meta, autoload_with=engine)
+groups = Table("groups", meta, autoload_with=engine)
+users_to_groups = Table("users_to_groups", meta, autoload_with=engine)
+internal_auth = Table("internal_auth", meta, autoload_with=engine)
+dhcp_groups = Table("dhcp_groups", meta, autoload_with=engine)
+dhcp_options = Table("dhcp_options", meta, autoload_with=engine)
+dhcp_options_to_dhcp_groups = Table("dhcp_options_to_dhcp_groups", meta, autoload_with=engine)
+hosts = Table("hosts", meta, autoload_with=engine)
+hosts_to_groups = Table("hosts_to_groups", meta, autoload_with=engine)
+pools = Table("pools", meta, autoload_with=engine)
+pools_to_groups = Table("pools_to_groups", meta, autoload_with=engine)
+hosts_to_pools = Table("hosts_to_pools", meta, autoload_with=engine)
+addresses = Table("addresses", meta, autoload_with=engine)
+leases = Table("leases", meta, autoload_with=engine)
+attributes = Table("attributes", meta, autoload_with=engine)
+structured_attribute_values = Table("structured_attribute_values", meta, autoload_with=engine)
 structured_attributes_to_hosts = Table(
-    "structured_attributes_to_hosts", meta, autoload=True
+    "structured_attributes_to_hosts", meta, autoload_with=engine
 )
 freeform_attributes_to_hosts = Table(
-    "freeform_attributes_to_hosts", meta, autoload=True
+    "freeform_attributes_to_hosts", meta, autoload_with=engine
 )
-attributes_to_hosts = Table("attributes_to_hosts", meta, autoload=True)
-domains = Table("domains", meta, autoload=True)
-domains_to_groups = Table("domains_to_groups", meta, autoload=True)
-dns_types = Table("dns_types", meta, autoload=True)
-dns_views = Table("dns_views", meta, autoload=True)
-dns_records = Table("dns_records", meta, autoload=True)
-dhcp_dns_records = Table("dhcp_dns_records", meta, autoload=True)
-pdns_zone_xfer = Table("pdns_zone_xfer", meta, autoload=True)
-supermasters = Table("supermasters", meta, autoload=True)
-networks = Table("networks", meta, autoload=True)
-networks_to_groups = Table("networks_to_groups", meta, autoload=True)
-shared_networks = Table("shared_networks", meta, autoload=True)
-guest_tickets = Table("guest_tickets", meta, autoload=True)
-expiration_types = Table("expiration_types", meta, autoload=True)
-notifications = Table("notifications", meta, autoload=True)
-notifications_to_hosts = Table("notifications_to_hosts", meta, autoload=True)
-disabled = Table("disabled", meta, autoload=True)
+attributes_to_hosts = Table("attributes_to_hosts", meta, autoload_with=engine)
+domains = Table("domains", meta, autoload_with=engine)
+domains_to_groups = Table("domains_to_groups", meta, autoload_with=engine)
+dns_types = Table("dns_types", meta, autoload_with=engine)
+dns_views = Table("dns_views", meta, autoload_with=engine)
+dns_records = Table("dns_records", meta, autoload_with=engine)
+dhcp_dns_records = Table("dhcp_dns_records", meta, autoload_with=engine)
+pdns_zone_xfer = Table("pdns_zone_xfer", meta, autoload_with=engine)
+supermasters = Table("supermasters", meta, autoload_with=engine)
+networks = Table("networks", meta, autoload_with=engine)
+networks_to_groups = Table("networks_to_groups", meta, autoload_with=engine)
+shared_networks = Table("shared_networks", meta, autoload_with=engine)
+guest_tickets = Table("guest_tickets", meta, autoload_with=engine)
+expiration_types = Table("expiration_types", meta, autoload_with=engine)
+notifications = Table("notifications", meta, autoload_with=engine)
+notifications_to_hosts = Table("notifications_to_hosts", meta, autoload_with=engine)
+disabled = Table("disabled", meta, autoload_with=engine)
 
 if backend.enable_gul:
-    gul_recent_arp_byaddress = Table("gul_recent_arp_byaddress", meta, autoload=True)
-    gul_recent_arp_bymac = Table("gul_recent_arp_bymac", meta, autoload=True)
+    gul_recent_arp_byaddress = Table("gul_recent_arp_byaddress", meta, autoload_with=engine)
+    gul_recent_arp_bymac = Table("gul_recent_arp_bymac", meta, autoload_with=engine)
 
 
 def perm_query(

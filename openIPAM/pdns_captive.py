@@ -15,11 +15,7 @@ address = "129.123.54.35"
 
 default_ttl = 120
 
-soa_content = "%s hostmaster@usu.edu %s %s 3600 604800 3600" % (
-    nsname,
-    pdns_start_time,
-    default_ttl,
-)
+soa_content = f"{nsname} hostmaster@usu.edu {pdns_start_time} {default_ttl} 3600 604800 3600"
 
 debug = 5
 
@@ -53,7 +49,7 @@ def read_line():
 
 
 def data(qname, qclass, qtype, ttl, id, content):
-    send("DATA\t%s\t%s\t%s\t%s\t%s\t%s\n" % (qname, qclass, qtype, ttl, id, content))
+    send(f"DATA\t{qname}\t{qclass}\t{qtype}\t{ttl}\t{id}\t{content}\n")
 
 
 def end():

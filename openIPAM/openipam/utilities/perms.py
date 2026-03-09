@@ -5,13 +5,13 @@ WRITEME, ELDON
 """
 
 
-class PermsList(object):
-    def __init__(self, perms_dicts):
-        for d in perms_dicts:
-            setattr(self, d["name"], Perms(d["id"]))
+class PermsList:
+    def __init__(self, perms_tuples):
+        for d in perms_tuples:
+            setattr(self, d[1], Perms(d[0]))
 
 
-class Perms(object):
+class Perms:
     def __init__(self, bits):
         self.__bits = None
         self.__integer = None
@@ -20,7 +20,7 @@ class Perms(object):
         if type(bits) == bytes or type(bits) == str:
             if len(bits) != self.__len:
                 raise Exception(
-                    "wrong length: '%s' is not %s characters" % (bits, self.__len)
+                    f"wrong length: '{bits}' is not {self.__len} characters"
                 )
             self.__bits = bits
             int(self)
