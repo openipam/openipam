@@ -24,10 +24,10 @@ import socket
 
 import base64
 
-from pydhcplib.dhcp_constants import DhcpOptions
+from pydhcplib.pydhcplib.dhcp_constants import DhcpOptions
 
 # FIXME: don't 'import *'
-from pydhcplib import dhcp_packet
+from pydhcplib.pydhcplib import dhcp_packet
 
 # from pydhcplib.dhcp_network import *
 
@@ -54,10 +54,10 @@ try:
     from queue import Full
 except ImportError:
     # python2
-    from Queue import Full
+    from Queue import Full # pyright: ignore[reportMissingImports]
 
 try:
-    import raven
+    import raven # pyright: ignore[reportMissingImports]
 except ImportError:
     raven = None
 
@@ -81,7 +81,7 @@ def bytes_to_ip(packet, opt_name):
     if not addr:
         return None
 
-    if type(addr) != list:
+    if type(addr) is not list:
         raise Exception("Eh?")
 
     if len(addr) != 4:
@@ -122,7 +122,7 @@ def ip_to_list(address):
 
 
 def bytes_to_ints(bytes):
-    if type(bytes) == str:
+    if type(bytes) is str:
         return list(map(ord, bytes))
     return list(bytes)
 

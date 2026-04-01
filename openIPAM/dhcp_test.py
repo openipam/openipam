@@ -1,10 +1,20 @@
 #!/usr/bin/python
-import processing
+import multiprocessing as mp
 from openipam import dhcp_server
+from openipam.dhcp_server import dhcp_packet
 import random
 import datetime
+import time
 
 from queue import Empty
+
+# This test isn't super great because:
+# 1. It isn't deterministic (okay for a load test)
+# 2. Doesn't report any aggregate statistics (less okay for a load test)
+# 3. Doesn't prioritize fetching macs with a lease under the given network,
+#    leading to most of the mock DHCP requests not having a valid lease
+#    and erroring out.
+# It could be useful in the future but for now it isn't worth the effort of updating too much
 
 
 def get_rand_item(lst):
@@ -21,7 +31,7 @@ class PacketGenerator(object):
         # ie. send to backend
         self.sendq = sendq
         # ie. recieve from backend
-        self.recvq = processing.Queue()
+        self.recvq = mp.Queue()
         self.packets_sent = 0
 
     def connect(self):
@@ -48,11 +58,15 @@ class PacketGenerator(object):
                 self.obj.addresses.c.address.op("<<")(self.obj.networks.c.network),
             ),
         )
-        statics_q = statics_q.where(self.obj.addresses.c.mac is not None)
+        statics_q = statics_q.where(self.obj.addresses.c.mac != None).limit(200)  # noqa: E711
         return self.__db._execute(statics_q)
 
     def __get_dynamics(self):
-        dynamics_q = self.obj.select([self.obj.hosts_to_pools.c.mac])
+        dynamics_q = (
+            self.obj.select([self.obj.hosts_to_pools.c.mac])
+            .where(self.obj.addresses.c.mac != None)  # noqa: E711
+            .limit(200)
+        )
         return self.__db._execute(dynamics_q)
 
     def get_random_mac(self):
@@ -65,7 +79,7 @@ class PacketGenerator(object):
     def get_gateways(self):
         gateways_q = self.obj.select([self.obj.networks.c.gateway])
         gateways_q = gateways_q.where(
-            self.obj.networks.c.gateway.op("<<")("129.123.0.0/16")
+            self.obj.networks.c.gateway.op("<<")("172.17.111.0/16")
         )
         return self.__db._execute(gateways_q)
 
@@ -148,13 +162,21 @@ def breakmac(m):
 
 
 def make_dhcp_packet(mac, requested, gateway, discover=False, bound=True):
-    packet = dhcp_server.DhcpPacket()
+    packet = dhcp_packet.DhcpPacket()
     if discover or not bound:
         type = 1
         packet.SetOption("request_ip_address", requested.split("."))
     else:
         type = 3
         packet.SetOption("ciaddr", requested.split("."))
+    mock_if = {
+        "address": "172.17.111.23",
+        "broadcast": "172.17.111.255",
+        "interface": "eth0",
+        "unicast": True,
+    }
+    packet.retry_count = 0
+    packet.set_recv_interface(mock_if)
 
     packet.SetOption("dhcp_message_type", [type])
 
@@ -172,29 +194,42 @@ def make_dhcp_packet(mac, requested, gateway, discover=False, bound=True):
         "parameter_request_list",
         [1, 3, 6, 15, 31, 33, 119, 95, 252, 44, 46, 47, 42, 28],
     )
+    packet.last_retry = datetime.datetime.now().timestamp()
     # packet.SetOption("client_identifier") # ignored
     # packet.SetOption("maximum_message_size") # ignored
     return type, packet
 
 
 if __name__ == "__main__":
+    print("running load test")
     NUM_WORKERS = 10
-    db_requests = processing.Queue(NUM_WORKERS)
+    db_requests = mp.Queue()
+    result_q = mp.Queue()
 
     server = PacketGenerator(db_requests)
+    server.recvq = result_q
 
-    db_pool = processing.Pool(
-        processes=NUM_WORKERS,
-        initializer=dhcp_server.db_consumer,
-        initargs=(db_requests, server.send_packet),
-    )
+    # IMPORTANT: don't share PacketGenerator instance across processes
+    def send_packet(packet, send_to=None, bootp=None):
+        result_q.put((packet, send_to, bootp))
 
+    workers = []
+    for _ in range(NUM_WORKERS):
+        p = mp.Process(
+            target=dhcp_server.db_consumer,
+            args=(db_requests, send_packet),
+        )
+        p.start()
+        workers.append(p)
+
+    
     server.connect()
 
     nreq = 2000
     start = datetime.datetime.now()
     print("starting at %s" % start)
     for i in range(nreq):
+        print("get next packet")
         # while True:
         # Sleep an appropriate amount of time to get the appropriate number of packets
         # per second
@@ -202,6 +237,14 @@ if __name__ == "__main__":
 
         # Now, put it there
         server.GetNextDhcpPacket()
+
+    # Can't gracefully shutdown processes, so sleep for a bit to let them process and manually terminate processes
+    time.sleep(4)
+    for p in workers:
+        p.terminate()
+        p.join()
+    time.sleep(3)
+
     end = datetime.datetime.now()
     print("ending at %s" % end)
     duration = end - start

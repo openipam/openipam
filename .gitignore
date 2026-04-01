@@ -3,3 +3,4 @@
 openipam_config
 .venv
 Pipfile*
+.python-version
