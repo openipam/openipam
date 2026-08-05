@@ -16,7 +16,7 @@ _host = backend.db_host
 _db = backend.db_database
 
 db_str = "%s://%s%s%s%s%s/%s" % (
-    "postgres",
+    "postgresql",
     _user,
     (_pass and ":" or ""),
     _pass,
