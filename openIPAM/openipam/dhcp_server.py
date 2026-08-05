@@ -385,11 +385,15 @@ class Server:
         packet.last_retry = 0
 
         try:
-            log_packet(packet, prefix="QUEUED:")
+            log_packet(packet, prefix="QUEUED: (%s)" % self.__dbq.qsize())
             self.__dbq.put_nowait((pkttype, packet))
         except Full:
             # The queue is full, try again later.
-            log_packet(packet, prefix="IGN/FULL:", level=dhcp.logging.WARNING)
+            log_packet(
+                packet,
+                prefix="IGN/FULL: (%s)" % self.__dbq.qsize(),
+                level=dhcp.logging.WARNING,
+            )
             print(
                 "ignoring req type %s from mac %s b/c the queue is full ... be afraid"
                 % (pkttype, mac)
@@ -456,7 +460,9 @@ def log_packet(packet, prefix="", level=dhcp.logging.INFO, raw=False):
 
     if packet.IsOption("host_name"):
         host_name = packet.GetOption("host_name")
-        client_foo = "{} [option 12: {}]".format(client_foo, "".join(map(chr, host_name)))
+        client_foo = "{} [option 12: {}]".format(
+            client_foo, "".join(map(chr, host_name))
+        )
 
     raw_append = ""
     if raw:
