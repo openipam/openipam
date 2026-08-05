@@ -11,10 +11,10 @@ Type=simple
 User=openipam_user
 Group=openipam_user
 
-WorkingDirectory=/home/openipam_user/openipam
+WorkingDirectory=/home/openipam_user/openipam/openIPAM
 
 # Point to your specific pyenv python executable
-ExecStart=/home/openipam_user/openipam/.venv/bin/python3.13 openIPAM/openipam_dhcpd.py
+ExecStart=/home/openipam_user/openipam/openIPAM/.venv/bin/python3 openipam_dhcpd.py
 
 # Grant networking superpowers to this specific process
 # CAP_NET_BIND_SERVICE = Bind to Port 67

@@ -1,3 +1,6 @@
+# STALE — kept for reference only. Dependencies are now managed via uv in
+# openIPAM/pyproject.toml + openIPAM/uv.lock; this file is not installed from.
+
 # Core
 CherryPy==3.2.6
 sqlalchemy==2.0.45

@@ -3,6 +3,7 @@
 openipam_config
 .venv
 Pipfile*
+.python-version
 
 # Ignore internally defined packages
 *.egg-info  
