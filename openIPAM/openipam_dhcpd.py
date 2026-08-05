@@ -43,7 +43,7 @@ parser.add_option(
     default="/var/run/openipam/openipam_dhcpd.pid",
 )
 
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 
 
 def consumer(*args, **kwargs):
@@ -55,8 +55,9 @@ def consumer(*args, **kwargs):
 
 
 def start():
-    NUM_WORKERS = 10
-    db_requests = processing.Queue(NUM_WORKERS)
+    MAX_QUEUE = 200
+    NUM_WORKERS = 20
+    db_requests = processing.Queue(MAX_QUEUE)
 
     server = dhcp_server.Server(dbq=db_requests)
 
