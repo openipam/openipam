@@ -2,15 +2,32 @@
 Description=OpenIPAM DHCP Server
 Wants=network.target
 After=network.target
+# Optional: If you use a local DB, ensure it starts first
+# After=postgresql.service
 
 [Service]
-Environment=PYTHONPATH=/usr/local/openipam/openIPAM:/usr/local/openipam/openIPAM/pydhcplib
-ExecStart=/usr/local/openipam/openIPAM/openipam_dhcpd -d -p /run/openipam.pid
-Type=forking
-PIDFile=/run/openipam.pid
-UMask=0137
+Type=simple
+
+User=openipam_user
+Group=openipam_user
+
+WorkingDirectory=/home/openipam_user/openipam
+
+# Point to your specific pyenv python executable
+ExecStart=/home/openipam_user/openipam/.venv/bin/python3.13 openIPAM/openipam_dhcpd.py
+
+# Grant networking superpowers to this specific process
+# CAP_NET_BIND_SERVICE = Bind to Port 67
+# CAP_NET_RAW = Bind to specific interface (SO_BINDTODEVICE)
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW
+
+# Restart automatically if it crashes
+Restart=on-failure
+RestartSec=5
+
+# Modern logging (view with journalctl -u openipam-dhcp)
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-Alias=openipam_dhcpd.service
-

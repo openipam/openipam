@@ -1,4 +1,4 @@
-class fcn_wrapper(object):
+class fcn_wrapper:
     def __getattribute__(self, name):
         # print '?%s' % repr(name)
         if (

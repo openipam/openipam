@@ -229,7 +229,4 @@ class DhcpPacket(DhcpBasicPacket):
         return full_hw
 
     def __repr__(self) :
-        return "<{classname}: originally decoded from: {raw_data!r}>".format(
-            classname=self.__class__,
-            raw_data=base64.b64encode(self._raw_data) if self._raw_data else None,
-        )
+        return f"<{self.__class__}: originally decoded from: {base64.b64encode(self._raw_data) if self._raw_data else None!r}>"

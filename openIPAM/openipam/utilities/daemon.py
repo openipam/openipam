@@ -26,7 +26,7 @@ def update_pidfile(pidfile):
             print("Found pidfile with PID %s" % p)
             try:
                 os.kill(p, 0)
-            except os.error as detail:
+            except OSError as detail:
                 if detail.errno == errno.ESRCH:
                     print("stale pidfile exists.  removing it.")
                     os.unlink(pidfile)
@@ -72,7 +72,7 @@ def daemonize(fcn, pidfile=None):
 
         if pid == 0:
             # Redirect standard file descriptors.
-            si = open("/dev/null", "r")
+            si = open("/dev/null")
             so = open("/dev/null", "a+b")
             se = open("/dev/null", "a+b", 0)
             os.dup2(si.fileno(), sys.stdin.fileno())
